@@ -428,6 +428,7 @@ mod test_snapshots {
         pass/three_arg_closure.expr,
         pass/tuple_access_after_ident.expr,
         pass/tuple_access_after_record.expr,
+        pass/tuple_access_on_var.expr,
         pass/tuple_accessor_function.expr,
         pass/tuple_type.expr,
         pass/tuple_type_ext.expr,

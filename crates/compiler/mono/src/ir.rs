@@ -4245,7 +4245,116 @@ pub fn with_hole<'a>(
             }
         }
 
-        Tuple { .. } => todo!("implement tuple hole"),
+        Tuple {
+            tuple_var,
+            elems,
+            ..
+        } => {
+            let sorted_elems_result = {
+                let mut layout_env = layout::Env::from_components(
+                    layout_cache,
+                    env.subs,
+                    env.arena,
+                    env.target_info,
+                );
+                layout::sort_tuple_elems(&mut layout_env, tuple_var)
+            };
+            let sorted_elems = match sorted_elems_result {
+                Ok(elems) => elems,
+                Err(_) => return runtime_error(env, "Can't create tuple with improper layout"),
+            };
+
+            let mut elem_symbols = Vec::with_capacity_in(elems.len(), env.arena);
+            let mut can_elems = Vec::with_capacity_in(elems.len(), env.arena);
+
+            #[allow(clippy::enum_variant_names)]
+            enum Field {
+                // TODO: rename this since it can handle unspecialized expressions now too
+                FunctionOrUnspecialized(Symbol, Variable),
+                ValueSymbol,
+                Field(Variable, Loc<roc_can::expr::Expr>),
+            }
+
+            // Hacky way to let us remove the owned elements from the vector, possibly out-of-order.
+            let mut elems = Vec::from_iter_in(elems.into_iter().map(|e| Some(e)), env.arena);
+
+            for (index, variable, _) in sorted_elems.into_iter() {
+                // TODO how should function pointers be handled here?
+                use ReuseSymbol::*;
+                let (var, loc_expr) = elems[index].take().unwrap();
+                match can_reuse_symbol(env, procs, &loc_expr.value, var) {
+                    Imported(symbol)
+                    | LocalFunction(symbol)
+                    | UnspecializedExpr(symbol) => {
+                        elem_symbols.push(symbol);
+                        can_elems.push(Field::FunctionOrUnspecialized(symbol, variable));
+                    }
+                    Value(symbol) => {
+                        let reusable = procs.get_or_insert_symbol_specialization(
+                            env,
+                            layout_cache,
+                            symbol,
+                            var,
+                        );
+                        elem_symbols.push(reusable);
+                        can_elems.push(Field::ValueSymbol);
+                    }
+                    NotASymbol => {
+                        elem_symbols.push(env.unique_symbol());
+                        can_elems.push(Field::Field(var, *loc_expr));
+                    }
+                }
+            }
+
+            // creating a record from the var will unpack it if it's just a single field.
+            let layout = match layout_cache.from_var(env.arena, tuple_var, env.subs) {
+                Ok(layout) => layout,
+                Err(_) => return runtime_error(env, "Can't create record with improper layout"),
+            };
+
+            let elem_symbols = elem_symbols.into_bump_slice();
+
+            let mut stmt = if let [only_field] = elem_symbols {
+                let mut hole = hole.clone();
+                substitute_in_exprs(env.arena, &mut hole, assigned, *only_field);
+                hole
+            } else {
+                Stmt::Let(assigned, Expr::Struct(elem_symbols), layout, hole)
+            };
+
+            for (opt_field, symbol) in can_elems.into_iter().rev().zip(elem_symbols.iter().rev())
+            {
+                match opt_field {
+                    Field::ValueSymbol => {
+                        // this symbol is already defined; nothing to do
+                    }
+                    Field::FunctionOrUnspecialized(symbol, variable) => {
+                        stmt = specialize_symbol(
+                            env,
+                            procs,
+                            layout_cache,
+                            Some(variable),
+                            symbol,
+                            env.arena.alloc(stmt),
+                            symbol,
+                        );
+                    }
+                    Field::Field(var, loc_expr) => {
+                        stmt = with_hole(
+                            env,
+                            loc_expr.value,
+                            var,
+                            procs,
+                            layout_cache,
+                            *symbol,
+                            env.arena.alloc(stmt),
+                        );
+                    }
+                }
+            }
+
+            stmt
+        }
 
         Record {
             record_var,
@@ -4779,7 +4888,86 @@ pub fn with_hole<'a>(
             }
         }
 
-        TupleAccess { .. } => todo!(),
+        TupleAccess {
+            tuple_var,
+            elem_var,
+            index: accessed_index,
+            loc_expr,
+            ..
+        } => {
+
+            let sorted_elems_result = {
+                let mut layout_env = layout::Env::from_components(
+                    layout_cache,
+                    env.subs,
+                    env.arena,
+                    env.target_info,
+                );
+                layout::sort_tuple_elems(&mut layout_env, tuple_var)
+            };
+            let sorted_elems = match sorted_elems_result {
+                Ok(fields) => fields,
+                Err(_) => return runtime_error(env, "Can't access tuple with improper layout"),
+            };
+
+            let mut final_index = None;
+            let mut elem_layouts = Vec::with_capacity_in(sorted_elems.len(), env.arena);
+
+            let mut current = 0;
+            for (index, _, elem_layout) in sorted_elems.into_iter() {
+                elem_layouts.push(elem_layout);
+
+                if index == accessed_index {
+                    final_index = Some(current);
+                }
+
+                current += 1;
+            }
+
+            let tuple_symbol = possible_reuse_symbol_or_specialize(
+                env,
+                procs,
+                layout_cache,
+                &loc_expr.value,
+                tuple_var,
+            );
+
+            let mut stmt = match elem_layouts.as_slice() {
+                [_] => {
+                    let mut hole = hole.clone();
+                    substitute_in_exprs(env.arena, &mut hole, assigned, tuple_symbol);
+
+                    hole
+                }
+                _ => {
+                    let expr = Expr::StructAtIndex {
+                        index: final_index.expect("field not in its own type") as u64,
+                        field_layouts: elem_layouts.into_bump_slice(),
+                        structure: tuple_symbol,
+                    };
+
+                    let layout = layout_cache
+                        .from_var(env.arena, elem_var, env.subs)
+                        .unwrap_or_else(|err| {
+                            panic!("TODO turn fn_var into a RuntimeError {:?}", err)
+                        });
+
+                    Stmt::Let(assigned, expr, layout, hole)
+                }
+            };
+
+            stmt = assign_to_symbol(
+                env,
+                procs,
+                layout_cache,
+                tuple_var,
+                *loc_expr,
+                tuple_symbol,
+                stmt,
+            );
+
+            stmt
+        }
         TupleAccessor(_) => todo!(),
 
         OpaqueWrapFunction(wrap_fn_data) => {

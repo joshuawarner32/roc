@@ -12,6 +12,7 @@ pub mod gen_num;
 pub mod gen_panic;
 pub mod gen_primitives;
 pub mod gen_records;
+pub mod gen_tuples;
 pub mod gen_refcount;
 pub mod gen_result;
 pub mod gen_set;
