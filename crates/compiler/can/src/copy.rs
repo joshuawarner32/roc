@@ -4,7 +4,7 @@ use crate::{
         ClosureData, Expr, Field, OpaqueWrapFunctionData, RecordAccessorData, TupleAccessorData,
         WhenBranchPattern,
     },
-    pattern::{DestructType, ListPatterns, Pattern, RecordDestruct},
+    pattern::{DestructType, ListPatterns, Pattern, RecordDestruct, TupleDestruct},
 };
 use roc_module::{
     ident::{Lowercase, TagName},
@@ -789,6 +789,28 @@ fn deep_copy_pattern_help<C: CopyEnv>(
                                     DestructType::Guard(sub!(*var), pat.map(|p| go_help!(p)))
                                 }
                             },
+                        },
+                    )
+                })
+                .collect(),
+        },
+        TupleDestructure {
+            whole_var,
+            ext_var,
+            destructs,
+        } => TupleDestructure {
+            whole_var: sub!(*whole_var),
+            ext_var: sub!(*ext_var),
+            destructs: destructs
+                .iter()
+                .map(|lrd| {
+                    lrd.map(
+                        |TupleDestruct {
+                            var,
+                            typ: (tyvar, pat),
+                        }: &crate::pattern::TupleDestruct| TupleDestruct {
+                            var: sub!(*var),
+                            typ: (sub!(*tyvar), pat.map(|p| go_help!(p))),
                         },
                     )
                 })

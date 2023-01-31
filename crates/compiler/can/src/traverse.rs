@@ -11,7 +11,7 @@ use crate::{
         self, AnnotatedMark, ClosureData, Declarations, Expr, Field, OpaqueWrapFunctionData,
         RecordAccessorData, TupleAccessorData,
     },
-    pattern::{DestructType, Pattern, RecordDestruct},
+    pattern::{DestructType, Pattern, RecordDestruct, TupleDestruct},
 };
 
 macro_rules! visit_list {
@@ -483,6 +483,12 @@ pub trait Visitor: Sized {
             walk_record_destruct(self, destruct);
         }
     }
+
+    fn visit_tuple_destruct(&mut self, destruct: &TupleDestruct, region: Region) {
+        if self.should_visit(region) {
+            self.visit_pattern(&destruct.typ.1.value, destruct.typ.1.region, Some(destruct.typ.0))
+        }
+    }
 }
 
 pub fn walk_pattern<V: Visitor>(visitor: &mut V, pattern: &Pattern) {
@@ -503,6 +509,9 @@ pub fn walk_pattern<V: Visitor>(visitor: &mut V, pattern: &Pattern) {
         RecordDestructure { destructs, .. } => destructs
             .iter()
             .for_each(|d| visitor.visit_record_destruct(&d.value, d.region)),
+        TupleDestructure { destructs, .. } => destructs
+            .iter()
+            .for_each(|d| visitor.visit_tuple_destruct(&d.value, d.region)),
         List {
             patterns, elem_var, ..
         } => patterns

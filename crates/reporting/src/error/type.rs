@@ -2046,6 +2046,7 @@ fn add_pattern_category<'b>(
 
     let rest = match category {
         Record => alloc.reflow(" record values of type:"),
+        Tuple => alloc.reflow(" tuple values of type:"),
         EmptyRecord => alloc.reflow(" an empty record:"),
         PatternGuard => alloc.reflow(" a pattern guard of type:"),
         PatternDefault => alloc.reflow(" an optional field of type:"),
@@ -4852,6 +4853,20 @@ fn pattern_to_doc_help<'b>(
                         .text("{ ")
                         .append(alloc.intersperse(arg_docs, alloc.reflow(", ")))
                         .append(" }")
+                }
+                RenderAs::Tuple => {
+                    let mut arg_docs = Vec::with_capacity(args.len());
+
+                    for v in args.into_iter() {
+                        arg_docs.push(
+                            pattern_to_doc_help(alloc, v, false),
+                        );
+                    }
+
+                    alloc
+                        .text("( ")
+                        .append(alloc.intersperse(arg_docs, alloc.reflow(", ")))
+                        .append(" )")
                 }
                 RenderAs::Tag | RenderAs::Opaque => {
                     let ctor = &union.alternatives[tag_id.0 as usize];

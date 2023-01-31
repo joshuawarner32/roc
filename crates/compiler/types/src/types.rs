@@ -3796,6 +3796,7 @@ pub enum Category {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PatternCategory {
     Record,
+    Tuple,
     List,
     EmptyRecord,
     PatternGuard,

@@ -125,6 +125,36 @@ fn headers_from_annotation_help(
             _ => false,
         },
 
+        TupleDestructure { destructs, .. } => match annotation.value.shallow_dealias() {
+            Type::Tuple(elems, _) => {
+                for (i, loc_destruct) in destructs.iter().enumerate() {
+                    let destruct = &loc_destruct.value;
+
+                    // NOTE: We ignore both Guard and optionality when
+                    // determining the type of the assigned def (which is what
+                    // gets added to the header here).
+                    //
+                    // For example, no matter whether it's `{ x } = rec` or
+                    // `{ x ? 0 } = rec` or `{ x: 5 } -> ...` in all cases
+                    // the type of `x` within the binding itself is the same.
+                    if let Some(elem_type) = elems.get(&i) {
+                        let elem_type_index = {
+                            let typ = types.from_old_type(&elem_type.clone());
+                            constraints.push_type(types, typ)
+                        };
+                        headers.insert(
+                            destruct.symbol,
+                            Loc::at(annotation.region, elem_type_index),
+                        );
+                    } else {
+                        return false;
+                    }
+                }
+                true
+            }
+            _ => false,
+        },
+
         List { patterns, .. } => {
             if let Some((_, Some(rest))) = patterns.opt_rest {
                 let annotation_index = {

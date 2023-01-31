@@ -87,88 +87,88 @@ fn f64_tuple() {
     );
 }
 
-// #[test]
-// #[cfg(any(feature = "gen-llvm", feature = "gen-wasm"))]
-// fn fn_record() {
-//     assert_evals_to!(
-//         indoc!(
-//             r#"
-//                     getRec = \x -> { y: "foo", x, z: 19 }
+#[test]
+#[cfg(any(feature = "gen-llvm", feature = "gen-wasm"))]
+fn fn_tuple() {
+    assert_evals_to!(
+        indoc!(
+            r#"
+                    getRec = \x -> ("foo", x, 19)
 
-//                     (getRec 15).x
-//                 "#
-//         ),
-//         15,
-//         i64
-//     );
+                    (getRec 15).1
+                "#
+        ),
+        15,
+        i64
+    );
 
-//     assert_evals_to!(
-//         indoc!(
-//             r#"
-//                     rec = { x: 15, y: 17, z: 19 }
+    assert_evals_to!(
+        indoc!(
+            r#"
+                    rec = (15, 17, 19)
 
-//                     rec.z + rec.x
-//                 "#
-//         ),
-//         34,
-//         i64
-//     );
-// }
+                    rec.2 + rec.0
+                "#
+        ),
+        34,
+        i64
+    );
+}
 
-// #[test]
-// #[cfg(any(feature = "gen-llvm", feature = "gen-dev", feature = "gen-wasm"))]
-// fn def_record() {
-//     assert_evals_to!(
-//         indoc!(
-//             r#"
-//                     rec = { y: 17, x: 15, z: 19 }
+#[test]
+#[cfg(any(feature = "gen-llvm", feature = "gen-dev", feature = "gen-wasm"))]
+fn int_tuple() {
+    assert_evals_to!(
+        indoc!(
+            r#"
+                    rec = (15, 17, 19)
 
-//                     rec.x
-//                 "#
-//         ),
-//         15,
-//         i64
-//     );
+                    rec.0
+                "#
+        ),
+        15,
+        i64
+    );
 
-//     assert_evals_to!(
-//         indoc!(
-//             r#"
-//                     rec = { x: 15, y: 17, z: 19 }
+    assert_evals_to!(
+        indoc!(
+            r#"
+                    rec = (15, 17, 19)
 
-//                     rec.y
-//                 "#
-//         ),
-//         17,
-//         i64
-//     );
+                    rec.1
+                "#
+        ),
+        17,
+        i64
+    );
 
-//     assert_evals_to!(
-//         indoc!(
-//             r#"
-//                     rec = { x: 15, y: 17, z: 19 }
+    assert_evals_to!(
+        indoc!(
+            r#"
+                    rec = (15, 17, 19)
 
-//                     rec.z
-//                 "#
-//         ),
-//         19,
-//         i64
-//     );
-// }
+                    rec.2
+                "#
+        ),
+        19,
+        i64
+    );
+}
 
-// #[test]
-// #[cfg(any(feature = "gen-llvm", feature = "gen-dev", feature = "gen-wasm"))]
-// fn when_on_record() {
-//     assert_evals_to!(
-//         indoc!(
-//             r#"
-//                 when { x: 0x2 } is
-//                     { x } -> x + 3
-//                 "#
-//         ),
-//         5,
-//         i64
-//     );
-// }
+#[test]
+#[cfg(any(feature = "gen-llvm", feature = "gen-dev", feature = "gen-wasm"))]
+fn when_on_tuple() {
+    assert_evals_to!(
+        indoc!(
+            r#"
+                when (0x2, 0x3) is
+                    (x, y) -> x + y
+                "#
+        ),
+        5,
+        i64
+    );
+}
 
 // #[test]
 // #[cfg(any(feature = "gen-llvm", feature = "gen-dev", feature = "gen-wasm"))]

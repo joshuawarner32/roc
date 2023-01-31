@@ -1995,6 +1995,12 @@ fn pattern_to_vars_by_symbol(
             vars_by_symbol.insert(*opaque, expr_var);
         }
 
+        TupleDestructure { destructs, .. } => {
+            for destruct in destructs {
+                pattern_to_vars_by_symbol(vars_by_symbol, &destruct.value.typ.1.value, destruct.value.typ.0);
+            }
+        }
+
         RecordDestructure { destructs, .. } => {
             for destruct in destructs {
                 vars_by_symbol.insert(destruct.value.symbol, destruct.value.var);
