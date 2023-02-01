@@ -2813,7 +2813,7 @@ fn pattern_to_when<'a>(
             (env.unique_symbol(), Loc::at_zero(RuntimeError(error)))
         }
 
-        AppliedTag { .. } | RecordDestructure { .. } | UnwrappedOpaque { .. } => {
+        AppliedTag { .. } | RecordDestructure { .. } | TupleDestructure { .. } | UnwrappedOpaque { .. } => {
             let symbol = env.unique_symbol();
 
             let wrapped_body = When {
@@ -7655,6 +7655,46 @@ fn store_pattern_help<'a>(
                 return StorePattern::NotProductive(stmt);
             }
         }
+
+        TupleDestructure(destructs, [_single_field]) => {
+            for destruct in destructs {
+                return store_pattern_help(
+                    env,
+                    procs,
+                    layout_cache,
+                    &destruct.pat,
+                    outer_symbol,
+                    stmt,
+                );
+            }
+        }
+        TupleDestructure(destructs, sorted_fields) => {
+            let mut is_productive = false;
+            for (index, destruct) in destructs.iter().enumerate().rev() {
+                match store_tuple_destruct(
+                    env,
+                    procs,
+                    layout_cache,
+                    destruct,
+                    index as u64,
+                    outer_symbol,
+                    sorted_fields,
+                    stmt,
+                ) {
+                    StorePattern::Productive(new) => {
+                        is_productive = true;
+                        stmt = new;
+                    }
+                    StorePattern::NotProductive(new) => {
+                        stmt = new;
+                    }
+                }
+            }
+
+            if !is_productive {
+                return StorePattern::NotProductive(stmt);
+            }
+        }
     }
 
     StorePattern::Productive(stmt)
@@ -7985,6 +8025,68 @@ fn store_newtype_pattern<'a>(
     } else {
         StorePattern::NotProductive(stmt)
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn store_tuple_destruct<'a>(
+    env: &mut Env<'a, '_>,
+    procs: &mut Procs<'a>,
+    layout_cache: &mut LayoutCache<'a>,
+    destruct: &TupleDestruct<'a>,
+    index: u64,
+    outer_symbol: Symbol,
+    sorted_fields: &'a [InLayout<'a>],
+    mut stmt: Stmt<'a>,
+) -> StorePattern<'a> {
+    use Pattern::*;
+
+    let load = Expr::StructAtIndex {
+        index,
+        field_layouts: sorted_fields,
+        structure: outer_symbol,
+    };
+
+    match &destruct.pat {
+        Identifier(symbol) => {
+            stmt = Stmt::Let(*symbol, load, destruct.layout, env.arena.alloc(stmt));
+        }
+        Underscore => {
+            // important that this is special-cased to do nothing: mono record patterns will extract all the
+            // fields, but those not bound in the source code are guarded with the underscore
+            // pattern. So given some record `{ x : a, y : b }`, a match
+            //
+            // { x } -> ...
+            //
+            // is actually
+            //
+            // { x, y: _ } -> ...
+            //
+            // internally. But `y` is never used, so we must make sure it't not stored/loaded.
+            return StorePattern::NotProductive(stmt);
+        }
+        IntLiteral(_, _)
+        | FloatLiteral(_, _)
+        | DecimalLiteral(_)
+        | EnumLiteral { .. }
+        | BitLiteral { .. }
+        | StrLiteral(_) => {
+            return StorePattern::NotProductive(stmt);
+        }
+
+        _ => {
+            let symbol = env.unique_symbol();
+
+            match store_pattern_help(env, procs, layout_cache, &destruct.pat, symbol, stmt) {
+                StorePattern::Productive(new) => {
+                    stmt = new;
+                    stmt = Stmt::Let(symbol, load, destruct.layout, env.arena.alloc(stmt));
+                }
+                StorePattern::NotProductive(stmt) => return StorePattern::NotProductive(stmt),
+            }
+        }
+    }
+
+    StorePattern::Productive(stmt)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -9269,6 +9371,7 @@ pub enum Pattern<'a> {
     StrLiteral(Box<str>),
 
     RecordDestructure(Vec<'a, RecordDestruct<'a>>, &'a [InLayout<'a>]),
+    TupleDestructure(Vec<'a, TupleDestruct<'a>>, &'a [InLayout<'a>]),
     NewtypeDestructure {
         tag_name: TagName,
         arguments: Vec<'a, (Pattern<'a>, InLayout<'a>)>,
@@ -9321,6 +9424,11 @@ impl<'a> Pattern<'a> {
                         }
                     }
                 }
+                Pattern::TupleDestructure(destructs, _) => {
+                    for destruct in destructs {
+                        stack.push(&destruct.pat);
+                    }
+                }
                 Pattern::NewtypeDestructure { arguments, .. } => {
                     stack.extend(arguments.iter().map(|(t, _)| t))
                 }
@@ -9343,6 +9451,14 @@ pub struct RecordDestruct<'a> {
     pub variable: Variable,
     pub layout: InLayout<'a>,
     pub typ: DestructType<'a>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TupleDestruct<'a> {
+    pub index: usize,
+    pub variable: Variable,
+    pub layout: InLayout<'a>,
+    pub pat: Pattern<'a>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -9940,6 +10056,74 @@ fn from_can_pattern_help<'a>(
             })
         }
 
+        TupleDestructure {
+            whole_var,
+            destructs,
+            ..
+        } => {
+            // sorted fields based on the type
+            let sorted_elems = {
+                let mut layout_env = layout::Env::from_components(
+                    layout_cache,
+                    env.subs,
+                    env.arena,
+                    env.target_info,
+                );
+                crate::layout::sort_tuple_elems(&mut layout_env, *whole_var)
+                    .map_err(RuntimeError::from)?
+            };
+
+            // sorted fields based on the destruct
+            let mut mono_destructs = Vec::with_capacity_in(destructs.len(), env.arena);
+            let mut destructs_by_index = Vec::with_capacity_in(destructs.len(), env.arena);
+            destructs_by_index.extend(destructs.iter().map(|x| Some(x)));
+
+            let mut elem_layouts = Vec::with_capacity_in(sorted_elems.len(), env.arena);
+
+            // next we step through both sequences of elems. The outer loop is the sequence based
+            // on the type, since not all elems need to actually be destructured in the source
+            // language.
+            //
+            // However in mono patterns, we do destruct all patterns (but use Underscore) when
+            // in the source the elem is not matche in the source language.
+
+            for (index, variable, res_layout) in sorted_elems.into_iter() {
+                // this field is destructured by the pattern
+                mono_destructs.push(from_can_tuple_destruct(
+                    env,
+                    procs,
+                    layout_cache,
+                    &destructs[index].value,
+                    res_layout,
+                    assignments,
+                )?);
+
+                // the layout of this field is part of the layout of the record
+                elem_layouts.push(res_layout);
+            }
+
+            // for (_, destruct) in destructs_by_label.drain() {
+            //     // this destruct is not in the type, but is in the pattern
+            //     // it must be an optional field, and we will use the default
+            //     match &destruct.value.typ {
+            //         roc_can::pattern::DestructType::Optional(field_var, loc_expr) => {
+            //             assignments.push((
+            //                 destruct.value.symbol,
+            //                 // destruct.value.var,
+            //                 *field_var,
+            //                 loc_expr.value.clone(),
+            //             ));
+            //         }
+            //         _ => unreachable!("only optional destructs can be optional elems"),
+            //     }
+            // }
+
+            Ok(Pattern::TupleDestructure(
+                mono_destructs,
+                elem_layouts.into_bump_slice(),
+            ))
+        }
+
         RecordDestructure {
             whole_var,
             destructs,
@@ -10115,6 +10299,22 @@ fn from_can_record_destruct<'a>(
                 from_can_pattern_help(env, procs, layout_cache, &loc_pattern.value, assignments)?,
             ),
         },
+    })
+}
+
+fn from_can_tuple_destruct<'a>(
+    env: &mut Env<'a, '_>,
+    procs: &mut Procs<'a>,
+    layout_cache: &mut LayoutCache<'a>,
+    can_rd: &roc_can::pattern::TupleDestruct,
+    field_layout: InLayout<'a>,
+    assignments: &mut Vec<'a, (Symbol, Variable, roc_can::expr::Expr)>,
+) -> Result<TupleDestruct<'a>, RuntimeError> {
+    Ok(TupleDestruct {
+        index: can_rd.index,
+        variable: can_rd.var,
+        layout: field_layout,
+        pat: from_can_pattern_help(env, procs, layout_cache, &&can_rd.typ.1.value, assignments)?,
     })
 }
 

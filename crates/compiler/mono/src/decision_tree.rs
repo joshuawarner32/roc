@@ -572,6 +572,31 @@ fn test_for_pattern<'a>(pattern: &Pattern<'a>) -> Option<Test<'a>> {
             }
         }
 
+        TupleDestructure(destructs, _) => {
+            // not rendered, so pick the easiest
+            let union = Union {
+                render_as: RenderAs::Tag,
+                alternatives: vec![Ctor {
+                    tag_id: TagId(0),
+                    name: CtorName::Tag(TagName(RECORD_TAG_NAME.into())),
+                    arity: destructs.len(),
+                }],
+            };
+
+            let mut arguments = std::vec::Vec::new();
+
+            for destruct in destructs {
+                arguments.push((destruct.pat.clone(), destruct.layout));
+            }
+
+            IsCtor {
+                tag_id: 0,
+                ctor_name: CtorName::Tag(TagName(RECORD_TAG_NAME.into())), // TODO: should we have a TUPLE_TAG_NAME?
+                union,
+                arguments,
+            }
+        }
+
         NewtypeDestructure {
             tag_name,
             arguments,

@@ -806,9 +806,11 @@ fn deep_copy_pattern_help<C: CopyEnv>(
                 .map(|lrd| {
                     lrd.map(
                         |TupleDestruct {
+                            index,
                             var,
                             typ: (tyvar, pat),
                         }: &crate::pattern::TupleDestruct| TupleDestruct {
+                            index: *index,
                             var: sub!(*var),
                             typ: (sub!(*tyvar), pat.map(|p| go_help!(p))),
                         },

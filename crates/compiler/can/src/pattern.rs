@@ -230,6 +230,7 @@ pub struct RecordDestruct {
 #[derive(Clone, Debug)]
 pub struct TupleDestruct {
     pub var: Variable,
+    pub index: usize,
     pub typ: (Variable, Loc<Pattern>),
 }
 
@@ -577,7 +578,7 @@ pub fn canonicalize_pattern<'a>(
             let whole_var = var_store.fresh();
             let mut destructs = Vec::with_capacity(patterns.len());
 
-            for loc_pattern in patterns.iter() {
+            for (i, loc_pattern) in patterns.iter().enumerate() {
                 let can_guard = canonicalize_pattern(
                     env,
                     var_store,
@@ -592,6 +593,7 @@ pub fn canonicalize_pattern<'a>(
                 destructs.push(Loc {
                     region: loc_pattern.region,
                     value: TupleDestruct {
+                        index: i,
                         var: var_store.fresh(),
                         typ: (var_store.fresh(), can_guard),
                     },

@@ -3,7 +3,7 @@ use crate::expr::{constrain_expr, Env};
 use roc_can::constraint::{Constraint, Constraints, PExpectedTypeIndex, TypeOrVar};
 use roc_can::expected::{Expected, PExpected};
 use roc_can::pattern::Pattern::{self, *};
-use roc_can::pattern::{DestructType, ListPatterns, RecordDestruct};
+use roc_can::pattern::{DestructType, ListPatterns, RecordDestruct, TupleDestruct};
 use roc_collections::all::{HumanIndex, SendMap};
 use roc_collections::VecMap;
 use roc_module::ident::Lowercase;
@@ -125,34 +125,8 @@ fn headers_from_annotation_help(
             _ => false,
         },
 
-        TupleDestructure { destructs, .. } => match annotation.value.shallow_dealias() {
-            Type::Tuple(elems, _) => {
-                for (i, loc_destruct) in destructs.iter().enumerate() {
-                    let destruct = &loc_destruct.value;
-
-                    // NOTE: We ignore both Guard and optionality when
-                    // determining the type of the assigned def (which is what
-                    // gets added to the header here).
-                    //
-                    // For example, no matter whether it's `{ x } = rec` or
-                    // `{ x ? 0 } = rec` or `{ x: 5 } -> ...` in all cases
-                    // the type of `x` within the binding itself is the same.
-                    if let Some(elem_type) = elems.get(&i) {
-                        let elem_type_index = {
-                            let typ = types.from_old_type(&elem_type.clone());
-                            constraints.push_type(types, typ)
-                        };
-                        headers.insert(
-                            destruct.symbol,
-                            Loc::at(annotation.region, elem_type_index),
-                        );
-                    } else {
-                        return false;
-                    }
-                }
-                true
-            }
-            _ => false,
+        TupleDestructure { destructs: _, .. } => {
+            todo!();
         },
 
         List { patterns, .. } => {
@@ -493,6 +467,93 @@ pub fn constrain_pattern(
                 PatternCategory::Character,
                 region,
             ));
+        }
+
+        TupleDestructure { whole_var, ext_var, destructs } => {
+            state.vars.push(*whole_var);
+            state.vars.push(*ext_var);
+            let ext_type = Type::Variable(*ext_var);
+
+            let mut elem_types: VecMap<usize, Type> = VecMap::default();
+
+            for Loc {
+                value:
+                    TupleDestruct {
+                        index,
+                        var,
+                        typ,
+                    },
+                ..
+            } in destructs.iter()
+            {
+                let pat_type = Type::Variable(*var);
+                let pat_type_index = constraints.push_variable(*var);
+                let expected =
+                    constraints.push_pat_expected_type(PExpected::NoExpectation(pat_type_index));
+
+                let (guard_var, loc_guard) = typ;
+                let elem_type = {
+                    let guard_type = constraints.push_variable(*guard_var);
+                    let expected_pat =
+                        constraints.push_pat_expected_type(PExpected::ForReason(
+                            PReason::PatternGuard,
+                            pat_type_index,
+                            loc_guard.region,
+                        ));
+
+                    state.constraints.push(constraints.pattern_presence(
+                        guard_type,
+                        expected_pat,
+                        PatternCategory::PatternGuard,
+                        region,
+                    ));
+                    state.vars.push(*guard_var);
+
+                    constrain_pattern(
+                        types,
+                        constraints,
+                        env,
+                        &loc_guard.value,
+                        loc_guard.region,
+                        expected,
+                        state,
+                    );
+
+                    pat_type
+                };
+
+                elem_types.insert(*index, elem_type);
+
+                state.vars.push(*var);
+            }
+
+            let tuple_type = {
+                let typ = types.from_old_type(&Type::Tuple(
+                    elem_types,
+                    TypeExtension::from_non_annotation_type(ext_type),
+                ));
+                constraints.push_type(types, typ)
+            };
+
+            let whole_var_index = constraints.push_variable(*whole_var);
+            let expected_record =
+                constraints.push_expected_type(Expected::NoExpectation(tuple_type));
+            let whole_con = constraints.equal_types(
+                whole_var_index,
+                expected_record,
+                Category::Storage(std::file!(), std::line!()),
+                region,
+            );
+
+            let record_con = constraints.pattern_presence(
+                whole_var_index,
+                expected,
+                PatternCategory::Record,
+                region,
+            );
+
+            state.constraints.push(whole_con);
+            state.constraints.push(record_con);
         }
 
         RecordDestructure {
