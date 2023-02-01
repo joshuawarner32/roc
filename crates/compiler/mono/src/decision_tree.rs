@@ -815,6 +815,42 @@ fn to_relevant_branch_help<'a>(
             _ => None,
         },
 
+        TupleDestructure(destructs, _) => match test {
+            IsCtor {
+                ctor_name: test_name,
+                tag_id,
+                ..
+            } => {
+                debug_assert!(test_name == &CtorName::Tag(TagName(RECORD_TAG_NAME.into())));
+                let destructs_len = destructs.len();
+                let sub_positions = destructs.into_iter().enumerate().map(|(index, destruct)| {
+                    let pattern = destruct.pat.clone();
+
+                    let mut new_path = path.to_vec();
+                    let next_instr = if destructs_len == 1 {
+                        PathInstruction::NewType
+                    } else {
+                        PathInstruction::TagIndex {
+                            index: index as u64,
+                            tag_id: *tag_id,
+                        }
+                    };
+                    new_path.push(next_instr);
+
+                    (new_path, pattern)
+                });
+                start.extend(sub_positions);
+                start.extend(end);
+
+                Some(Branch {
+                    goal: branch.goal,
+                    guard: branch.guard.clone(),
+                    patterns: start,
+                })
+            }
+            _ => None,
+        },
+
         OpaqueUnwrap { opaque, argument } => match test {
             IsCtor {
                 ctor_name: test_opaque_tag_name,
@@ -1151,6 +1187,7 @@ fn needs_tests(pattern: &Pattern) -> bool {
 
         NewtypeDestructure { .. }
         | RecordDestructure(..)
+        | TupleDestructure(..)
         | AppliedTag { .. }
         | OpaqueUnwrap { .. }
         | BitLiteral { .. }
