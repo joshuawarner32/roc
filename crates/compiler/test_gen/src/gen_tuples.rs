@@ -593,17 +593,17 @@ fn booleans_in_tuple() {
 }
 
 // TODO: this test fails for mysterious reasons
-// #[test]
-// #[cfg(any(feature = "gen-llvm", feature = "gen-wasm"))]
-// fn alignment_in_tuple() {
-//     assert_evals_to!(
-//         indoc!(
-//             "(32, if Bool.true then Red else if Bool.true then Green else Blue, 1 == 1)"
-//         ),
-//         (32i64, true, 2u8),
-//         (i64, bool, u8)
-//     );
-// }
+#[test]
+#[cfg(any(feature = "gen-llvm", feature = "gen-wasm"))]
+fn alignment_in_tuple() {
+    assert_evals_to!(
+        indoc!(
+            "(32, if Bool.true then Red else if Bool.true then Green else Blue, 1 == 1)"
+        ),
+        (32i64, true, 2u8),
+        (i64, bool, u8)
+    );
+}
 
 #[test]
 #[cfg(any(feature = "gen-llvm", feature = "gen-wasm"))]
