@@ -400,6 +400,54 @@ pub struct TupleAccessorData {
     pub index: usize,
 }
 
+impl TupleAccessorData {
+    pub fn to_closure_data(self, record_symbol: Symbol) -> ClosureData {
+        let TupleAccessorData {
+            name,
+            function_var,
+            tuple_var,
+            closure_var,
+            ext_var,
+            elem_var,
+            index,
+        } = self;
+
+        // IDEA: convert accessor from
+        //
+        // .0
+        //
+        // into
+        //
+        // (\r -> r.0)
+        let body = Expr::TupleAccess {
+            tuple_var,
+            ext_var,
+            elem_var,
+            loc_expr: Box::new(Loc::at_zero(Expr::Var(record_symbol, tuple_var))),
+            index,
+        };
+
+        let loc_body = Loc::at_zero(body);
+
+        let arguments = vec![(
+            tuple_var,
+            AnnotatedMark::known_exhaustive(),
+            Loc::at_zero(Pattern::Identifier(record_symbol)),
+        )];
+
+        ClosureData {
+            function_type: function_var,
+            closure_type: closure_var,
+            return_type: elem_var,
+            name,
+            captured_symbols: vec![],
+            recursive: Recursive::NotRecursive,
+            arguments,
+            loc_body: Box::new(loc_body),
+        }
+    }
+}
+
 /// A record accessor like `.foo`, which is equivalent to `\r -> r.foo`
 /// RecordAccessors are desugared to closures; they need to have a name
 /// so the closure can have a correct lambda set.

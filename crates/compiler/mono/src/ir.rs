@@ -4968,7 +4968,60 @@ pub fn with_hole<'a>(
 
             stmt
         }
-        TupleAccessor(_) => todo!(),
+        TupleAccessor(accessor_data) => {
+            let tuple_var = accessor_data.tuple_var;
+            let fresh_record_symbol = env.unique_symbol();
+
+            let ClosureData {
+                name,
+                function_type,
+                arguments,
+                loc_body,
+                ..
+            } = accessor_data.to_closure_data(fresh_record_symbol);
+
+            match procs.insert_anonymous(
+                env,
+                LambdaName::no_niche(name),
+                function_type,
+                arguments,
+                *loc_body,
+                CapturedSymbols::None,
+                tuple_var,
+                layout_cache,
+            ) {
+                Ok(_) => {
+                    let raw_layout = return_on_layout_error!(
+                        env,
+                        layout_cache.raw_from_var(env.arena, function_type, env.subs),
+                        "Expr::Accessor"
+                    );
+
+                    match raw_layout {
+                        RawFunctionLayout::Function(_, lambda_set, _) => {
+                            let lambda_name =
+                                find_lambda_name(env, layout_cache, lambda_set, name, &[]);
+                            construct_closure_data(
+                                env,
+                                procs,
+                                layout_cache,
+                                lambda_set,
+                                lambda_name,
+                                &[],
+                                assigned,
+                                hole,
+                            )
+                        }
+                        RawFunctionLayout::ZeroArgumentThunk(_) => unreachable!(),
+                    }
+                }
+
+                Err(_error) => runtime_error(
+                    env,
+                    "TODO convert anonymous function error to a RuntimeError string",
+                ),
+            }
+        }
 
         OpaqueWrapFunction(wrap_fn_data) => {
             let opaque_var = wrap_fn_data.opaque_var;

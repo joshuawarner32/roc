@@ -612,7 +612,7 @@ pub enum TypeAnnotation<'a> {
     },
 
     Tuple {
-        fields: Collection<'a, Loc<TypeAnnotation<'a>>>,
+        elems: Collection<'a, Loc<TypeAnnotation<'a>>>,
         /// The row type variable in an open tuple, e.g. the `r` in `( Str, Str )r`.
         /// This is None if it's a closed tuple annotation like `( Str, Str )`.
         ext: Option<&'a Loc<TypeAnnotation<'a>>>,
@@ -1729,7 +1729,7 @@ impl<'a> Malformed for TypeAnnotation<'a> {
                 fields.iter().any(|field| field.is_malformed())
                     || ext.map(|ext| ext.is_malformed()).unwrap_or_default()
             }
-            TypeAnnotation::Tuple { fields, ext } => {
+            TypeAnnotation::Tuple { elems: fields, ext } => {
                 fields.iter().any(|field| field.is_malformed())
                     || ext.map(|ext| ext.is_malformed()).unwrap_or_default()
             }
