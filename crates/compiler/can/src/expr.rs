@@ -19,6 +19,7 @@ use roc_module::ident::{ForeignSymbol, Lowercase, TagName, IndexOrField};
 use roc_module::low_level::LowLevel;
 use roc_module::symbol::Symbol;
 use roc_parse::ast::{self, Defs, StrLiteral};
+use roc_parse::ident::Accessor;
 use roc_parse::pattern::PatternType::*;
 use roc_problem::can::{PrecedenceProblem, Problem, RuntimeError};
 use roc_region::all::{Loc, Region};
@@ -1068,7 +1069,7 @@ pub fn canonicalize_expr<'a>(
                 output,
             )
         }
-        ast::Expr::RecordAccessorFunction(field) => (
+        ast::Expr::AccessorFunction(field) => (
             RecordAccessor(RecordAccessorData {
                 name: scope.gen_unique_symbol(),
                 function_var: var_store.fresh(),
@@ -1076,7 +1077,10 @@ pub fn canonicalize_expr<'a>(
                 ext_var: var_store.fresh(),
                 closure_var: var_store.fresh(),
                 field_var: var_store.fresh(),
-                field: IndexOrField::Field((*field).into()),
+                field: match field {
+                    Accessor::RecordField(field) => IndexOrField::Field((*field).into()),
+                    Accessor::TupleIndex(index) => IndexOrField::Index(index.parse().unwrap()),
+                },
             }),
             Output::default(),
         ),
@@ -1094,18 +1098,6 @@ pub fn canonicalize_expr<'a>(
                 output,
             )
         }
-        ast::Expr::TupleAccessorFunction(index) => (
-            RecordAccessor(RecordAccessorData {
-                name: scope.gen_unique_symbol(),
-                function_var: var_store.fresh(),
-                record_var: var_store.fresh(),
-                ext_var: var_store.fresh(),
-                closure_var: var_store.fresh(),
-                field_var: var_store.fresh(),
-                field: IndexOrField::Index(index.parse().unwrap()),
-            }),
-            Output::default(),
-        ),
         ast::Expr::Tag(tag) => {
             let variant_var = var_store.fresh();
             let ext_var = var_store.fresh();

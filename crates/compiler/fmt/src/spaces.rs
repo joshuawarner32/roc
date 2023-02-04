@@ -656,9 +656,8 @@ impl<'a> RemoveSpaces<'a> for Expr<'a> {
             },
             Expr::Str(a) => Expr::Str(a.remove_spaces(arena)),
             Expr::RecordAccess(a, b) => Expr::RecordAccess(arena.alloc(a.remove_spaces(arena)), b),
-            Expr::RecordAccessorFunction(a) => Expr::RecordAccessorFunction(a),
+            Expr::AccessorFunction(a) => Expr::AccessorFunction(a),
             Expr::TupleAccess(a, b) => Expr::TupleAccess(arena.alloc(a.remove_spaces(arena)), b),
-            Expr::TupleAccessorFunction(a) => Expr::TupleAccessorFunction(a),
             Expr::List(a) => Expr::List(a.remove_spaces(arena)),
             Expr::RecordUpdate { update, fields } => Expr::RecordUpdate {
                 update: arena.alloc(update.remove_spaces(arena)),

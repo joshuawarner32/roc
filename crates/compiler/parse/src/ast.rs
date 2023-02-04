@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use crate::header::{AppHeader, HostedHeader, InterfaceHeader, PackageHeader, PlatformHeader};
+use crate::ident::Accessor;
 use crate::parser::ESingleQuote;
 use bumpalo::collections::{String, Vec};
 use bumpalo::Bump;
@@ -243,13 +244,12 @@ pub enum Expr<'a> {
 
     /// Look up exactly one field on a record, e.g. `x.foo`.
     RecordAccess(&'a Expr<'a>, &'a str),
-    /// e.g. `.foo`
-    RecordAccessorFunction(&'a str),
+
+    /// e.g. `.foo` or `.0`
+    AccessorFunction(Accessor<'a>),
 
     /// Look up exactly one field on a tuple, e.g. `(x, y).1`.
     TupleAccess(&'a Expr<'a>, &'a str),
-    /// e.g. `.1`
-    TupleAccessorFunction(&'a str),
 
     // Collection Literals
     List(Collection<'a, &'a Loc<Expr<'a>>>),
@@ -1459,8 +1459,7 @@ impl<'a> Malformed for Expr<'a> {
             Float(_) |
             Num(_) |
             NonBase10Int { .. } |
-            TupleAccessorFunction(_) |
-            RecordAccessorFunction(_) |
+            AccessorFunction(_) |
             Var { .. } |
             Underscore(_) |
             Tag(_) |

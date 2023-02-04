@@ -37,6 +37,7 @@ use roc_parse::ast::AssignedField;
 use roc_parse::ast::Defs;
 use roc_parse::ast::ExtractSpaces;
 use roc_parse::ast::TypeHeader;
+use roc_parse::ident::Accessor;
 use roc_parse::pattern::PatternType;
 use roc_problem::can::ShadowKind;
 use roc_problem::can::{CycleEntry, Problem, RuntimeError};
@@ -2323,8 +2324,12 @@ fn canonicalize_pending_body<'a>(
                     ident: defined_symbol,
                     ..
                 },
-                ast::Expr::RecordAccessorFunction(field),
+                ast::Expr::AccessorFunction(field),
             ) => {
+                let field = match field {
+                    Accessor::RecordField(field) => IndexOrField::Field((*field).into()),
+                    Accessor::TupleIndex(index) => IndexOrField::Index(index.parse().unwrap()),
+                };
                 let (loc_can_expr, can_output) = (
                     Loc::at(
                         loc_expr.region,
@@ -2335,37 +2340,7 @@ fn canonicalize_pending_body<'a>(
                             ext_var: var_store.fresh(),
                             closure_var: var_store.fresh(),
                             field_var: var_store.fresh(),
-                            field: IndexOrField::Field((*field).into()),
-                        }),
-                    ),
-                    Output::default(),
-                );
-                let def_references = DefReferences::Value(can_output.references.clone());
-                output.union(can_output);
-
-                (loc_can_expr, def_references)
-            }
-
-            // Turn f = .0 into f = \rcd -[f]-> rcd.0
-            (
-                Pattern::Identifier(defined_symbol)
-                | Pattern::AbilityMemberSpecialization {
-                    ident: defined_symbol,
-                    ..
-                },
-                ast::Expr::TupleAccessorFunction(index),
-            ) => {
-                let (loc_can_expr, can_output) = (
-                    Loc::at(
-                        loc_expr.region,
-                        RecordAccessor(RecordAccessorData {
-                            name: *defined_symbol,
-                            function_var: var_store.fresh(),
-                            record_var: var_store.fresh(),
-                            ext_var: var_store.fresh(),
-                            closure_var: var_store.fresh(),
-                            field_var: var_store.fresh(),
-                            field: IndexOrField::Index(index.parse().unwrap()),
+                            field,
                         }),
                     ),
                     Output::default(),

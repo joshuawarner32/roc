@@ -3,7 +3,7 @@ use bumpalo::{collections::Vec as BumpVec, Bump};
 use roc_can::expected::{Expected, PExpected};
 use roc_collections::all::{BumpMap, BumpMapDefault, HumanIndex, SendMap};
 use roc_module::{
-    ident::{Lowercase, TagName},
+    ident::{Lowercase, TagName, IndexOrField},
     symbol::Symbol,
 };
 use roc_region::all::Region;
@@ -375,7 +375,7 @@ pub fn constrain_expr<'a>(
                 env.pool.add(ext_type),
             );
 
-            let category = Category::Accessor(field.as_str(env.pool).into());
+            let category = Category::Accessor(IndexOrField::Field(field.as_str(env.pool).into()));
 
             let record_expected = Expected::NoExpectation(record_type.shallow_clone());
             let record_con = Eq(
