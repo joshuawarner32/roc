@@ -1,7 +1,7 @@
 use crate::{
     def::Def,
     expr::{
-        ClosureData, Expr, Field, OpaqueWrapFunctionData, RecordAccessorData, TupleAccessorData,
+        ClosureData, Expr, Field, OpaqueWrapFunctionData, RecordAccessorData,
         WhenBranchPattern,
     },
     pattern::{DestructType, ListPatterns, Pattern, RecordDestruct, TupleDestruct},
@@ -544,24 +544,6 @@ fn deep_copy_expr_help<C: CopyEnv>(env: &mut C, copied: &mut Vec<Variable>, expr
             loc_expr: Box::new(loc_expr.map(|e| go_help!(e))),
             index: *index,
         },
-
-        TupleAccessor(TupleAccessorData {
-            name,
-            function_var,
-            tuple_var: record_var,
-            closure_var,
-            ext_var,
-            elem_var: field_var,
-            index,
-        }) => TupleAccessor(TupleAccessorData {
-            name: *name,
-            function_var: sub!(*function_var),
-            tuple_var: sub!(*record_var),
-            closure_var: sub!(*closure_var),
-            ext_var: sub!(*ext_var),
-            elem_var: sub!(*field_var),
-            index: *index,
-        }),
 
         RecordUpdate {
             record_var,

@@ -61,6 +61,13 @@ pub struct Lowercase(IdentStr);
 #[derive(Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Uppercase(IdentStr);
 
+/// Either a field name for a record or an index into a tuple
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IndexOrField {
+    Field(Lowercase),
+    Index(usize),
+}
+
 /// A string representing a foreign (linked-in) symbol
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct ForeignSymbol(IdentStr);

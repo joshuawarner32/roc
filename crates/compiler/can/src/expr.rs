@@ -15,7 +15,7 @@ use roc_collections::soa::Index;
 use roc_collections::{SendMap, VecMap, VecSet};
 use roc_error_macros::internal_error;
 use roc_module::called_via::CalledVia;
-use roc_module::ident::{ForeignSymbol, Lowercase, TagName};
+use roc_module::ident::{ForeignSymbol, Lowercase, TagName, IndexOrField};
 use roc_module::low_level::LowLevel;
 use roc_module::symbol::Symbol;
 use roc_parse::ast::{self, Defs, StrLiteral};
@@ -186,7 +186,7 @@ pub enum Expr {
         field: Lowercase,
     },
 
-    /// field accessor as a function, e.g. (.foo) expr
+    /// tuple or field accessor as a function, e.g. (.foo) expr or (.1) expr
     RecordAccessor(RecordAccessorData),
 
     TupleAccess {
@@ -196,9 +196,6 @@ pub enum Expr {
         loc_expr: Box<Loc<Expr>>,
         index: usize,
     },
-
-    /// tuple accessor as a function, e.g. (.1) expr
-    TupleAccessor(TupleAccessorData),
 
     RecordUpdate {
         record_var: Variable,
@@ -315,9 +312,8 @@ impl Expr {
             Self::Record { .. } => Category::Record,
             Self::EmptyRecord => Category::Record,
             Self::RecordAccess { field, .. } => Category::RecordAccess(field.clone()),
-            Self::RecordAccessor(data) => Category::RecordAccessor(data.field.clone()),
+            Self::RecordAccessor(data) => Category::Accessor(data.field.clone()),
             Self::TupleAccess { index, .. } => Category::TupleAccess(*index),
-            Self::TupleAccessor(data) => Category::TupleAccessor(data.index),
             Self::RecordUpdate { .. } => Category::Record,
             Self::Tag {
                 name, arguments, ..
@@ -383,71 +379,6 @@ pub struct ClosureData {
     pub loc_body: Box<Loc<Expr>>,
 }
 
-/// A tuple accessor like `.2`, which is equivalent to `\x -> x.2`
-/// TupleAccessors are desugared to closures; they need to have a name
-/// so the closure can have a correct lambda set.
-///
-/// We distinguish them from closures so we can have better error messages
-/// during constraint generation.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TupleAccessorData {
-    pub name: Symbol,
-    pub function_var: Variable,
-    pub tuple_var: Variable,
-    pub closure_var: Variable,
-    pub ext_var: Variable,
-    pub elem_var: Variable,
-    pub index: usize,
-}
-
-impl TupleAccessorData {
-    pub fn to_closure_data(self, tuple_symbol: Symbol) -> ClosureData {
-        let TupleAccessorData {
-            name,
-            function_var,
-            tuple_var,
-            closure_var,
-            ext_var,
-            elem_var,
-            index,
-        } = self;
-
-        // IDEA: convert accessor from
-        //
-        // .0
-        //
-        // into
-        //
-        // (\r -> r.0)
-        let body = Expr::TupleAccess {
-            tuple_var,
-            ext_var,
-            elem_var,
-            loc_expr: Box::new(Loc::at_zero(Expr::Var(tuple_symbol, tuple_var))),
-            index,
-        };
-
-        let loc_body = Loc::at_zero(body);
-
-        let arguments = vec![(
-            tuple_var,
-            AnnotatedMark::known_exhaustive(),
-            Loc::at_zero(Pattern::Identifier(tuple_symbol)),
-        )];
-
-        ClosureData {
-            function_type: function_var,
-            closure_type: closure_var,
-            return_type: elem_var,
-            name,
-            captured_symbols: vec![],
-            recursive: Recursive::NotRecursive,
-            arguments,
-            loc_body: Box::new(loc_body),
-        }
-    }
-}
-
 /// A record accessor like `.foo`, which is equivalent to `\r -> r.foo`
 /// RecordAccessors are desugared to closures; they need to have a name
 /// so the closure can have a correct lambda set.
@@ -462,7 +393,7 @@ pub struct RecordAccessorData {
     pub closure_var: Variable,
     pub ext_var: Variable,
     pub field_var: Variable,
-    pub field: Lowercase,
+    pub field: IndexOrField,
 }
 
 impl RecordAccessorData {
@@ -484,12 +415,21 @@ impl RecordAccessorData {
         // into
         //
         // (\r -> r.foo)
-        let body = Expr::RecordAccess {
-            record_var,
-            ext_var,
-            field_var,
-            loc_expr: Box::new(Loc::at_zero(Expr::Var(record_symbol, record_var))),
-            field,
+        let body = match field {
+            IndexOrField::Index(index) => Expr::TupleAccess {
+                tuple_var: record_var,
+                ext_var,
+                elem_var: field_var,
+                loc_expr: Box::new(Loc::at_zero(Expr::Var(record_symbol, record_var))),
+                index,
+            },
+            IndexOrField::Field(field) => Expr::RecordAccess {
+                record_var,
+                ext_var,
+                field_var,
+                loc_expr: Box::new(Loc::at_zero(Expr::Var(record_symbol, record_var))),
+                field,
+            }
         };
 
         let loc_body = Loc::at_zero(body);
@@ -1136,7 +1076,7 @@ pub fn canonicalize_expr<'a>(
                 ext_var: var_store.fresh(),
                 closure_var: var_store.fresh(),
                 field_var: var_store.fresh(),
-                field: (*field).into(),
+                field: IndexOrField::Field((*field).into()),
             }),
             Output::default(),
         ),
@@ -1155,14 +1095,14 @@ pub fn canonicalize_expr<'a>(
             )
         }
         ast::Expr::TupleAccessorFunction(index) => (
-            TupleAccessor(TupleAccessorData {
+            RecordAccessor(RecordAccessorData {
                 name: scope.gen_unique_symbol(),
                 function_var: var_store.fresh(),
-                tuple_var: var_store.fresh(),
+                record_var: var_store.fresh(),
                 ext_var: var_store.fresh(),
                 closure_var: var_store.fresh(),
-                elem_var: var_store.fresh(),
-                index: index.parse().unwrap(),
+                field_var: var_store.fresh(),
+                field: IndexOrField::Index(index.parse().unwrap()),
             }),
             Output::default(),
         ),
@@ -1922,7 +1862,6 @@ pub fn inline_calls(var_store: &mut VarStore, expr: Expr) -> Expr {
         | other @ RuntimeError(_)
         | other @ EmptyRecord
         | other @ RecordAccessor { .. }
-        | other @ TupleAccessor { .. }
         | other @ RecordUpdate { .. }
         | other @ Var(..)
         | other @ AbilityMember(..)
@@ -3052,7 +2991,6 @@ pub(crate) fn get_lookup_symbols(expr: &Expr) -> Vec<ExpectLookup> {
             | Expr::Str(_)
             | Expr::ZeroArgumentTag { .. }
             | Expr::RecordAccessor(_)
-            | Expr::TupleAccessor(_)
             | Expr::SingleQuote(..)
             | Expr::EmptyRecord
             | Expr::TypedHole(_)

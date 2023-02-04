@@ -335,7 +335,6 @@ fn expr<'a>(c: &Ctx, p: EPrec, f: &'a Arena<'a>, e: &'a Expr) -> DocBuilder<'a, 
             f.text(format!("@{}", opaque_name.as_str(c.interns)))
         }
         RecordAccessor(_) => todo!(),
-        TupleAccessor(_) => todo!(),
         RecordUpdate {
             symbol, updates, ..
         } => f

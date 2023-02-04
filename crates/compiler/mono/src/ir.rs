@@ -1092,11 +1092,7 @@ impl<'a> Procs<'a> {
                 // by the surrounding context, so we can add pending specializations
                 // for them immediately.
 
-                dbg!(&pattern_symbols, &body);
-
                 let already_specialized = self.specialized.is_specialized(name.name(), &top_level);
-
-                dbg!(already_specialized);
 
                 let layout = top_level;
 
@@ -1116,8 +1112,6 @@ impl<'a> Procs<'a> {
                     ) {
                         (PendingSpecializations::Finding(suspended), _)
                         | (PendingSpecializations::Making(suspended), true) => {
-                            dbg!(&suspended);
-
                             // register the pending specialization, so this gets code genned later
                             suspended.specialization(env.subs, name, layout, annotation);
 
@@ -1152,7 +1146,6 @@ impl<'a> Procs<'a> {
                             }
                         }
                         (PendingSpecializations::Making(_), false) => {
-                            dbg!("making");
                             // Mark this proc as in-progress, so if we're dealing with
                             // mutually recursive functions, we don't loop forever.
                             // (We had a bug around this before this system existed!)
@@ -1179,7 +1172,7 @@ impl<'a> Procs<'a> {
                                 self.partial_procs.insert(name.name(), partial_proc)
                             };
 
-                            match dbg!(specialize_variable(
+                            match specialize_variable(
                                 env,
                                 self,
                                 name,
@@ -1187,7 +1180,7 @@ impl<'a> Procs<'a> {
                                 annotation,
                                 &[],
                                 partial_proc_id,
-                            )) {
+                            ) {
                                 Ok((proc, layout)) => {
                                     let proc_name = proc.name;
                                     let function_layout =
@@ -3827,8 +3820,6 @@ fn specialize_variable<'a>(
         .raw_from_var(env.arena, fn_var, env.subs)
         .unwrap_or_else(|err| panic!("TODO handle invalid function {:?}", err));
 
-    dbg!(&raw);
-
     let raw = if procs.is_module_thunk(proc_name.name()) {
         match raw {
             RawFunctionLayout::Function(_, lambda_set, _) => {
@@ -3840,8 +3831,6 @@ fn specialize_variable<'a>(
     } else {
         raw
     };
-
-    dbg!(&raw);
 
     // make sure rigid variables in the annotation are converted to flex variables
     let annotation_var = procs.partial_procs.get_id(partial_proc_id).annotation;
@@ -4980,66 +4969,6 @@ pub fn with_hole<'a>(
             );
 
             stmt
-        }
-        TupleAccessor(accessor_data) => {
-            dbg!(&accessor_data);
-            let tuple_var = accessor_data.tuple_var;
-            let fresh_tuple_symbol = env.unique_symbol();
-
-            let ClosureData {
-                name,
-                function_type,
-                arguments,
-                loc_body,
-                ..
-            } = accessor_data.to_closure_data(fresh_tuple_symbol);
-
-            dbg!(&arguments);
-            dbg!(&loc_body);
-
-            match procs.insert_anonymous(
-                env,
-                LambdaName::no_niche(name),
-                function_type,
-                arguments,
-                *loc_body,
-                CapturedSymbols::None,
-                tuple_var,
-                layout_cache,
-            ) {
-                Ok(_) => {
-                    let raw_layout = return_on_layout_error!(
-                        env,
-                        layout_cache.raw_from_var(env.arena, function_type, env.subs),
-                        "Expr::Accessor"
-                    );
-
-                    dbg!(&raw_layout);
-
-                    match raw_layout {
-                        RawFunctionLayout::Function(_, lambda_set, _) => {
-                            let lambda_name =
-                                find_lambda_name(env, layout_cache, lambda_set, name, &[]);
-                            construct_closure_data(
-                                env,
-                                procs,
-                                layout_cache,
-                                lambda_set,
-                                lambda_name,
-                                &[],
-                                assigned,
-                                hole,
-                            )
-                        }
-                        RawFunctionLayout::ZeroArgumentThunk(_) => unreachable!(),
-                    }
-                }
-
-                Err(_error) => runtime_error(
-                    env,
-                    "TODO convert anonymous function error to a RuntimeError string",
-                ),
-            }
         }
 
         OpaqueWrapFunction(wrap_fn_data) => {

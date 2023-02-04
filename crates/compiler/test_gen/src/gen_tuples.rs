@@ -655,5 +655,4 @@ fn generalized_explicit_tuple_accessor() {
         RocStr::from("foo"),
         RocStr
     );
-    panic!();
 }

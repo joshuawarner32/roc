@@ -10,7 +10,6 @@ use crate::annotation::IntroducedVariables;
 use crate::annotation::OwnedNamedOrAble;
 use crate::derive;
 use crate::env::Env;
-use crate::expr::TupleAccessorData;
 use crate::expr::get_lookup_symbols;
 use crate::expr::RecordAccessorData;
 use crate::expr::AnnotatedMark;
@@ -28,6 +27,7 @@ use roc_collections::VecSet;
 use roc_collections::{ImSet, MutMap, SendMap};
 use roc_error_macros::internal_error;
 use roc_module::ident::Ident;
+use roc_module::ident::IndexOrField;
 use roc_module::ident::Lowercase;
 use roc_module::symbol::IdentId;
 use roc_module::symbol::ModuleId;
@@ -2335,7 +2335,7 @@ fn canonicalize_pending_body<'a>(
                             ext_var: var_store.fresh(),
                             closure_var: var_store.fresh(),
                             field_var: var_store.fresh(),
-                            field: (*field).into(),
+                            field: IndexOrField::Field((*field).into()),
                         }),
                     ),
                     Output::default(),
@@ -2358,14 +2358,14 @@ fn canonicalize_pending_body<'a>(
                 let (loc_can_expr, can_output) = (
                     Loc::at(
                         loc_expr.region,
-                        TupleAccessor(TupleAccessorData {
+                        RecordAccessor(RecordAccessorData {
                             name: *defined_symbol,
                             function_var: var_store.fresh(),
-                            tuple_var: var_store.fresh(),
+                            record_var: var_store.fresh(),
                             ext_var: var_store.fresh(),
                             closure_var: var_store.fresh(),
-                            elem_var: var_store.fresh(),
-                            index: index.parse().unwrap(),
+                            field_var: var_store.fresh(),
+                            field: IndexOrField::Index(index.parse().unwrap()),
                         }),
                     ),
                     Output::default(),

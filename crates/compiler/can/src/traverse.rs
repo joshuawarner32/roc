@@ -9,7 +9,7 @@ use crate::{
     def::{Annotation, Declaration, Def},
     expr::{
         self, AnnotatedMark, ClosureData, Declarations, Expr, Field, OpaqueWrapFunctionData,
-        RecordAccessorData, TupleAccessorData,
+        RecordAccessorData,
     },
     pattern::{DestructType, Pattern, RecordDestruct, TupleDestruct},
 };
@@ -250,7 +250,6 @@ pub fn walk_expr<V: Visitor>(visitor: &mut V, expr: &Expr, var: Variable) {
             tuple_var: _,
             ext_var: _,
         } => visitor.visit_expr(&loc_expr.value, loc_expr.region, *elem_var),
-        Expr::TupleAccessor(TupleAccessorData { .. }) => { /* terminal */ }
         Expr::OpaqueWrapFunction(OpaqueWrapFunctionData { .. }) => { /* terminal */ }
         Expr::RecordUpdate {
             record_var: _,

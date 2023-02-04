@@ -8,7 +8,7 @@ use roc_collections::VecMap;
 use roc_error_macros::internal_error;
 use roc_exhaustive::{CtorName, ListArity};
 use roc_module::called_via::{BinOp, CalledVia};
-use roc_module::ident::{IdentStr, Lowercase, TagName};
+use roc_module::ident::{IdentStr, Lowercase, TagName, IndexOrField};
 use roc_module::symbol::Symbol;
 use roc_problem::Severity;
 use roc_region::all::{LineInfo, Region};
@@ -1705,10 +1705,13 @@ fn format_category<'b>(
             alloc.text(" of type:"),
         ),
 
-        RecordAccessor(field) => (
+        Accessor(field) => (
             alloc.concat([
                 alloc.text(format!("{}his ", t)),
-                alloc.record_field(field.to_owned()),
+                match field {
+                    IndexOrField::Index(index) => alloc.tuple_field(*index),
+                    IndexOrField::Field(field) => alloc.record_field(field.to_owned()),
+                },
                 alloc.text(" value"),
             ]),
             alloc.text(" is a:"),
@@ -1726,14 +1729,6 @@ fn format_category<'b>(
             alloc.text(" of type:"),
         ),
 
-        TupleAccessor(index) => (
-            alloc.concat([
-                alloc.text(format!("{}his ", t)),
-                alloc.tuple_field(*index),
-                alloc.text(" value"),
-            ]),
-            alloc.text(" is a:"),
-        ),
         TupleAccess(index) => (
             alloc.concat([
                 alloc.text(format!("{}he value at ", t)),
