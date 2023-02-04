@@ -1092,7 +1092,11 @@ impl<'a> Procs<'a> {
                 // by the surrounding context, so we can add pending specializations
                 // for them immediately.
 
+                dbg!(&pattern_symbols, &body);
+
                 let already_specialized = self.specialized.is_specialized(name.name(), &top_level);
+
+                dbg!(already_specialized);
 
                 let layout = top_level;
 
@@ -1104,12 +1108,16 @@ impl<'a> Procs<'a> {
 
                     let needs_suspended_specialization =
                         self.symbol_needs_suspended_specialization(name.name());
+                    
+
                     match (
                         &mut self.pending_specializations,
                         needs_suspended_specialization,
                     ) {
                         (PendingSpecializations::Finding(suspended), _)
                         | (PendingSpecializations::Making(suspended), true) => {
+                            dbg!(&suspended);
+
                             // register the pending specialization, so this gets code genned later
                             suspended.specialization(env.subs, name, layout, annotation);
 
@@ -1144,6 +1152,7 @@ impl<'a> Procs<'a> {
                             }
                         }
                         (PendingSpecializations::Making(_), false) => {
+                            dbg!("making");
                             // Mark this proc as in-progress, so if we're dealing with
                             // mutually recursive functions, we don't loop forever.
                             // (We had a bug around this before this system existed!)
@@ -1170,7 +1179,7 @@ impl<'a> Procs<'a> {
                                 self.partial_procs.insert(name.name(), partial_proc)
                             };
 
-                            match specialize_variable(
+                            match dbg!(specialize_variable(
                                 env,
                                 self,
                                 name,
@@ -1178,7 +1187,7 @@ impl<'a> Procs<'a> {
                                 annotation,
                                 &[],
                                 partial_proc_id,
-                            ) {
+                            )) {
                                 Ok((proc, layout)) => {
                                     let proc_name = proc.name;
                                     let function_layout =
@@ -3818,6 +3827,8 @@ fn specialize_variable<'a>(
         .raw_from_var(env.arena, fn_var, env.subs)
         .unwrap_or_else(|err| panic!("TODO handle invalid function {:?}", err));
 
+    dbg!(&raw);
+
     let raw = if procs.is_module_thunk(proc_name.name()) {
         match raw {
             RawFunctionLayout::Function(_, lambda_set, _) => {
@@ -3829,6 +3840,8 @@ fn specialize_variable<'a>(
     } else {
         raw
     };
+
+    dbg!(&raw);
 
     // make sure rigid variables in the annotation are converted to flex variables
     let annotation_var = procs.partial_procs.get_id(partial_proc_id).annotation;
@@ -4969,8 +4982,9 @@ pub fn with_hole<'a>(
             stmt
         }
         TupleAccessor(accessor_data) => {
+            dbg!(&accessor_data);
             let tuple_var = accessor_data.tuple_var;
-            let fresh_record_symbol = env.unique_symbol();
+            let fresh_tuple_symbol = env.unique_symbol();
 
             let ClosureData {
                 name,
@@ -4978,7 +4992,10 @@ pub fn with_hole<'a>(
                 arguments,
                 loc_body,
                 ..
-            } = accessor_data.to_closure_data(fresh_record_symbol);
+            } = accessor_data.to_closure_data(fresh_tuple_symbol);
+
+            dbg!(&arguments);
+            dbg!(&loc_body);
 
             match procs.insert_anonymous(
                 env,
@@ -4996,6 +5013,8 @@ pub fn with_hole<'a>(
                         layout_cache.raw_from_var(env.arena, function_type, env.subs),
                         "Expr::Accessor"
                     );
+
+                    dbg!(&raw_layout);
 
                     match raw_layout {
                         RawFunctionLayout::Function(_, lambda_set, _) => {
@@ -10155,21 +10174,22 @@ fn from_can_pattern_help<'a>(
                 elem_layouts.push(res_layout);
             }
 
-            // for (_, destruct) in destructs_by_label.drain() {
-            //     // this destruct is not in the type, but is in the pattern
-            //     // it must be an optional field, and we will use the default
-            //     match &destruct.value.typ {
-            //         roc_can::pattern::DestructType::Optional(field_var, loc_expr) => {
-            //             assignments.push((
-            //                 destruct.value.symbol,
-            //                 // destruct.value.var,
-            //                 *field_var,
-            //                 loc_expr.value.clone(),
-            //             ));
-            //         }
-            //         _ => unreachable!("only optional destructs can be optional elems"),
-            //     }
-            // }
+            for destruct in destructs_by_index {
+                if let Some(destruct) = destruct {
+                    // TODO(DO NOT MERGE): is this necessary?
+                    // match &destruct.value.typ {
+                    //     roc_can::pattern::DestructType::Optional(field_var, loc_expr) => {
+                    //         assignments.push((
+                    //             destruct.value.symbol,
+                    //             // destruct.value.var,
+                    //             *field_var,
+                    //             loc_expr.value.clone(),
+                    //         ));
+                    //     }
+                    //     _ => unreachable!("only optional destructs can be optional elems"),
+                    // }
+                }
+            }
 
             Ok(Pattern::TupleDestructure(
                 mono_destructs,

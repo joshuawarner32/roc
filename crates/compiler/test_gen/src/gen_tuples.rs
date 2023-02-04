@@ -640,3 +640,20 @@ fn generalized_tuple_accessor() {
         RocStr
     );
 }
+
+#[test]
+#[cfg(any(feature = "gen-llvm", feature = "gen-wasm"))]
+fn generalized_explicit_tuple_accessor() {
+    assert_evals_to!(
+        indoc!(
+            r#"
+            return0 = \x -> x.0
+
+            return0 ("foo", 1)
+            "#
+        ),
+        RocStr::from("foo"),
+        RocStr
+    );
+    panic!();
+}

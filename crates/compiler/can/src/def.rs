@@ -10,6 +10,7 @@ use crate::annotation::IntroducedVariables;
 use crate::annotation::OwnedNamedOrAble;
 use crate::derive;
 use crate::env::Env;
+use crate::expr::TupleAccessorData;
 use crate::expr::get_lookup_symbols;
 use crate::expr::RecordAccessorData;
 use crate::expr::AnnotatedMark;
@@ -2335,6 +2336,36 @@ fn canonicalize_pending_body<'a>(
                             closure_var: var_store.fresh(),
                             field_var: var_store.fresh(),
                             field: (*field).into(),
+                        }),
+                    ),
+                    Output::default(),
+                );
+                let def_references = DefReferences::Value(can_output.references.clone());
+                output.union(can_output);
+
+                (loc_can_expr, def_references)
+            }
+
+            // Turn f = .0 into f = \rcd -[f]-> rcd.0
+            (
+                Pattern::Identifier(defined_symbol)
+                | Pattern::AbilityMemberSpecialization {
+                    ident: defined_symbol,
+                    ..
+                },
+                ast::Expr::TupleAccessorFunction(index),
+            ) => {
+                let (loc_can_expr, can_output) = (
+                    Loc::at(
+                        loc_expr.region,
+                        TupleAccessor(TupleAccessorData {
+                            name: *defined_symbol,
+                            function_var: var_store.fresh(),
+                            tuple_var: var_store.fresh(),
+                            ext_var: var_store.fresh(),
+                            closure_var: var_store.fresh(),
+                            elem_var: var_store.fresh(),
+                            index: index.parse().unwrap(),
                         }),
                     ),
                     Output::default(),

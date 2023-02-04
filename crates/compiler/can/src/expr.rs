@@ -401,7 +401,7 @@ pub struct TupleAccessorData {
 }
 
 impl TupleAccessorData {
-    pub fn to_closure_data(self, record_symbol: Symbol) -> ClosureData {
+    pub fn to_closure_data(self, tuple_symbol: Symbol) -> ClosureData {
         let TupleAccessorData {
             name,
             function_var,
@@ -423,7 +423,7 @@ impl TupleAccessorData {
             tuple_var,
             ext_var,
             elem_var,
-            loc_expr: Box::new(Loc::at_zero(Expr::Var(record_symbol, tuple_var))),
+            loc_expr: Box::new(Loc::at_zero(Expr::Var(tuple_symbol, tuple_var))),
             index,
         };
 
@@ -432,7 +432,7 @@ impl TupleAccessorData {
         let arguments = vec![(
             tuple_var,
             AnnotatedMark::known_exhaustive(),
-            Loc::at_zero(Pattern::Identifier(record_symbol)),
+            Loc::at_zero(Pattern::Identifier(tuple_symbol)),
         )];
 
         ClosureData {
