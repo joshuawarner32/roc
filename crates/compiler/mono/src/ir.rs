@@ -10088,16 +10088,29 @@ fn from_can_pattern_help<'a>(
             // However in mono patterns, we do destruct all patterns (but use Underscore) when
             // in the source the elem is not matche in the source language.
 
+            dbg!(&sorted_elems);
+
             for (index, variable, res_layout) in sorted_elems.into_iter() {
-                // this field is destructured by the pattern
-                mono_destructs.push(from_can_tuple_destruct(
-                    env,
-                    procs,
-                    layout_cache,
-                    &destructs[index].value,
-                    res_layout,
-                    assignments,
-                )?);
+                if index < destructs.len() {
+                    // this elem is destructured by the pattern
+                    mono_destructs.push(from_can_tuple_destruct(
+                        env,
+                        procs,
+                        layout_cache,
+                        &destructs[index].value,
+                        res_layout,
+                        assignments,
+                    )?);
+                } else {
+                    // this elem is not destructured by the pattern
+                    // put in an underscore
+                    mono_destructs.push(TupleDestruct {
+                        index,
+                        variable,
+                        layout: res_layout,
+                        pat: Pattern::Underscore,
+                    });
+                }
 
                 // the layout of this field is part of the layout of the record
                 elem_layouts.push(res_layout);

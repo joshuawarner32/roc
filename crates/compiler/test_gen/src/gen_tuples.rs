@@ -620,7 +620,7 @@ fn tuple_length_polymorphism() {
             f a b
             "#
         ),
-        84,
+        88,
         i64
     );
 }
