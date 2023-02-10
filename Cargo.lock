@@ -4105,6 +4105,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "roc_syntax_gen"
+version = "0.0.1"
+dependencies = [
+ "bumpalo",
+]
+
+[[package]]
 name = "roc_target"
 version = "0.0.1"
 dependencies = [

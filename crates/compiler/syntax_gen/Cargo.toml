@@ -1,0 +1,10 @@
+[package]
+name = "roc_syntax_gen"
+version = "0.0.1"
+authors = ["The Roc Contributors"]
+license = "UPL-1.0"
+edition = "2021"
+description = "Implements a simple parser generator for Roc."
+
+[dependencies]
+bumpalo.workspace = true
