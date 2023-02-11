@@ -439,12 +439,35 @@ macro_rules! grammar {
 struct SynthGrammar {
     types: HashMap<String, SynthData>,
     needs_ref: HashSet<String>,
+    parsers: HashMap<String, SynthParser>,
 }
 
 enum SynthData {
     Struct(Vec<(String, SynthType)>),
     Enum(Vec<(String, SynthFields)>),
     Typedef(SynthType),
+}
+
+struct SynthParser {
+    name: String,
+    result_ty: SynthType,
+    steps: Vec<SynthParserStep>,
+}
+
+enum SynthParserStep {
+    MatchToken(Vec<(TokenSet, SynthParserStep)>),
+    CallParser(String),
+    BacktrackCallParser(String),
+    SaveResult(String, Box<SynthParserStep>),
+    LoadResult(String),
+    BuildStruct(String, Vec<(String, SynthParserStep)>),
+    BuildEnumVariant(String, String, SynthAssignedFields),
+    Fail,
+}
+
+enum SynthAssignedFields {
+    Named(Vec<(String, SynthParserStep)>),
+    Unnamed(Vec<SynthParserStep>),
 }
 
 enum SynthType {
@@ -536,6 +559,7 @@ impl SynthGrammar {
         Self {
             types: HashMap::new(),
             needs_ref: HashSet::new(),
+            parsers: HashMap::new(),
         }
     }
 
