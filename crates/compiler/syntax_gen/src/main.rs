@@ -54,6 +54,12 @@ struct IdGrammar {
     names: HashMap<String, RuleId>,
     reverse_names: HashMap<RuleId, String>,
 
+    nullables: Vec<bool>,
+    first_sets: Vec<TokenSet>,
+    follow_sets: Vec<TokenSet>,
+
+    first_rule_sets: Vec<RuleSet>,
+
     root: RuleId,
 }
 
@@ -97,13 +103,27 @@ impl TextGrammar {
             rules[rule_map[name].0] = rule;
         }
 
+        assert!(rules.len() < 128); // so we can use a u128 to represent a set of tokens
         assert!(tokens.len() < 127); // so we can use a u128 to represent a set of tokens, with room for a special "end of input" token
+
+
+        let nullables = compute_nullable(&rules);
+        let first_sets = compute_first_sets(&rules, &nullables);
+        let follow_sets = compute_follow_sets(&rules, &nullables, &first_sets);
+
+        let first_rule_sets = compute_first_rule_sets(&rules, &nullables);
 
         IdGrammar {
             tokens,
             rules,
             names,
             reverse_names,
+            nullables,
+            first_sets,
+            follow_sets,
+
+            first_rule_sets,
+
             root: root.unwrap(),
         }
     }
@@ -174,7 +194,7 @@ impl TextGrammar {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct TokenSet(u128);
 
 impl TokenSet {
@@ -185,144 +205,206 @@ impl TokenSet {
     }
 }
 
-impl IdGrammar {
-    fn compute_nullable(&self) -> Vec<bool> {
-        let mut nullable = vec![false; self.rules.len()];
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+struct RuleSet(u128);
 
-        let mut changed = true;
-        while changed {
-            changed = false;
+impl RuleSet {
+    fn update(&mut self, other: RuleSet) -> bool {
+        let old = self.0;
+        self.0 |= other.0;
+        old != self.0
+    }
+}
 
-            for (rule_id, rule) in self.rules.iter().enumerate() {
-                let rule_id = RuleId(rule_id);
-                let rule_nullable = self.compute_rule_nullable(rule_id, &nullable) | nullable[rule_id.0];
-                if rule_nullable != nullable[rule_id.0] {
-                    changed = true;
-                    nullable[rule_id.0] = rule_nullable;
+fn compute_nullable(rules: &[Rule]) -> Vec<bool> {
+    let mut nullable = vec![false; rules.len()];
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+
+        for (rule_id, rule) in rules.iter().enumerate() {
+            let rule_id = RuleId(rule_id);
+            let rule_nullable = compute_rule_nullable(rules, rule_id, &nullable) | nullable[rule_id.0];
+            if rule_nullable != nullable[rule_id.0] {
+                changed = true;
+                nullable[rule_id.0] = rule_nullable;
+            }
+        }
+    }
+
+    nullable
+}
+
+fn compute_rule_nullable(rules: &[Rule], rule_id: RuleId, nullable: &Vec<bool>) -> bool {
+    let rule = &rules[rule_id.0];
+    match rule {
+        Rule::Recur(rule_id) => nullable[rule_id.0],
+        Rule::Tok(_) => false,
+        Rule::Sequence(inner_rules) => inner_rules.iter().all(|rule_id| nullable[rule_id.0]),
+        Rule::Choice(inner_rules) => inner_rules.iter().any(|rule_id| nullable[rule_id.0]),
+        Rule::Optional(_inner_rule) => true,
+        Rule::Repeat(_inner_rule) => true,
+    }
+}
+
+fn compute_first_rule_sets(rules: &[Rule], nullable: &[bool]) -> Vec<RuleSet> {
+    let mut first_sets = vec![RuleSet(0); rules.len()];
+
+    loop {
+        let mut changed = false;
+
+        for (rule_id, rule) in rules.iter().enumerate() {
+            let rule_id = RuleId(rule_id);
+            let first_set = compute_first_rule_set(rules, rule_id, nullable, &first_sets);
+            
+            changed |= first_sets[rule_id.0].update(first_set);
+        }
+
+        if !changed {
+            break;
+        }
+    }
+
+    first_sets
+}
+
+fn compute_first_rule_set(rules: &[Rule], rule_id: RuleId, nullable: &[bool], first_sets: &[RuleSet]) -> RuleSet {
+    let rule = &rules[rule_id.0];
+    let mut first_set = RuleSet(1 << rule_id.0);
+    match rule {
+        Rule::Recur(rule_id) => {
+            first_set.update(first_sets[rule_id.0]);
+        }
+        Rule::Tok(token_id) => {}
+        Rule::Sequence(inner_rules) => {
+            for rule_id in inner_rules {
+                let inner_first_set = first_sets[rule_id.0];
+                first_set.update(inner_first_set);
+                if !nullable[rule_id.0] {
+                    break;
                 }
             }
         }
-
-        nullable
-    }
-
-    fn compute_rule_nullable(&self, rule_id: RuleId, nullable: &Vec<bool>) -> bool {
-        let rule = &self.rules[rule_id.0];
-        match rule {
-            Rule::Recur(rule_id) => nullable[rule_id.0],
-            Rule::Tok(_) => false,
-            Rule::Sequence(inner_rules) => inner_rules.iter().all(|rule_id| nullable[rule_id.0]),
-            Rule::Choice(inner_rules) => inner_rules.iter().any(|rule_id| nullable[rule_id.0]),
-            Rule::Optional(_inner_rule) => true,
-            Rule::Repeat(_inner_rule) => true,
+        Rule::Choice(inner_rules) => {
+            for rule_id in inner_rules {
+                let inner_first_set = first_sets[rule_id.0];
+                first_set.update(inner_first_set);
+            }
+        }
+        Rule::Optional(inner_rules) |
+        Rule::Repeat(inner_rules) => {
+            first_set.update(first_sets[inner_rules.0]);
         }
     }
 
-    fn compute_first_sets(&self, nullable: &[bool]) -> Vec<TokenSet> {
-        let mut first_sets = vec![TokenSet(0); self.rules.len()];
+    first_set
+}
 
-        loop {
+fn compute_first_sets(rules: &[Rule], nullable: &[bool]) -> Vec<TokenSet> {
+    let mut first_sets = vec![TokenSet(0); rules.len()];
+
+    loop {
+        let mut changed = false;
+
+        for (rule_id, rule) in rules.iter().enumerate() {
+            let rule_id = RuleId(rule_id);
+            let first_set = compute_first_set(rules, rule_id, nullable, &first_sets);
+            
+            changed |= first_sets[rule_id.0].update(first_set);
+        }
+
+        if !changed {
+            break;
+        }
+    }
+
+    first_sets
+}
+
+fn compute_first_set(rules: &[Rule], rule_id: RuleId, nullable: &[bool], first_sets: &[TokenSet]) -> TokenSet {
+    let rule = &rules[rule_id.0];
+    match rule {
+        Rule::Recur(rule_id) => first_sets[rule_id.0],
+        Rule::Tok(token_id) => TokenSet(1 << token_id.0),
+        Rule::Sequence(inner_rules) => {
+            let mut first_set = TokenSet(0);
+            for rule_id in inner_rules {
+                let inner_first_set = first_sets[rule_id.0];
+                first_set.0 |= inner_first_set.0;
+                if !nullable[rule_id.0] {
+                    break;
+                }
+            }
+            first_set
+        }
+        Rule::Choice(inner_rules) => {
+            let mut first_set = TokenSet(0);
+            for rule_id in inner_rules {
+                let inner_first_set = first_sets[rule_id.0];
+                first_set.0 |= inner_first_set.0;
+            }
+            first_set
+        }
+        Rule::Optional(inner_rules) => {
+            let inner_first_set = first_sets[inner_rules.0];
+            TokenSet(inner_first_set.0)
+        }
+        Rule::Repeat(inner_rules) => {
+            let inner_first_set = first_sets[inner_rules.0];
+            TokenSet(inner_first_set.0)
+        }
+    }
+}
+
+fn compute_follow_sets(rules: &[Rule], nullable: &[bool], first_sets: &[TokenSet]) -> Vec<TokenSet> {
+    let mut follow_sets = vec![TokenSet(0); rules.len()];
+
+    // follow_sets[self.root.0] = TokenSet(1 << 127);
+
+    loop {
+        let mut changed = false;
+
+        for (rule_id, rule) in rules.iter().enumerate() {
+            changed |= update_follow_set(rules, rule, follow_sets[rule_id], nullable, first_sets, &mut follow_sets);
+        }
+
+        if !changed {
+            break;
+        }
+    }
+
+    follow_sets
+}
+
+fn update_follow_set(rules: &[Rule], rule: &Rule, mut tokens: TokenSet, nullable: &[bool], first_sets: &[TokenSet], follow_sets: &mut [TokenSet]) -> bool {
+    match rule {
+        Rule::Recur(rule_id) => {
+            follow_sets[rule_id.0].update(tokens)
+        }
+        Rule::Tok(_) => false,
+        Rule::Sequence(inner_rules) => {
             let mut changed = false;
-
-            for (rule_id, rule) in self.rules.iter().enumerate() {
-                let rule_id = RuleId(rule_id);
-                let first_set = self.compute_first_set(rule_id, nullable, &first_sets);
-                
-                changed |= first_sets[rule_id.0].update(first_set);
-            }
-
-            if !changed {
-                break;
-            }
-        }
-
-        first_sets
-    }
-
-    fn compute_first_set(&self, rule_id: RuleId, nullable: &[bool], first_sets: &[TokenSet]) -> TokenSet {
-        let rule = &self.rules[rule_id.0];
-        match rule {
-            Rule::Recur(rule_id) => first_sets[rule_id.0],
-            Rule::Tok(token_id) => TokenSet(1 << token_id.0),
-            Rule::Sequence(inner_rules) => {
-                let mut first_set = TokenSet(0);
-                for rule_id in inner_rules {
-                    let inner_first_set = first_sets[rule_id.0];
-                    first_set.0 |= inner_first_set.0;
-                    if !nullable[rule_id.0] {
-                        break;
-                    }
+            for rule_id in inner_rules.iter().rev() {
+                changed |= follow_sets[rule_id.0].update(tokens);
+                if !nullable[rule_id.0] {
+                    tokens = first_sets[rule_id.0];
+                } else {
+                    tokens.update(first_sets[rule_id.0]);
                 }
-                first_set
             }
-            Rule::Choice(inner_rules) => {
-                let mut first_set = TokenSet(0);
-                for rule_id in inner_rules {
-                    let inner_first_set = first_sets[rule_id.0];
-                    first_set.0 |= inner_first_set.0;
-                }
-                first_set
-            }
-            Rule::Optional(inner_rules) => {
-                let inner_first_set = first_sets[inner_rules.0];
-                TokenSet(inner_first_set.0)
-            }
-            Rule::Repeat(inner_rules) => {
-                let inner_first_set = first_sets[inner_rules.0];
-                TokenSet(inner_first_set.0)
-            }
+            changed
         }
-    }
-
-    fn compute_follow_sets(&self, nullable: &[bool], first_sets: &[TokenSet]) -> Vec<TokenSet> {
-        let mut follow_sets = vec![TokenSet(0); self.rules.len()];
-
-        follow_sets[self.root.0] = TokenSet(1 << 127);
-
-        loop {
+        Rule::Choice(inner_rules) => {
             let mut changed = false;
-
-            for rule in &self.rules {
-                changed |= self.update_follow_set(rule, TokenSet(0), nullable, first_sets, &mut follow_sets);
+            for rule_id in inner_rules {
+                changed |= follow_sets[rule_id.0].update(tokens);
             }
-
-            if !changed {
-                break;
-            }
+            changed
         }
-
-        follow_sets
-    }
-
-    fn update_follow_set(&self, rule: &Rule, mut tokens: TokenSet, nullable: &[bool], first_sets: &[TokenSet], follow_sets: &mut [TokenSet]) -> bool {
-        match rule {
-            Rule::Recur(rule_id) => {
-                follow_sets[rule_id.0].update(tokens)
-            }
-            Rule::Tok(_) => false,
-            Rule::Sequence(inner_rules) => {
-                let mut changed = false;
-                for rule_id in inner_rules.iter().rev() {
-                    changed |= follow_sets[rule_id.0].update(tokens);
-                    if !nullable[rule_id.0] {
-                        tokens = first_sets[rule_id.0];
-                    } else {
-                        tokens.update(first_sets[rule_id.0]);
-                    }
-                }
-                changed
-            }
-            Rule::Choice(inner_rules) => {
-                let mut changed = false;
-                for rule_id in inner_rules {
-                    changed |= follow_sets[rule_id.0].update(tokens);
-                }
-                changed
-            }
-            Rule::Optional(inner_rule) |
-            Rule::Repeat(inner_rule) => {
-                follow_sets[inner_rule.0].update(tokens)
-            }
+        Rule::Optional(inner_rule) |
+        Rule::Repeat(inner_rule) => {
+            follow_sets[inner_rule.0].update(tokens)
         }
     }
 }
@@ -899,7 +981,7 @@ fn name_op(op: &str) -> String {
     text
 }
 
-fn generate_parser(grammar: &IdGrammar, nullables: &[bool], first_sets: &[TokenSet], follow_sets: &[TokenSet]) -> String {
+fn generate_parser(grammar: &IdGrammar) -> String {
     let mut s = String::new();
 
     // First, we generate a series of AST enums/structs for each rule.
@@ -978,20 +1060,16 @@ fn main() {
         optional = Sequence(vec![item.clone(), Tok(Operator("?".to_string()))])
     };
 
-    let nullables = g.compute_nullable();
-    let first_sets = g.compute_first_sets(&nullables);
-    let follow_sets = g.compute_follow_sets(&nullables, &first_sets);
-
     dbg!(&g);
 
     for (rule_id, rule) in g.rules.iter().enumerate() {
         println!("{}: {:?}", rule_id, DbgRule(&g, rule));
-        println!("  nullable: {}", nullables[rule_id]);
-        println!("  first: {:?}", DbgTokens(&g.tokens, first_sets[rule_id]));
-        println!("  follow: {:?}", DbgTokens(&g.tokens, follow_sets[rule_id]));
+        println!("  nullable: {}", g.nullables[rule_id]);
+        println!("  first: {:?}", DbgTokens(&g.tokens, g.first_sets[rule_id]));
+        println!("  follow: {:?}", DbgTokens(&g.tokens, g.follow_sets[rule_id]));
     }
 
-    let parser = generate_parser(&g, &nullables, &first_sets, &follow_sets);
+    let parser = generate_parser(&g);
     println!("{}", parser);
     std::fs::write("src/parser.rs", parser.as_bytes()).unwrap();
 }
