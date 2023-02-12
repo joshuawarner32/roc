@@ -214,6 +214,10 @@ impl RuleSet {
         self.0 |= other.0;
         old != self.0
     }
+
+    fn contains(&self, rule_id: RuleId) -> bool {
+        self.0 & (1 << rule_id.0) != 0
+    }
 }
 
 fn compute_nullable(rules: &[Rule]) -> Vec<bool> {
@@ -271,10 +275,11 @@ fn compute_first_rule_sets(rules: &[Rule], nullable: &[bool]) -> Vec<RuleSet> {
 
 fn compute_first_rule_set(rules: &[Rule], rule_id: RuleId, nullable: &[bool], first_sets: &[RuleSet]) -> RuleSet {
     let rule = &rules[rule_id.0];
-    let mut first_set = RuleSet(1 << rule_id.0);
+    let mut first_set = RuleSet(0);
     match rule {
         Rule::Recur(rule_id) => {
             first_set.update(first_sets[rule_id.0]);
+            first_set.update(RuleSet(1 << rule_id.0));
         }
         Rule::Tok(token_id) => {}
         Rule::Sequence(inner_rules) => {
@@ -1067,6 +1072,15 @@ fn main() {
         println!("  nullable: {}", g.nullables[rule_id]);
         println!("  first: {:?}", DbgTokens(&g.tokens, g.first_sets[rule_id]));
         println!("  follow: {:?}", DbgTokens(&g.tokens, g.follow_sets[rule_id]));
+    }
+
+    // Check if any rule has itself in its first set.
+    for (rule_id, rule) in g.rules.iter().enumerate() {
+        println!("{}: {:?}", rule_id, DbgRule(&g, rule));
+        println!("  first_rule_sets: {:?}", g.first_rule_sets[rule_id]);
+        if g.first_rule_sets[rule_id].contains(RuleId(rule_id)) {
+            println!("Rule {} has itself in its first set", rule_id);
+        }
     }
 
     let parser = generate_parser(&g);

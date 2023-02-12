@@ -10,12 +10,12 @@ enum Item<'a> {
     Ws(Ws<'a>),
     Literal(Literal<'a>),
     Parens(Parens<'a>),
-    Optional(Optional<'a>),
+    Optional(&'a Optional<'a>),
 }
 type Literal<'a> = StrLiteral<'a>;
 type Name<'a> = ();
 struct Optional<'a> {
-    item: &'a Item<'a>,
+    item: Item<'a>,
     question: (),
 }
 struct Parens<'a> {
@@ -29,5 +29,5 @@ struct Rule<'a> {
     expr: Expr<'a>,
     semicolon: (),
 }
-type Seq<'a> = Vec<&'a Item<'a>>;
+type Seq<'a> = Vec<Item<'a>>;
 type Ws<'a> = ();
