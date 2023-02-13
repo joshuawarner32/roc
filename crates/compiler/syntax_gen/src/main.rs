@@ -1,5 +1,6 @@
 mod libparser;
 mod parser;
+mod ir;
 
 use std::{collections::{HashMap, HashSet}, fmt::{Display, self}};
 
@@ -14,7 +15,7 @@ enum TextRule {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum Token {
+pub enum Token {
     Identifier,
     Keyword(String),
     Operator(String),
@@ -28,9 +29,9 @@ enum Token {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-struct TokenId(usize);
+pub struct TokenId(usize);
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-struct RuleId(usize);
+pub struct RuleId(usize);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Rule {
@@ -42,13 +43,21 @@ enum Rule {
     Repeat(RuleId),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum RuleState<'a> {
+    Start(RuleId),
+    InSequence {
+        rest: &'a [RuleId],
+    },
+}
+
 #[derive(Debug)]
 struct TextGrammar {
     rules: HashMap<String, TextRule>,
 }
 
 #[derive(Debug)]
-struct IdGrammar {
+pub struct IdGrammar {
     tokens: Vec<Token>,
     rules: Vec<Rule>,
     names: HashMap<String, RuleId>,
@@ -198,12 +207,39 @@ impl TextGrammar {
 struct TokenSet(u128);
 
 impl TokenSet {
+    fn single(token_id: TokenId) -> TokenSet {
+        TokenSet(1 << token_id.0)
+    }
+
     fn update(&mut self, other: TokenSet) -> bool {
         let old = self.0;
         self.0 |= other.0;
         old != self.0
     }
+
+    fn contains(&self, rule_id: TokenId) -> bool {
+        self.0 & (1 << rule_id.0) != 0
+    }
+
+    fn is_disjoint(&self, other: TokenSet) -> bool {
+        self.0 & other.0 == 0
+    }
 }
+
+impl Iterator for TokenSet {
+    type Item = TokenId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0 == 0 {
+            None
+        } else {
+            let bit = self.0.trailing_zeros();
+            self.0 &= !(1 << bit);
+            Some(TokenId(bit as usize))
+        }
+    }
+}
+
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct RuleSet(u128);
@@ -281,7 +317,7 @@ fn compute_first_rule_set(rules: &[Rule], rule_id: RuleId, nullable: &[bool], fi
             first_set.update(first_sets[rule_id.0]);
             first_set.update(RuleSet(1 << rule_id.0));
         }
-        Rule::Tok(token_id) => {}
+        Rule::Tok(_token_id) => {}
         Rule::Sequence(inner_rules) => {
             for rule_id in inner_rules {
                 let inner_first_set = first_sets[rule_id.0];
@@ -1058,11 +1094,13 @@ fn main() {
             literal.clone(),
             parens.clone(),
             optional.clone(),
+            repeat.clone(),
         ]),
         ws = Tok(Operator('.'.to_string())),
         literal = Tok(LiteralString),
         parens = Sequence(vec![Tok(Operator("(".to_string())), expr.clone(), Tok(Operator(")".to_string()))]),
-        optional = Sequence(vec![item.clone(), Tok(Operator("?".to_string()))])
+        optional = Sequence(vec![item.clone(), Tok(Operator("?".to_string()))]),
+        repeat = Sequence(vec![item.clone(), Tok(Operator("*".to_string()))])
     };
 
     dbg!(&g);
@@ -1081,6 +1119,10 @@ fn main() {
         if g.first_rule_sets[rule_id].contains(RuleId(rule_id)) {
             println!("Rule {} has itself in its first set", rule_id);
         }
+    }
+
+    for rule_id in 0..g.rules.len() {
+        let instrs = ir::compile_rule(&g, RuleId(rule_id));
     }
 
     let parser = generate_parser(&g);
