@@ -1,0 +1,8 @@
+
+Header
+    = HostedHeader
+    | InterfaceHeader
+    | AppHeader
+    ;
+
+File = (header: Header, defs: Defs);

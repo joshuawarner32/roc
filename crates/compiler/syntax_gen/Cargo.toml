@@ -1,0 +1,15 @@
+[package]
+name = "roc_syntax_gen"
+version = "0.0.1"
+authors = ["The Roc Contributors"]
+license = "UPL-1.0"
+edition = "2021"
+description = "Generates data types to represent the syntax tree for the Roc language."
+
+[features]
+"parse_debug_trace" = []
+
+[dependencies]
+
+bumpalo.workspace = true
+encode_unicode.workspace = true
