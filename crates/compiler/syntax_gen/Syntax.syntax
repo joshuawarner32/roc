@@ -1,8 +1,56 @@
 
-Syntax = Named<Item>*;
 
-Named<T> = (name: String, item: T);
+struct Syntax {
+    items: Vec<Item>,
+}
 
-Item = Struct(Fields) | Enum(Variants);
+enum Item {
+    Struct(Struct),
+    Enum(Enum),
+}
 
-Variants = Struct(Field);
+struct Struct [
+    'struct'
+    name:Ident
+    generics:Generics?
+    fields:Fields<';'>
+]
+
+struct Enum [
+    'enum'
+    name:Ident
+    generics:Generics?
+    '{' variants:Variant* '}'
+]
+
+struct Generics {
+    params: Vec<String>,
+}
+
+enum Fields<$term> {
+    Unit[ $term ],
+    Tuple [ '(' Delimited<',', Type> ')' ],
+    Named [ '{' Delimited<',', Field> '}' ],
+}
+
+struct Field [
+    name:Ident
+    ty:Type
+]
+
+type Delimited<$delim, T> = (items:T ($delim items:T)* $delim?)?;
+
+enum Type {
+    BuiltIn(BuiltIn),
+    Named(String),
+    Ref(Box<Type>),
+    Tuple(Vec<Type>),
+    Array(Box<Type>),
+    Generics(Box<Type>, Vec<Type>),
+}
+
+enum BuiltIn {
+    String,
+    Int,
+    Bool,
+}

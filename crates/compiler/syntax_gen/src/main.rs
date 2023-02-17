@@ -64,6 +64,15 @@ impl<'a> State<'a> {
         }
     }
 
+    fn peek_terminator(&self) -> bool {
+        self.peek() == Some(']') || self.peek() == Some(')') || self.peek() == Some('}') ||
+        self.peek() == Some(',') || self.peek() == Some(';') || self.peek() == Some('>')
+    }
+
+    fn peek_maybe(&self, s: &str) -> bool {
+        self.text[self.pos..].starts_with(s)
+    }
+
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.peek() {
             if ch.is_whitespace() {
@@ -149,6 +158,7 @@ struct Syntax {
 enum Item {
     Struct(Struct),
     Enum(Enum),
+    Typedef(Typedef),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -166,21 +176,45 @@ struct Enum {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+struct Typedef {
+    name: String,
+    generics: Generics,
+    ty: Type,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Generics {
-    params: Vec<String>,
+    params: Vec<Generic>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Generic {
+    Type(String),
+    Dollar(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Fields {
     Unit,
-    Single(Box<Type>),
+    Tuple(Vec<Type>),
     Named(Vec<(String, Type)>),
+    Seq(Vec<Type>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Type {
+    Literal(String),
     BuiltIn(BuiltIn),
     Named(String),
+    Ref(Box<Type>),
+    Tuple(Vec<Type>),
+    Array(Box<Type>),
+    Generics(String, Vec<Type>),
+    Field(String, Box<Type>),
+    Dollar(String),
+    Option(Box<Type>),
+    Repeat(Box<Type>),
+    Seq(Vec<Type>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -210,6 +244,13 @@ fn generate_syntax(syntax: &Syntax) -> String {
                 }
                 res.push_str("}\n");
             }
+            Item::Typedef(td) => {
+                res.push_str(&format!("pub type {}", td.name));
+                generate_generics(&mut res, &td.generics);
+                res.push_str(" = ");
+                res.push_str(&generate_ty(&td.ty));
+                res.push_str(";\n");
+            }
         }
     }
     res
@@ -222,6 +263,10 @@ fn generate_generics(res: &mut String, generics: &Generics) {
             if i > 0 {
                 res.push_str(", ");
             }
+            let param = match param {
+                Generic::Type(s) => s,
+                Generic::Dollar(_s) => panic!(),
+            };
             res.push_str(param);
         }
         res.push_str(">");
@@ -245,11 +290,17 @@ fn generate_fields(res: &mut String, fields: &Fields, in_struct: bool, newlines:
             }
             res.push_str("}");
         }
-        Fields::Single(ty) => {
+        Fields::Tuple(tys) => {
             res.push_str("(");
-            res.push_str(&format!("    {}{},\n", public, generate_ty(&ty)));
+            for (i, ty) in tys.iter().enumerate() {
+                if i > 0 {
+                    res.push_str(", ");
+                }
+                res.push_str(&generate_ty(ty));
+            }
             res.push_str(")");
         }
+        Fields::Seq(..) => panic!(),
     }
 }
 
@@ -261,6 +312,34 @@ fn generate_ty(ty: &Type) -> String {
             BuiltIn::Bool => "bool".to_string(),
         },
         Type::Named(name) => name.to_string(),
+        Type::Ref(ty) => format!("&{}", generate_ty(&ty)),
+        Type::Tuple(tys) => {
+            let mut res = String::new();
+            res.push('(');
+            for (i, ty) in tys.iter().enumerate() {
+                if i > 0 {
+                    res.push_str(", ");
+                }
+                res.push_str(&generate_ty(ty));
+            }
+            res.push(')');
+            res
+        }
+        Type::Array(ty) => format!("[{}]", generate_ty(&ty)),
+        Type::Generics(ty, tys) => {
+            let mut res = String::new();
+            res.push_str(&ty);
+            res.push('<');
+            for (i, ty) in tys.iter().enumerate() {
+                if i > 0 {
+                    res.push_str(", ");
+                }
+                res.push_str(&generate_ty(ty));
+            }
+            res.push('>');
+            res
+        }
+        _ => panic!(),
     }
 }
 
@@ -303,51 +382,35 @@ fn parse_item(state: &mut State) -> Result<Item, Error> {
         state.skip_whitespace();
         let name = state.consume_ident().ok_or_else(|| state.error("expected struct name"))?.to_string();
         let generics = parse_generics(state)?;
-        state.skip_whitespace();
-        if state.maybe("(") {
-            let fields = parse_fields_single(state)?;
-
-            state.skip_whitespace();
-            state.require(")")?;
-            state.skip_whitespace();
-            state.require(";")?;
-
-            Ok(Item::Struct(Struct { name, generics, fields }))
-        } else if state.maybe("{") {
-            let fields = parse_fields_named(state)?;
-
-            state.skip_whitespace();
-            state.require("}")?;
-
-            Ok(Item::Struct(Struct { name, generics, fields }))
-        } else if state.maybe(";") {
-            Ok(Item::Struct(Struct { name, generics, fields: Fields::Unit }))
-        } else {
-            Err(state.error("expected struct fields"))
-        }
+        let fields = parse_fields(state, Ok(";"))?;
+        
+        Ok(Item::Struct(Struct {
+            name,
+            generics,
+            fields,
+        }))
     } else if state.maybe_keyword("enum") {
         state.skip_whitespace();
         let name = state.consume_ident().ok_or_else(|| state.error("expected enum name"))?.to_string();
         let generics = parse_generics(state)?;
         state.skip_whitespace();
 
+        state.require("{")?;
+        state.skip_whitespace();
+
         let mut variants = Vec::new();
         loop {
-            let variant_name = state.consume_ident().ok_or_else(|| state.error("expected variant name"))?.to_string();
-            state.skip_whitespace();
-            if state.maybe("(") {
-                let fields = parse_fields_single(state)?;
-                state.skip_whitespace();
-                state.require(")")?;
-                variants.push((variant_name, fields));
-            } else if state.maybe("{") {
-                let fields = parse_fields_named(state)?;
-                state.skip_whitespace();
-                state.require("}")?;
-                variants.push((variant_name, fields));
-            } else {
-                variants.push((variant_name, Fields::Unit));
+
+            if state.peek() == Some('}') {
+                break;
             }
+
+            let variant_name = state.consume_ident().ok_or_else(|| state.error("expected variant name"))?.to_string();
+            
+            let fields = parse_fields(state, Err(","))?;
+
+            variants.push((variant_name, fields));
+
             state.skip_whitespace();
 
             if state.maybe(",") {
@@ -358,42 +421,24 @@ fn parse_item(state: &mut State) -> Result<Item, Error> {
             break;
         }
 
+        state.skip_whitespace();
+        state.require("}")?;
+
         Ok(Item::Enum(Enum { name, generics, variants }))
-    } else if let Some(name) = state.consume_ident() {
-        let name = name.to_string();
+    } else if state.maybe_keyword("type") {
+        state.skip_whitespace();
+        let name = state.consume_ident().ok_or_else(|| state.error("expected typedef name"))?.to_string();
+        state.skip_whitespace();
+        let generics = parse_generics(state)?;
         state.skip_whitespace();
         state.require("=")?;
         state.skip_whitespace();
-        if state.maybe("(") {
-            // struct
-            let fields = parse_fields(state)?;
-
-            state.skip_whitespace();
-            state.require(")")?;
-            state.skip_whitespace();
-            state.require(";")?;
-            Ok(Item::Struct(Struct { name, generics: Generics { params: Vec::new() }, fields }))
-        } else {
-            // enum
-            let mut variants = Vec::new();
-            loop {
-                let variant_name = state.consume_ident().ok_or_else(|| state.error("expected variant name"))?.to_string();
-                let fields = parse_fields(state)?;
-                variants.push((variant_name, fields));
-                state.skip_whitespace();
-
-                if state.maybe("|") {
-                    state.skip_whitespace();
-                    continue;
-                } else {
-                    state.require(";")?;
-                    break;
-                }
-            }
-            Ok(Item::Enum(Enum { name, generics: Generics { params: Vec::new() }, variants }))
-        }
+        let ty = parse_type(state)?;
+        state.skip_whitespace();
+        state.require(";")?;
+        Ok(Item::Typedef(Typedef { name, generics, ty }))
     } else {
-        Err(state.error("expected ident"))
+        Err(state.error("expected struct/enum/type"))
     }
 }
 
@@ -403,8 +448,13 @@ fn parse_generics(state: &mut State) -> Result<Generics, Error> {
         state.skip_whitespace();
         let mut params = Vec::new();
         loop {
+            let dollar = state.maybe("$");
             let name = state.consume_ident().ok_or_else(|| state.error("expected generic name"))?.to_string();
-            params.push(name);
+            params.push(if dollar {
+                Generic::Dollar(name)
+            } else {
+                Generic::Type(name)
+            });
             state.skip_whitespace();
             if state.maybe(",") {
                 state.skip_whitespace();
@@ -420,46 +470,47 @@ fn parse_generics(state: &mut State) -> Result<Generics, Error> {
     }
 }
 
-fn parse_fields(state: &mut State) -> Result<Fields, Error> {
+fn parse_fields(state: &mut State, delim: Result<&str, &str>) -> Result<Fields, Error> {
     state.skip_whitespace();
-
     if state.maybe("(") {
         state.skip_whitespace();
-
-        // First let's try to parse a <ident> : <type> list
-        let state_clone = state.clone();
-
-        match parse_fields_named(state) {
-            Ok(fields) => {
-                Ok(fields)
-            }
-            Err(e) => {
-                *state = state_clone;
-
-                match parse_fields_single(state) {
-                    Ok(fields) => {
-                        Ok(fields)
-                    }
-                    Err(_) => {
-                        Err(e) // return the original error
-                    }
-                }
-            }
-        }
-
-    } else {
-        return Ok(Fields::Unit);
+        let fields = parse_fields_unnamed(state)?;
+        state.skip_whitespace();
+        state.require(")")?;
+        return Ok(fields)
+    } else if state.maybe("{") {
+        state.skip_whitespace();
+        let fields = parse_fields_named(state)?;
+        state.skip_whitespace();
+        state.require("}")?;
+        return Ok(fields)
+    } else if state.maybe("[") {
+        state.skip_whitespace();
+        let seq = parse_type_seq(state)?;
+        state.skip_whitespace();
+        state.require("]")?;
+        return Ok(Fields::Seq(seq))
     }
-}
+    
+    let found_delim = match delim {
+        Ok(delim) => state.maybe(delim),
+        Err(delim) => state.peek_maybe(delim),
+    };
 
-fn parse_fields_single(state: &mut State) -> Result<Fields, Error> {
-    let ty = parse_type(state)?;
-    Ok(Fields::Single(Box::new(ty)))
+    if found_delim {
+        Ok(Fields::Unit)
+    } else {
+        Err(state.error("expected struct fields"))
+    }
 }
 
 fn parse_fields_named(state: &mut State) -> Result<Fields, Error> {
     let mut fields = Vec::new();
     loop {
+        if state.peek() == Some(')') || state.peek() == Some('}') {
+            break;
+        }
+
         let name = state.consume_ident().ok_or_else(|| state.error("expected field name"))?.to_string();
         state.skip_whitespace();
         state.require(":")?;
@@ -477,9 +528,121 @@ fn parse_fields_named(state: &mut State) -> Result<Fields, Error> {
     Ok(Fields::Named(fields))
 }
 
+fn parse_fields_unnamed(state: &mut State) -> Result<Fields, Error> {
+    let mut fields = Vec::new();
+    loop {
+        if state.peek() == Some(')') || state.peek() == Some('}') {
+            break;
+        }
+
+        let ty = parse_type(state)?;
+        fields.push(ty);
+        state.skip_whitespace();
+        if state.maybe(",") {
+            state.skip_whitespace();
+            continue;
+        } else {
+            break;
+        }
+    }
+    Ok(Fields::Tuple(fields))
+}
+
+fn parse_type_seq(state: &mut State) -> Result<Vec<Type>, Error> {
+    let mut types = Vec::new();
+    loop {
+        state.skip_whitespace();
+        if state.peek_terminator() {
+            break;
+        }
+
+        let ty = parse_type(state)?;
+        types.push(ty);
+    }
+
+    Ok(types)
+}
+
 fn parse_type(state: &mut State) -> Result<Type, Error> {
+    let initial = parse_type_initial(state)?;
+    state.skip_whitespace();
+    if state.maybe("?") {
+        Ok(Type::Option(Box::new(initial)))
+    } else if state.maybe("*") {
+        Ok(Type::Repeat(Box::new(initial)))
+    } else {
+        Ok(initial)
+    }
+}
+
+
+fn parse_type_initial(state: &mut State) -> Result<Type, Error> {
     if let Some(name) = state.consume_ident() {
-        Ok(Type::Named(name.to_string()))
+        if state.maybe("<") {
+            state.skip_whitespace();
+            let mut params = Vec::new();
+            loop {
+                let ty = parse_type(state)?;
+                params.push(ty);
+                state.skip_whitespace();
+                if state.maybe(",") {
+                    state.skip_whitespace();
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            state.require(">")?;
+            Ok(Type::Generics(name.to_string(), params))
+        } else if state.maybe(":") {
+            state.skip_whitespace();
+            let ty = parse_type(state)?;
+            Ok(Type::Field(name.to_string(), Box::new(ty)))
+        } else {
+            Ok(Type::Named(name.to_string()))
+        }
+    } else if state.maybe("'") {
+        // string literal (converted to a token)
+        let mut s = String::new();
+        loop {
+            let c = state.next().ok_or_else(|| state.error("expected string literal"))?;
+            if c == '\'' {
+                break;
+            } else {
+                s.push(c);
+            }
+        }
+        Ok(Type::Literal(s))
+    } else if state.maybe("(") {
+        // tuple
+        state.skip_whitespace();
+        let mut params = Vec::new();
+        loop {
+            let mut seq = parse_type_seq(state)?;
+            if seq.len() == 1 {
+                params.push(seq.pop().unwrap());
+            } else {
+                params.push(Type::Seq(seq));
+            }
+            state.skip_whitespace();
+            if state.maybe(",") {
+                state.skip_whitespace();
+                continue;
+            } else {
+                break;
+            }
+        }
+        state.require(")")?;
+
+        if params.len() == 1 {
+            Ok(params.pop().unwrap())
+        } else {
+            Ok(Type::Tuple(params))
+        }
+    } else if state.maybe("$") {
+        // seq variable
+        let name = state.consume_ident().ok_or_else(|| state.error("expected seq variable name"))?.to_string();
+        Ok(Type::Dollar(name))
     } else {
         Err(state.error("expected type name"))
     }
