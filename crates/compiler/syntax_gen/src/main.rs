@@ -68,6 +68,12 @@ impl<'a> State<'a> {
         while let Some(ch) = self.peek() {
             if ch.is_whitespace() {
                 self.next();
+            } else if ch == '/' && self.text[self.pos + 1..].starts_with('/') {
+                while let Some(ch) = self.next() {
+                    if ch == '\n' {
+                        break;
+                    }
+                }
             } else {
                 break;
             }
@@ -92,7 +98,7 @@ impl<'a> State<'a> {
         }
     }
 
-    fn consume_ident(&mut self) -> Option<&'a str> {
+    fn peek_ident(&self) -> Option<&'a str> {
         let mut it = self.text[self.pos..].char_indices();
         if let Some((i, ch)) = it.next() {
             if ch.is_alphabetic() || ch == '_' {
@@ -104,14 +110,27 @@ impl<'a> State<'a> {
                     }
                 }
                 let ident = &self.text[self.pos..self.pos + last];
-                println!("ident {}", ident);
-                self.pos += last;
                 Some(ident)
             } else {
                 None
             }
         } else {
             None
+        }
+    }
+
+    fn consume_ident(&mut self) -> Option<&'a str> {
+        let ident = self.peek_ident()?;
+        self.pos += ident.len();
+        Some(ident)
+    }
+
+    fn maybe_keyword(&mut self, s: &str) -> bool {
+        if self.peek_ident() == Some(s) {
+            self.pos += s.len();
+            true
+        } else {
+            false
         }
     }
 }
@@ -135,13 +154,20 @@ enum Item {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Struct {
     name: String,
+    generics: Generics,
     fields: Fields,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Enum {
     name: String,
+    generics: Generics,
     variants: Vec<(String, Fields)>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Generics {
+    params: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -170,11 +196,13 @@ fn generate_syntax(syntax: &Syntax) -> String {
         match item {
             Item::Struct(s) => {
                 res.push_str(&format!("pub struct {}", s.name));
+                generate_generics(&mut res, &s.generics);
                 generate_fields(&mut res, &s.fields, true, true);
                 res.push('\n');
             }
             Item::Enum(e) => {
                 res.push_str(&format!("pub enum {} {{\n", e.name));
+                generate_generics(&mut res, &e.generics);
                 for (name, fields) in &e.variants {
                     res.push_str(&format!("    {}", name));
                     generate_fields(&mut res, fields, false, false);
@@ -185,6 +213,19 @@ fn generate_syntax(syntax: &Syntax) -> String {
         }
     }
     res
+}
+
+fn generate_generics(res: &mut String, generics: &Generics) {
+    if !generics.params.is_empty() {
+        res.push_str("<");
+        for (i, param) in generics.params.iter().enumerate() {
+            if i > 0 {
+                res.push_str(", ");
+            }
+            res.push_str(param);
+        }
+        res.push_str(">");
+    }
 }
 
 fn generate_fields(res: &mut String, fields: &Fields, in_struct: bool, newlines: bool) {
@@ -251,12 +292,79 @@ fn parse_item(state: &mut State) -> Result<Item, Error> {
     // or:
     // <ident>
 
-    if let Some(name) = state.consume_ident() {
+    // Rust-style structs and enums
+    // struct Foo { <ident> : <type> , ... }
+    // struct Foo;
+    // struct Foo(<type>);
+    // enum Foo { <ident> ( <type> ) , ... }
+    // enum Foo { <ident> { <ident> : <type> } , ... }
+
+    if state.maybe_keyword("struct") {
+        state.skip_whitespace();
+        let name = state.consume_ident().ok_or_else(|| state.error("expected struct name"))?.to_string();
+        let generics = parse_generics(state)?;
+        state.skip_whitespace();
+        if state.maybe("(") {
+            let fields = parse_fields_single(state)?;
+
+            state.skip_whitespace();
+            state.require(")")?;
+            state.skip_whitespace();
+            state.require(";")?;
+
+            Ok(Item::Struct(Struct { name, generics, fields }))
+        } else if state.maybe("{") {
+            let fields = parse_fields_named(state)?;
+
+            state.skip_whitespace();
+            state.require("}")?;
+
+            Ok(Item::Struct(Struct { name, generics, fields }))
+        } else if state.maybe(";") {
+            Ok(Item::Struct(Struct { name, generics, fields: Fields::Unit }))
+        } else {
+            Err(state.error("expected struct fields"))
+        }
+    } else if state.maybe_keyword("enum") {
+        state.skip_whitespace();
+        let name = state.consume_ident().ok_or_else(|| state.error("expected enum name"))?.to_string();
+        let generics = parse_generics(state)?;
+        state.skip_whitespace();
+
+        let mut variants = Vec::new();
+        loop {
+            let variant_name = state.consume_ident().ok_or_else(|| state.error("expected variant name"))?.to_string();
+            state.skip_whitespace();
+            if state.maybe("(") {
+                let fields = parse_fields_single(state)?;
+                state.skip_whitespace();
+                state.require(")")?;
+                variants.push((variant_name, fields));
+            } else if state.maybe("{") {
+                let fields = parse_fields_named(state)?;
+                state.skip_whitespace();
+                state.require("}")?;
+                variants.push((variant_name, fields));
+            } else {
+                variants.push((variant_name, Fields::Unit));
+            }
+            state.skip_whitespace();
+
+            if state.maybe(",") {
+                state.skip_whitespace();
+                continue;
+            }
+
+            break;
+        }
+
+        Ok(Item::Enum(Enum { name, generics, variants }))
+    } else if let Some(name) = state.consume_ident() {
         let name = name.to_string();
         state.skip_whitespace();
         state.require("=")?;
         state.skip_whitespace();
-        if state.peek() == Some('(') {
+        if state.maybe("(") {
             // struct
             let fields = parse_fields(state)?;
 
@@ -264,7 +372,7 @@ fn parse_item(state: &mut State) -> Result<Item, Error> {
             state.require(")")?;
             state.skip_whitespace();
             state.require(";")?;
-            Ok(Item::Struct(Struct { name, fields }))
+            Ok(Item::Struct(Struct { name, generics: Generics { params: Vec::new() }, fields }))
         } else {
             // enum
             let mut variants = Vec::new();
@@ -282,12 +390,34 @@ fn parse_item(state: &mut State) -> Result<Item, Error> {
                     break;
                 }
             }
-            Ok(Item::Enum(Enum { name, variants }))
+            Ok(Item::Enum(Enum { name, generics: Generics { params: Vec::new() }, variants }))
         }
     } else {
         Err(state.error("expected ident"))
     }
+}
 
+fn parse_generics(state: &mut State) -> Result<Generics, Error> {
+    state.skip_whitespace();
+    if state.maybe("<") {
+        state.skip_whitespace();
+        let mut params = Vec::new();
+        loop {
+            let name = state.consume_ident().ok_or_else(|| state.error("expected generic name"))?.to_string();
+            params.push(name);
+            state.skip_whitespace();
+            if state.maybe(",") {
+                state.skip_whitespace();
+                continue;
+            } else {
+                break;
+            }
+        }
+        state.require(">")?;
+        Ok(Generics { params })
+    } else {
+        Ok(Generics { params: Vec::new() })
+    }
 }
 
 fn parse_fields(state: &mut State) -> Result<Fields, Error> {
