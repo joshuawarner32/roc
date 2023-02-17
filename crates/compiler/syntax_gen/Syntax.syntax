@@ -1,0 +1,8 @@
+
+Syntax = Named<Item>*;
+
+Named<T> = (name: String, item: T);
+
+Item = Struct(Fields) | Enum(Variants);
+
+Variants = Struct(Field);
