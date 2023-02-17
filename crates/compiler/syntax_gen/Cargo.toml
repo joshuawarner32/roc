@@ -13,3 +13,4 @@ description = "Generates data types to represent the syntax tree for the Roc lan
 
 bumpalo.workspace = true
 encode_unicode.workspace = true
+indexmap = "1.9.2"

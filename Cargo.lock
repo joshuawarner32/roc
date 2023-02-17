@@ -3836,6 +3836,7 @@ version = "0.0.1"
 dependencies = [
  "bumpalo",
  "encode_unicode 1.0.0",
+ "indexmap",
 ]
 
 [[package]]

@@ -20,15 +20,20 @@ struct Enum [
     'enum'
     name:Ident
     generics:Generics?
-    '{' variants:Variant* '}'
+    '{' variants:Delimited<',', Variant> '}'
+]
+
+struct Variant [
+    name:Ident
+    (fields: Fields<','>)?
 ]
 
 struct Generics {
     params: Vec<String>,
 }
 
-enum Fields<$term> {
-    Unit[ $term ],
+enum Fields<Term> {
+    Unit[ Term ],
     Tuple [ '(' Delimited<',', Type> ')' ],
     Named [ '{' Delimited<',', Field> '}' ],
 }
@@ -38,7 +43,7 @@ struct Field [
     ty:Type
 ]
 
-type Delimited<$delim, T> = (items:T ($delim items:T)* $delim?)?;
+type Delimited<Delim, T> = (items:T (!Delim items:T)* !Delim?)?;
 
 enum Type {
     BuiltIn(BuiltIn),
