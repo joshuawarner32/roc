@@ -32,9 +32,15 @@ pub struct Typedef {
     pub ty: Type,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Generic {
+    Type(String),
+    Dollar(String),
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Generics {
-    pub params: Vec<String>,
+    pub params: Vec<Generic>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -58,6 +64,8 @@ pub enum Type {
     Repeat(Box<Type>),
     Seq(Vec<Type>),
     Unimportant(Box<Type>),
+    Dollar(String),
+    Whitespace,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

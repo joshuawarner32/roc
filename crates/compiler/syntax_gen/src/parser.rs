@@ -243,8 +243,13 @@ fn parse_generics(state: &mut State) -> Result<Generics, Error> {
         state.skip_whitespace();
         let mut params = Vec::new();
         loop {
+            let dollar = state.maybe("$");
             let name = state.consume_ident().ok_or_else(|| state.error("expected generic name"))?.to_string();
-            params.push(name);
+            params.push(if dollar {
+                Generic::Dollar(name)
+            } else {
+                Generic::Type(name)
+            });
             state.skip_whitespace();
             if state.maybe(",") {
                 state.skip_whitespace();
@@ -435,6 +440,14 @@ fn parse_type_initial(state: &mut State) -> Result<Type, Error> {
         let ty = parse_type(state)?;
 
         Ok(Type::Unimportant(Box::new(ty)))
+    } else if state.maybe("$") {
+        let name = state.consume_ident().ok_or_else(|| state.error("expected type name"))?.to_string();
+
+        Ok(Type::Dollar(name))
+    } else if state.maybe(".") {
+        // "whitespace" token
+
+        Ok(Type::Whitespace)
     } else {
         Err(state.error("expected type name"))
     }

@@ -1,8 +1,6 @@
-use std::ops::Index;
-
 use indexmap::IndexMap;
 
-use crate::ir;
+use crate::{ir, ast};
 
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -48,7 +46,6 @@ pub enum Fields {
     Unit,
     Tuple(Vec<Type>),
     Named(Vec<(String, Type)>),
-    Seq(Vec<Type>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -59,10 +56,9 @@ pub enum Type {
     Array(Box<Type>),
     Generics(String, Vec<Type>),
     Field(String, Box<Type>),
-    Dollar(String),
     Option(Box<Type>),
     Repeat(Box<Type>),
-    Seq(Vec<Type>),
+    Whitespace,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -72,8 +68,9 @@ pub enum BuiltIn {
     Bool,
 }
 
-pub fn to_rust_syntax(ir: &ir::Syntax) -> Syntax {
+pub fn to_rust_syntax(ir: &ir::Syntax, options: Options) -> Syntax {
     let mut ctx = Ctx {
+        options,
         ir,
         extra_token_types: IndexMap::new(),
     };
@@ -87,7 +84,14 @@ pub fn to_rust_syntax(ir: &ir::Syntax) -> Syntax {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Options {
+    pub generate_tokens: bool,
+    pub generate_trivia: bool,
+}
+
 struct Ctx<'a> {
+    options: Options,
     ir: &'a ir::Syntax,
     extra_token_types: IndexMap<String, Item>,
 }
@@ -96,6 +100,7 @@ struct Ctx<'a> {
 enum FieldKind {
     Named(String),
     Token(String),
+    Whitespace(usize),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -122,6 +127,11 @@ impl FieldsAccum {
             }
         }
     }
+
+    fn insert_whitespace(&mut self, count: HowMany) {
+        let id = self.names.len();
+        self.insert(FieldKind::Whitespace(id), Type::Whitespace, count);
+    }
 }
 
 fn merge_tys(existing: &mut Type, ty: Type) {
@@ -138,18 +148,14 @@ impl<'a> Ctx<'a> {
                 let fields = self.to_rust_fields(item, fields);
                 Item::Struct(Struct {
                     name: item.name.clone(),
-                    generics: Generics {
-                        params: item.generics.params.clone(),
-                    },
+                    generics: self.to_rust_generics(&item.generics),
                     fields,
                 })
             }
             ir::ItemKind::Enum { variants } => {
                 Item::Enum(Enum {
                     name: item.name.clone(),
-                    generics: Generics {
-                        params: item.generics.params.clone(),
-                    },
+                    generics: self.to_rust_generics(&item.generics),
                     variants: variants.iter().map(|(name, fields)| {
                         let fields = self.to_rust_fields(item, fields);
                         (name.clone(), fields)
@@ -169,26 +175,38 @@ impl<'a> Ctx<'a> {
                     let (ty, count) = accum.names.remove(&name).unwrap();
                     resolve_ty(ty, count)
                 } else {
-                    dbg!(accum.names);
                     panic!();
                 };
 
                 Item::Typedef(Typedef {
                     name: item.name.clone(),
-                    generics: Generics {
-                        params: item.generics.params.clone(),
-                    },
+                    generics: self.to_rust_generics(&item.generics),
                     ty,
                 })
             }
         }
     }
 
+    fn to_rust_generics(&self, generics: &ast::Generics) -> Generics {
+        Generics {
+            params: generics.params.iter().filter_map(|g| match g {
+                crate::ast::Generic::Type(name) => Some(name.clone()),
+                crate::ast::Generic::Dollar(name) => {
+                    if self.options.generate_tokens {
+                        Some(name.clone())
+                    } else {
+                        None
+                    }
+                }
+            }).collect(),
+        }
+    }
+
     fn to_rust_fields(&mut self, outer_item: &ir::Item, fields: &ir::Fields) -> Fields {
         match fields {
             ir::Fields::Unit => Fields::Unit,
-            ir::Fields::Tuple(fields) => Fields::Tuple(fields.iter().map(|f| self.to_rust_type(outer_item, f)).collect()),
-            ir::Fields::Named(fields) => Fields::Named(fields.iter().map(|(name, ty)| (name.clone(), self.to_rust_type(outer_item, ty))).collect()),
+            ir::Fields::Tuple(fields) => Fields::Tuple(fields.iter().filter_map(|f| self.to_rust_type(outer_item, f)).collect()),
+            ir::Fields::Named(fields) => Fields::Named(fields.iter().filter_map(|(name, ty)| self.to_rust_type(outer_item, ty).map(|ty| (name.clone(), ty))).collect()),
             ir::Fields::Seq(items) => {
                 let mut accum = FieldsAccum {
                     names: IndexMap::new(),
@@ -201,16 +219,30 @@ impl<'a> Ctx<'a> {
                     let (ty, count) = accum.names.remove(&name).unwrap();
                     Fields::Tuple(vec![resolve_ty(ty, count)])
                 } else {
-                    Fields::Named(accum.names.into_iter().map(|(kind, (ty, count))| {
-                        let ty = resolve_ty(ty, count);
+                    let field_names = accum.names.keys().map(|kind| {
                         match kind {
-                            FieldKind::Named(name) => (name, ty),
-                            FieldKind::Token(name) => {
-                                let name = rust_token_field_name(name);
-                                (name, ty)
-                            },
+                            FieldKind::Named(name) => Some(name.clone()),
+                            FieldKind::Token(name) => Some(rust_token_field_name(name.clone())),
+                            FieldKind::Whitespace(_id) => None,
                         }
-                    }).collect())
+                    }).collect::<Vec<_>>();
+
+                    let fields = accum.names.into_iter().enumerate().map(|(i, (name, (ty, count)))| {
+                        let ty = resolve_ty(ty, count);
+                        let name = match &field_names[i] {
+                            Some(name) => name.clone(),
+                            None => {
+                                if i == 0 {
+                                    field_names.get(1).and_then(|n| n.as_ref()).map(|name| format!("before_{}", name)).unwrap_or("before".to_string())
+                                } else {
+                                    field_names.get(i - 1).and_then(|n| n.as_ref()).map(|name| format!("after_{}", name)).unwrap_or("after".to_string())
+                                }
+                            },
+                        };
+                        (name, ty)
+                    }).collect();
+
+                    Fields::Named(fields)
                 }
             }
         }
@@ -243,49 +275,78 @@ impl<'a> Ctx<'a> {
 
     }
 
-    fn to_rust_type(&mut self, outer_item: &ir::Item, ty: &ir::Type) -> Type {
+    fn to_rust_type(&mut self, outer_item: &ir::Item, ty: &ir::Type) -> Option<Type> {
         match ty {
-            ir::Type::Literal(text) => Type::Named(self.to_token_type(text)),
+            ir::Type::Literal(text) => {
+                if self.options.generate_tokens {
+                    Some(Type::Named(self.to_token_type(text)))
+                } else {
+                    None
+                }
+            },
             ir::Type::Named(id) => {
-                let name = self.to_rust_item_ref(outer_item, id);
-                Type::Named(name)
+                let name = self.to_rust_item_ref(outer_item, id)?;
+                Some(Type::Named(name))
             }
             ir::Type::Ref(_) => todo!(),
             ir::Type::Tuple(_) => todo!(),
             ir::Type::Array(_) => todo!(),
             ir::Type::Generics(base, args) => {
-                let name = self.to_rust_item_ref(outer_item, base);
-                Type::Generics(name, args.iter().map(|arg| self.to_rust_type(outer_item, arg)).collect())
+                let name = self.to_rust_item_ref(outer_item, base).unwrap();
+                Some(Type::Generics(name, args.iter().filter_map(|arg| self.to_rust_type(outer_item, arg)).collect()))
             }
             ir::Type::Field(_, _) => todo!(),
             ir::Type::Option(ty) => {
-                Type::Option(Box::new(self.to_rust_type(outer_item, ty)))
+                Some(Type::Option(Box::new(self.to_rust_type(outer_item, ty)?)))
             }
             ir::Type::Repeat(_) => todo!(),
-            ir::Type::Seq(_) => todo!(),
+            ir::Type::Seq(items) => {
+                // transform this into a tuple
+                let items: Vec<_> = items.iter().filter_map(|item| self.to_rust_type(outer_item, item)).collect();
+                if items.len() == 1 {
+                    Some(items.into_iter().next().unwrap())
+                } else {
+                    Some(Type::Tuple(items))
+                }
+            }
             ir::Type::Unimportant(_) => todo!(),
-            
+            ir::Type::Whitespace => {
+                if self.options.generate_trivia {
+                    Some(Type::Named("Trivia".to_string()))
+                } else {
+                    None
+                }
+            }
         }
     }
 
-    fn to_rust_item_ref(&mut self, outer_item: &ir::Item, base: &ir::ItemRef) -> String {
+    fn to_rust_item_ref(&mut self, outer_item: &ir::Item, base: &ir::ItemRef) -> Option<String> {
         match base {
             ir::ItemRef::Id(id) => {
                 let item = self.ir.item(*id);
-                item.name.clone()
+                Some(item.name.clone())
             },
             ir::ItemRef::Generic(id) => {
-                outer_item.lookup_generic(*id)
+                match outer_item.lookup_generic(*id) {
+                    ast::Generic::Type(ty) => Some(ty.clone()),
+                    ast::Generic::Dollar(ty) => {
+                        if self.options.generate_tokens {
+                            Some(ty.clone())
+                        } else {
+                            None
+                        }
+                    }
+                }
             },
             ir::ItemRef::Builtin(b) => {
-                match b {
+                Some(match b {
                     ir::BuiltinItem::String => "String".to_string(),
                     ir::BuiltinItem::Int => "i32".to_string(),
                     ir::BuiltinItem::Bool => "bool".to_string(),
                     ir::BuiltinItem::Vec => "Vec".to_string(),
                     ir::BuiltinItem::Ident => "Ident".to_string(),
                     ir::BuiltinItem::Box => "Box".to_string(),
-                }
+                })
             }
         }
     }
@@ -296,23 +357,27 @@ impl<'a> Ctx<'a> {
         for ty in tys {
             match ty {
                 ir::Type::Literal(text) => {
-                    accum.insert(FieldKind::Token(text.clone()), Type::Named(self.to_token_type(text)), outer_modifiers);
+                    if self.options.generate_tokens {
+                        accum.insert(FieldKind::Token(text.clone()), Type::Named(self.to_token_type(text)), outer_modifiers);
+                    }
                 }
                 ir::Type::Named(ty) => {
-                    let ty = self.to_rust_item_ref(outer_item, ty);
-                    accum.insert(FieldKind::Named(lowercase_name(&ty)), Type::Named(ty), outer_modifiers);
+                    if let Some(ty) = self.to_rust_item_ref(outer_item, ty) {
+                        accum.insert(FieldKind::Named(lowercase_name(&ty)), Type::Named(ty), outer_modifiers);
+                    }
                 }
                 ir::Type::Ref(_) => todo!(),
                 ir::Type::Tuple(_) => todo!(),
                 ir::Type::Array(_) => todo!(),
                 ir::Type::Generics(name, args) => {
-                    let name = self.to_rust_item_ref(outer_item, name);
-                    let ty = self.to_rust_type(outer_item, ty);
+                    let name = self.to_rust_item_ref(outer_item, name).unwrap();
+                    let ty = self.to_rust_type(outer_item, ty).unwrap();
                     accum.insert(FieldKind::Named(lowercase_name(&name)), ty, outer_modifiers);
                 }
                 ir::Type::Field(name, ty) => {
-                    let ty = self.to_rust_type(outer_item, ty);
-                    accum.insert(FieldKind::Named(name.clone()), ty, outer_modifiers);
+                    if let Some(ty) = self.to_rust_type(outer_item, ty) {
+                        accum.insert(FieldKind::Named(name.clone()), ty, outer_modifiers);
+                    }
                 }
                 ir::Type::Option(ty) => {
                     let modifiers = match outer_modifiers {
@@ -329,6 +394,11 @@ impl<'a> Ctx<'a> {
                 }
                 ir::Type::Unimportant(_) => {
                     // pass, we skip this field
+                }
+                ir::Type::Whitespace => {
+                    if self.options.generate_trivia {
+                        accum.insert_whitespace(outer_modifiers);
+                    }
                 }
             }
         }
@@ -414,6 +484,10 @@ fn name_op(op: &str) -> String {
 }
 
 fn resolve_ty(ty: Type, count: HowMany) -> Type {
+    if ty == Type::Whitespace {
+        // whitespace isn't affected by option/many (it's an array of CommentsOrNewlines, so we just append to the array)
+        return ty;
+    }
     match count {
         HowMany::One => ty,
         HowMany::Option => Type::Option(Box::new(ty)),

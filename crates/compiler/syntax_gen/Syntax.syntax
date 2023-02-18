@@ -17,14 +17,14 @@ struct Struct [
 ]
 
 struct Enum [
-    'enum'
-    name:Ident
-    generics:Generics?
-    '{' variants:Delimited<',', Variant> '}'
+    'enum' .
+    name:Ident .
+    (generics:Generics .)?
+    '{' . variants:Delimited<',', Variant> . '}'
 ]
 
 struct Variant [
-    name:Ident
+    name:Ident .
     (fields: Fields<','>)?
 ]
 
@@ -34,16 +34,21 @@ struct Generics {
 
 enum Fields<Term> {
     Unit[ Term ],
-    Tuple [ '(' Delimited<',', Type> ')' ],
-    Named [ '{' Delimited<',', Field> '}' ],
+    Tuple [ '(' . Delimited<',', Type> . ')' ],
+    Named [ '{' . Delimited<',', Field> . '}' ],
 }
 
 struct Field [
     name:Ident
+    .
+    ':'
+    .
     ty:Type
 ]
 
-type Delimited<Delim, T> = (items:T (!Delim items:T)* !Delim?)?;
+struct Delimited<$Delim, T> [
+    (items:(T .) (!$Delim items:(T .))* !$Delim?)?
+]
 
 enum Type {
     BuiltIn(BuiltIn),

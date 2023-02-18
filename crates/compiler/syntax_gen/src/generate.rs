@@ -1,6 +1,5 @@
 use crate::rust::*;
 
-
 pub fn generate_syntax(syntax: &Syntax) -> String {
     let mut res = String::new();
     for item in &syntax.items {
@@ -8,7 +7,7 @@ pub fn generate_syntax(syntax: &Syntax) -> String {
             Item::Struct(s) => {
                 res.push_str(&format!("pub struct {}", s.name));
                 generate_generics(&mut res, &s.generics);
-                generate_fields(&mut res, &s.fields, true, 1, true);
+                generate_fields(&mut res, &s.fields, true, 0, true);
                 res.push('\n');
             }
             Item::Enum(e) => {
@@ -17,7 +16,7 @@ pub fn generate_syntax(syntax: &Syntax) -> String {
                 res.push_str(" {\n");
                 for (name, fields) in &e.variants {
                     res.push_str(&format!("    {}", name));
-                    generate_fields(&mut res, fields, false, 2, false);
+                    generate_fields(&mut res, fields, false, 1, false);
                     res.push_str(",\n");
                 }
                 res.push_str("}\n");
@@ -60,9 +59,10 @@ fn generate_fields(res: &mut String, fields: &Fields, in_struct: bool, indent: u
         Fields::Named(fields) => {
             res.push_str(" {\n");
             for (name, ty) in fields {
-                res.push_str(&"    ".repeat(indent));
+                res.push_str(&"    ".repeat(indent + 1));
                 res.push_str(&format!("{}{}: {},\n", public, name, generate_ty(&ty)));
             }
+            res.push_str(&"    ".repeat(indent));
             res.push_str("}");
         }
         Fields::Tuple(tys) => {
@@ -74,8 +74,12 @@ fn generate_fields(res: &mut String, fields: &Fields, in_struct: bool, indent: u
                 res.push_str(&generate_ty(ty));
             }
             res.push_str(")");
+            if in_struct {
+                res.push_str(";");
+            } else {
+                // Nothing; unit variants in enums are just the name
+            }
         }
-        Fields::Seq(..) => panic!(),
     }
 }
 
@@ -110,6 +114,7 @@ fn generate_ty(ty: &Type) -> String {
             res
         }
         Type::Option(ty) => format!("Option<{}>", generate_ty(&ty)),
+        Type::Whitespace => "Trivia".to_string(),
         _ => panic!("unhanlded type: {:?}", ty),
     }
 }

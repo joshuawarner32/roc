@@ -21,7 +21,7 @@ pub struct Item {
     pub kind: ItemKind,
 }
 impl Item {
-    pub(crate) fn lookup_generic(&self, id: GenericId) -> String {
+    pub(crate) fn lookup_generic(&self, id: GenericId) -> ast::Generic {
         self.generics.params[id.0].clone()
     }
 }
@@ -35,12 +35,6 @@ pub enum ItemKind {
         variants: Vec<(String, Fields)>,
     },
     Typedef(Type),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Generic {
-    Type(String),
-    Dollar(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,6 +58,7 @@ pub enum Type {
     Repeat(Box<Type>),
     Seq(Vec<Type>),
     Unimportant(Box<Type>),
+    Whitespace,
 }
 
 pub fn convert_syntax(syntax: ast::Syntax) -> Syntax {
@@ -122,7 +117,7 @@ pub struct GenericId(usize);
 
 struct Ctx {
     sym_tab: HashMap<String, ItemRef>,
-    generics_sym_tab: HashMap<String, GenericId>,
+    generics_sym_tab: HashMap<ast::Generic, GenericId>,
 }
 
 impl Ctx {
@@ -214,7 +209,7 @@ impl Ctx {
 
     fn lookup_ty_name(&self, name: &str) -> ItemRef {
 
-        if let Some(item) = self.generics_sym_tab.get(name) {
+        if let Some(item) = self.generics_sym_tab.get(&ast::Generic::Type(name.to_string())) {
             return ItemRef::Generic(*item);
         }
 
@@ -264,6 +259,10 @@ impl Ctx {
                 let inner = self.convert_type(*inner);
                 Type::Unimportant(Box::new(inner))
             }
+            ast::Type::Dollar(name) => {
+                Type::Named(ItemRef::Generic(*self.generics_sym_tab.get(&ast::Generic::Dollar(name)).unwrap()))
+            }
+            ast::Type::Whitespace => Type::Whitespace
         }
     }
 }
