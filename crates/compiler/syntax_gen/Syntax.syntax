@@ -32,8 +32,8 @@ struct Generics {
     params: Vec<String>,
 }
 
-enum Fields<Term> {
-    Unit[ Term ],
+enum Fields<$Term> {
+    Unit[ $Term ],
     Tuple [ '(' . Delimited<',', Type> . ')' ],
     Named [ '{' . Delimited<',', Field> . '}' ],
 }

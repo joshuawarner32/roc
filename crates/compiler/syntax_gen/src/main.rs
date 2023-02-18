@@ -25,6 +25,7 @@ fn main() {
     let ir = convert_syntax(syntax);
 
     let rust_syntax = to_rust_syntax(&ir, Options {
+        generate_loc: true,
         generate_tokens: false,
         generate_trivia: false,
     });

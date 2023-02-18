@@ -86,6 +86,7 @@ pub fn to_rust_syntax(ir: &ir::Syntax, options: Options) -> Syntax {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Options {
+    pub generate_loc: bool,
     pub generate_tokens: bool,
     pub generate_trivia: bool,
 }
@@ -275,6 +276,14 @@ impl<'a> Ctx<'a> {
 
     }
 
+    fn locify(&self, ty: Type) -> Type {
+        if self.options.generate_loc {
+            Type::Generics("Loc".to_string(), vec![ty])
+        } else {
+            ty
+        }
+    }
+
     fn to_rust_type(&mut self, outer_item: &ir::Item, ty: &ir::Type) -> Option<Type> {
         match ty {
             ir::Type::Literal(text) => {
@@ -286,7 +295,7 @@ impl<'a> Ctx<'a> {
             },
             ir::Type::Named(id) => {
                 let name = self.to_rust_item_ref(outer_item, id)?;
-                Some(Type::Named(name))
+                Some(self.locify(Type::Named(name)))
             }
             ir::Type::Ref(_) => todo!(),
             ir::Type::Tuple(_) => todo!(),

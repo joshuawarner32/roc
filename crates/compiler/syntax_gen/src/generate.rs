@@ -85,7 +85,7 @@ fn generate_fields(res: &mut String, fields: &Fields, in_struct: bool, indent: u
 
 fn generate_ty(ty: &Type) -> String {
     match ty {
-        Type::Named(name) => name.to_string(),
+        Type::Named(ty) => ty.clone(),
         Type::Ref(ty) => format!("&{}", generate_ty(&ty)),
         Type::Tuple(tys) => {
             let mut res = String::new();
@@ -103,14 +103,16 @@ fn generate_ty(ty: &Type) -> String {
         Type::Generics(ty, tys) => {
             let mut res = String::new();
             res.push_str(&ty);
-            res.push('<');
-            for (i, ty) in tys.iter().enumerate() {
-                if i > 0 {
-                    res.push_str(", ");
+            if tys.len() > 0 {
+                res.push('<');
+                for (i, ty) in tys.iter().enumerate() {
+                    if i > 0 {
+                        res.push_str(", ");
+                    }
+                    res.push_str(&generate_ty(ty));
                 }
-                res.push_str(&generate_ty(ty));
+                res.push('>');
             }
-            res.push('>');
             res
         }
         Type::Option(ty) => format!("Option<{}>", generate_ty(&ty)),
