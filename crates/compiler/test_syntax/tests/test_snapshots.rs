@@ -575,6 +575,11 @@ mod test_snapshots {
                     panic!("Found an error highlight token in the input: {:?}", token);
                 }
             }
+
+            let tokens = roc_parse::token::tokenize(&source);
+            if tokens.messages.len() > 0 {
+                panic!("Found an error message in the input: {:?}", tokens.messages);
+            }
         }
 
         let actual_result =
