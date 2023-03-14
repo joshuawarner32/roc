@@ -26,6 +26,10 @@ pub enum Token {
     KwRequires = 0b0001_0110,
     KwProvides = 0b0001_0111,
     KwTo = 0b0001_1000,
+    KwInterface = 0b0001_1001,
+    KwApp = 0b0001_1010,
+    KwPlatform = 0b0001_1011,
+    KwHosted = 0b0001_1100,
 
     // "Other", which all match the pattern 0b0010_xxxx
     UpperIdent = 0b0010_0000,
@@ -794,6 +798,10 @@ impl<'a> Cursor<'a> {
                 b"requires" => Token::KwRequires,
                 b"provides" => Token::KwProvides,
                 b"to" => Token::KwTo,
+                b"interface" => Token::KwInterface,
+                b"app" => Token::KwApp,
+                b"platform" => Token::KwPlatform,
+                b"hosted" => Token::KwHosted,
                 _ => Token::LowerIdent,
             }
         } else {

@@ -22,3 +22,4 @@ pub mod string_literal;
 pub mod test_helpers;
 pub mod type_annotation;
 pub mod token;
+pub mod tree;
