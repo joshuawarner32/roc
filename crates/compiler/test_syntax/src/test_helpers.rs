@@ -149,6 +149,17 @@ impl<'a> Input<'a> {
         match self {
             Input::Header(input) => {
                 let header = parse_header_with(arena, input)?;
+
+                let tokens = roc_parse::token::tokenize(input);
+                let res = roc_parse::tree::parse::<roc_parse::tree::Header>(&tokens.tokens, &tokens.token_offsets, arena);
+                match res {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let s = roc_parse::tree::debug_parse_error(&tokens.tokens, &tokens.token_offsets, &input, e);
+                        eprintln!("{}", s);
+                        panic!("Error parsing header");
+                    }
+                }
                 Ok(Output::Header(header))
             }
 

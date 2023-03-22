@@ -427,7 +427,7 @@ mod test_snapshots {
         pass/record_type_with_function.expr,
         pass/record_update.expr,
         pass/record_with_if.expr,
-        pass/requires_type.header,
+        pass/requires_type.full,
         pass/single_arg_closure.expr,
         pass/single_underscore_closure.expr,
         pass/space_only_after_minus.expr,

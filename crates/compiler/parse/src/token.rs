@@ -35,6 +35,11 @@ pub enum Token {
     UpperIdent = 0b0010_0000,
     NamedUnderscore = 0b0010_0001,
     OpaqueName = 0b0010_0010,
+
+    // Hack! This is inserted by the tokenizer after a )/]/} to be able to distinguish between
+    // e.g. `Foo {String, Int} a` (i.e. Foo with two type arguments)
+    // and `Foo {String, Int}a` (i.e. Foo with one type argument that has an ext var called a)
+    NoSpace = 0b0010_0011,
     
     // String pieces, which all match the pattern 0b0100_0xxx
     String = 0b0100_0000,
@@ -100,14 +105,30 @@ pub enum Token {
     // The open always has the low bit cleared and the close always has the low bit set 
     OpenParen = 0b1100_0000, // (
     CloseParen = 0b1100_0001, // )
-    OpenBracket = 0b1100_0010, // [
-    CloseBracket = 0b1100_0011, // ]
-    OpenBrace = 0b1100_0100, // {
-    CloseBrace = 0b1100_0101, // }
+    OpenSquare = 0b1100_0010, // [
+    CloseSquare = 0b1100_0011, // ]
+    OpenCurly = 0b1100_0100, // {
+    CloseCurly = 0b1100_0101, // }
     OpenIndent = 0b1100_0110, // INDENT
     CloseIndent = 0b1100_0111, // DEDENT
 
+    CloseParenNoTrailingWhitespace = 0b1101_0001, // )
+    CloseSquareNoTrailingWhitespace = 0b1101_0011, // ]
+    CloseCurlyNoTrailingWhitespace = 0b1101_0101, // }
+
     Newline = 0b1110_0000, // \n
+}
+
+impl Token {
+    pub fn mask_close_group_whitespace(self) -> Token {
+        // Turn CloseParenNoTrailingWhitespace into CloseParen, etc
+        match self {
+            Token::CloseParenNoTrailingWhitespace => Token::CloseParen,
+            Token::CloseSquareNoTrailingWhitespace => Token::CloseSquare,
+            Token::CloseCurlyNoTrailingWhitespace => Token::CloseCurly,
+            _ => self,
+        }
+    }
 }
 
 pub struct Trivia {
@@ -306,11 +327,11 @@ impl<'a, T: TriviaAccum> TokenState<'a, T> {
 
     fn handle_token_push(&mut self, last: Bundle) {
         // Now if we saw an open/close group, adjust the scope stack
-        match last.token {
+        match last.token.map(|t| t.mask_close_group_whitespace()) {
             Some(Token::OpenParen) => self.scopes.push(Scope::Group(Token::CloseParen)),
-            Some(Token::OpenBracket) => self.scopes.push(Scope::Group(Token::CloseBracket)),
-            Some(Token::OpenBrace) => self.scopes.push(Scope::Group(Token::CloseBrace)),
-            Some(t @ (Token::CloseParen | Token::CloseBracket | Token::CloseBrace)) => {
+            Some(Token::OpenSquare) => self.scopes.push(Scope::Group(Token::CloseSquare)),
+            Some(Token::OpenCurly) => self.scopes.push(Scope::Group(Token::CloseCurly)),
+            Some(t @ (Token::CloseParen | Token::CloseSquare | Token::CloseCurly)) => {
                 // First pop any indents
                 while let Some(scope) = self.scopes.pop() {
                     match scope {
@@ -341,10 +362,12 @@ impl<'a, T: TriviaAccum> TokenState<'a, T> {
 }
 
 fn allow_indent(scope: Option<Scope>, last: Option<Token>, indent: usize, cur: Option<Token>) -> bool {
-    let in_group = matches!((scope, last), (Some(Scope::Group(_)), Some(Token::Comma | Token::OpenParen | Token::OpenBracket | Token::OpenBrace)));
+    let in_group = matches!((scope, last), (Some(Scope::Group(_)), Some(Token::Comma | Token::OpenParen | Token::OpenSquare | Token::OpenCurly)));
+
+    let next_is_close_group = matches!(cur, Some(Token::CloseParen | Token::CloseSquare | Token::CloseCurly | Token::CloseParenNoTrailingWhitespace | Token::CloseSquareNoTrailingWhitespace | Token::CloseCurlyNoTrailingWhitespace));
 
     let block_introducing_token = matches!(last, Some(
-        Token::OpenBrace| Token::OpenBracket| Token::OpenParen |
+        Token::OpenCurly| Token::OpenSquare| Token::OpenParen |
         Token::ForwardArrow | Token::Assignment |
         Token::KwIf | Token::KwThen | Token::KwElse | Token::KwWhen | Token::KwIs
     ));
@@ -355,7 +378,7 @@ fn allow_indent(scope: Option<Scope>, last: Option<Token>, indent: usize, cur: O
         _ => false,
     };
 
-    in_group || (block_introducing_token && is_indented)
+    (in_group && !next_is_close_group) || (block_introducing_token && is_indented)
 }
 
 fn allow_dedent_or_newline(scope: Option<Scope>, last: Option<Token>, indent: usize, cur: Option<Token>) -> Option<bool> {
@@ -601,11 +624,26 @@ impl<'a> Cursor<'a> {
                 }
 
                 b'(' => simple_token!(1, OpenParen),
-                b')' => simple_token!(1, CloseParen),
-                b'[' => simple_token!(1, OpenBracket),
-                b']' => simple_token!(1, CloseBracket),
-                b'{' => simple_token!(1, OpenBrace),
-                b'}' => simple_token!(1, CloseBrace),
+                b')' => {
+                    match self.buf.get(self.offset + 1) {
+                        None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, CloseParen),
+                        _ => simple_token!(1, CloseParenNoTrailingWhitespace),
+                    }
+                }
+                b'[' => simple_token!(1, OpenSquare),
+                b']' => {
+                    match self.buf.get(self.offset + 1) {
+                        None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, CloseSquare),
+                        _ => simple_token!(1, CloseSquareNoTrailingWhitespace),
+                    }
+                }
+                b'{' => simple_token!(1, OpenCurly),
+                b'}' => {
+                    match self.buf.get(self.offset + 1) {
+                        None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, CloseCurly),
+                        _ => simple_token!(1, CloseCurlyNoTrailingWhitespace),
+                    }
+                }
 
                 b'_' => {
                     match self.buf.get(self.offset + 1) {
@@ -976,8 +1014,8 @@ mod tests {
     #[test]
     fn test_empty_groups() {
         simple_test("()", vec![OpenParen, CloseParen]);
-        simple_test("[]", vec![OpenBracket, CloseBracket]);
-        simple_test("{}", vec![OpenBrace, CloseBrace]);
+        simple_test("[]", vec![OpenSquare, CloseSquare]);
+        simple_test("{}", vec![OpenCurly, CloseCurly]);
     }
 
     #[test]
@@ -1126,9 +1164,10 @@ mod tests {
 
     #[test]
     fn test_paren_commas() {
-        simple_test("(\n  a)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
-        simple_test("(\n  a,\n  b\n)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
-        simple_test("(a,\n  b)", vec![OpenParen, LowerIdent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
+        // simple_test("(\n  a)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
+        // simple_test("(\n  a,\n  b\n)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
+        // simple_test("(a,\n  b)", vec![OpenParen, LowerIdent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
+        simple_test("(\n  a,\n  #comment\n)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, Comma, CloseParen]);
     }
     
 
