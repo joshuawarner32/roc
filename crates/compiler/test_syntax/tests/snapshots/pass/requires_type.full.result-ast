@@ -1,0 +1,167 @@
+Full {
+    header: Module {
+        comments: [],
+        header: Platform(
+            PlatformHeader {
+                before_name: [],
+                name: @9-21 PackageName(
+                    "test/types",
+                ),
+                requires: KeywordItem {
+                    keyword: Spaces {
+                        before: [
+                            Newline,
+                        ],
+                        item: RequiresKeyword,
+                        after: [],
+                    },
+                    item: PlatformRequires {
+                        rigids: [
+                            @37-42 UppercaseIdent(
+                                "Flags",
+                            ),
+                            @44-49 UppercaseIdent(
+                                "Model",
+                            ),
+                        ],
+                        signature: @55-77 TypedIdent {
+                            ident: @55-59 "main",
+                            spaces_before_colon: [],
+                            ann: @62-77 Apply(
+                                "",
+                                "App",
+                                [
+                                    @66-71 Apply(
+                                        "",
+                                        "Flags",
+                                        [],
+                                    ),
+                                    @72-77 Apply(
+                                        "",
+                                        "Model",
+                                        [],
+                                    ),
+                                ],
+                            ),
+                        },
+                    },
+                },
+                exposes: KeywordItem {
+                    keyword: Spaces {
+                        before: [
+                            Newline,
+                        ],
+                        item: ExposesKeyword,
+                        after: [],
+                    },
+                    item: [],
+                },
+                packages: KeywordItem {
+                    keyword: Spaces {
+                        before: [
+                            Newline,
+                        ],
+                        item: PackagesKeyword,
+                        after: [],
+                    },
+                    item: [],
+                },
+                imports: KeywordItem {
+                    keyword: Spaces {
+                        before: [
+                            Newline,
+                        ],
+                        item: ImportsKeyword,
+                        after: [],
+                    },
+                    item: [],
+                },
+                provides: KeywordItem {
+                    keyword: Spaces {
+                        before: [
+                            Newline,
+                        ],
+                        item: ProvidesKeyword,
+                        after: [],
+                    },
+                    item: [
+                        @141-152 ExposedName(
+                            "mainForHost",
+                        ),
+                    ],
+                },
+            },
+        ),
+    },
+    module_defs: Defs {
+        tags: [
+            Index(2147483649),
+        ],
+        regions: [
+            @156-204,
+        ],
+        space_before: [
+            Slice(start = 0, length = 2),
+        ],
+        space_after: [
+            Slice(start = 2, length = 0),
+        ],
+        spaces: [
+            Newline,
+            Newline,
+        ],
+        type_defs: [],
+        value_defs: [
+            Annotation(
+                @156-167 Identifier(
+                    "mainForHost",
+                ),
+                @170-185 Apply(
+                    "",
+                    "App",
+                    [
+                        @174-179 Apply(
+                            "",
+                            "Flags",
+                            [],
+                        ),
+                        @180-185 Apply(
+                            "",
+                            "Model",
+                            [],
+                        ),
+                    ],
+                ),
+            ),
+            AnnotatedBody {
+                ann_pattern: @156-167 Identifier(
+                    "mainForHost",
+                ),
+                ann_type: @170-185 Apply(
+                    "",
+                    "App",
+                    [
+                        @174-179 Apply(
+                            "",
+                            "Flags",
+                            [],
+                        ),
+                        @180-185 Apply(
+                            "",
+                            "Model",
+                            [],
+                        ),
+                    ],
+                ),
+                comment: None,
+                body_pattern: @186-197 Identifier(
+                    "mainForHost",
+                ),
+                body_expr: @200-204 Var {
+                    module_name: "",
+                    ident: "main",
+                },
+            },
+        ],
+    },
+}
