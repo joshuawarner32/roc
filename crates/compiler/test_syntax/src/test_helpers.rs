@@ -5,7 +5,7 @@ use roc_parse::{
     module::module_defs,
     parser::{Parser, SyntaxError},
     state::State,
-    test_helpers::{parse_defs_with, parse_expr_with, parse_header_with},
+    test_helpers::{parse_defs_with, parse_expr_with, parse_header_with}, tree::Parse,
 };
 use roc_test_utils::assert_multiline_str_eq;
 
@@ -150,26 +150,24 @@ impl<'a> Input<'a> {
             Input::Header(input) => {
                 let header = parse_header_with(arena, input)?;
 
-                let tokens = roc_parse::token::tokenize(input);
-                let res = roc_parse::tree::parse::<roc_parse::tree::Header>(&tokens.tokens, &tokens.token_offsets, arena);
-                match res {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let s = roc_parse::tree::debug_parse_error(&tokens.tokens, &tokens.token_offsets, &input, e);
-                        eprintln!("{}", s);
-                        panic!("Error parsing header");
-                    }
-                }
+                parse_all_tokens::<roc_parse::tree::Header>(input, arena);
+
                 Ok(Output::Header(header))
             }
 
             Input::ModuleDefs(input) => {
                 let module_defs = parse_defs_with(arena, input)?;
+
+                parse_all_tokens::<roc_parse::tree::Block>(input, arena);
+
                 Ok(Output::ModuleDefs(module_defs))
             }
 
             Input::Expr(input) => {
                 let expr = parse_expr_with(arena, input)?;
+
+                parse_all_tokens::<roc_parse::tree::Block>(input, arena);
+                
                 Ok(Output::Expr(expr))
             }
 
@@ -184,6 +182,8 @@ impl<'a> Input<'a> {
                 let (_, module_defs, _state) = module_defs()
                     .parse(arena, state, min_indent)
                     .map_err(|(_, fail)| fail)?;
+
+                parse_all_tokens::<roc_parse::tree::Root>(input, arena);
 
                 Ok(Output::Full {
                     header,
@@ -263,6 +263,19 @@ impl<'a> Input<'a> {
 
                 assert_multiline_str_eq!(output.as_ref().as_str(), reformatted.as_ref().as_str());
             }
+        }
+    }
+}
+
+fn parse_all_tokens<'a, T: Parse<'a>>(input: &str, arena: &'a Bump) {
+    let tokens = roc_parse::token::tokenize(input);
+    let res = roc_parse::tree::parse::<T>(&tokens.tokens, &tokens.token_offsets, arena);
+    match res {
+        Ok(_) => {}
+        Err(e) => {
+            let s = roc_parse::tree::debug_parse_error(&tokens.tokens, &tokens.token_offsets, &input, e);
+            eprintln!("{}", s);
+            panic!("Error parsing header");
         }
     }
 }

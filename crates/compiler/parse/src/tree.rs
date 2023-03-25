@@ -10,6 +10,12 @@ pub struct ExposedName(pub TokenId);
 #[derive(Debug, Clone, Copy)]
 pub struct StrLiteral(pub TokenId);
 #[derive(Debug, Clone, Copy)]
+pub struct FloatLiteral(pub TokenId);
+#[derive(Debug, Clone, Copy)]
+pub struct IntLiteral(pub TokenId);
+#[derive(Debug, Clone, Copy)]
+pub struct SingleQuoteLiteral(pub TokenId);
+#[derive(Debug, Clone, Copy)]
 pub struct PackageName(pub StrLiteral);
 #[derive(Debug, Clone, Copy)]
 pub struct PackageShorthand(pub LowercaseIdent);
@@ -19,6 +25,14 @@ pub struct UppercaseIdent(pub TokenId);
 pub struct LowercaseIdent(pub TokenId);
 #[derive(Debug, Clone, Copy)]
 pub struct FieldName(pub LowercaseIdent);
+#[derive(Debug, Clone, Copy)]
+pub struct ValueAccess(pub LowercaseIdent);
+#[derive(Debug, Clone, Copy)]
+pub struct ValueDef(pub LowercaseIdent);
+#[derive(Debug, Clone, Copy)]
+pub struct TupleIndex(pub IntLiteral);
+#[derive(Debug, Clone, Copy)]
+pub struct Underscore(pub TokenId);
 
 #[derive(Debug, Clone, Copy)]
 pub struct ModuleName {
@@ -38,6 +52,8 @@ pub struct TypeName(pub UppercaseIdent);
 pub struct TypeVariableName(pub LowercaseIdent);
 #[derive(Debug, Clone, Copy)]
 pub struct TagName(pub UppercaseIdent);
+#[derive(Debug, Clone, Copy)]
+pub struct OpaqueName(pub TokenId);
 
 #[derive(Debug, Clone, Copy)]
 pub struct ListCurly<'a, T>(pub &'a [T]);
@@ -140,6 +156,7 @@ pub enum TypeAnnotation<'a> {
     Function(&'a [TypeAnnotation<'a>], &'a TypeAnnotation<'a>),
 
     /// Applying a type to some arguments (e.g. Map.Map String Int)
+    /// Note that the arguments may be empty (e.g. Map.Map)
     Apply(QualifiedTypeName, &'a [TypeAnnotation<'a>]),
 
     /// A bound type variable, e.g. `a` in `(a -> a)`
@@ -184,8 +201,8 @@ pub enum TypeAnnotation<'a> {
 
 }
 
-/// Should always be a zero-argument `Apply`; we'll check this in canonicalization
-pub type AbilityName<'a> = TypeAnnotation<'a>;
+#[derive(Debug, Clone, Copy)]
+pub struct AbilityName(pub UppercaseIdent);
 
 #[derive(Debug, Clone, Copy)]
 pub struct Tag<'a> {
@@ -196,7 +213,7 @@ pub struct Tag<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct HasClause<'a> {
     pub var: LowercaseIdent,
-    pub abilities: &'a [AbilityName<'a>],
+    pub abilities: &'a [AbilityName],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -213,51 +230,203 @@ pub struct AssignedField<T> {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Block<'a> {
-    pub items: &'a [StmtOrExpr<'a>],
+    pub items: &'a [Expr<'a>],
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum StmtOrExpr<'a> {
-    Stmt(Stmt),
-    Expr(Expr<'a>),
+#[derive(Debug, Copy, Clone)]
+pub enum Accessor {
+    RecordField(FieldName),
+    TupleIndex(TupleIndex),
 }
 
-
-#[derive(Debug, Clone, Copy)]
-pub enum Stmt {}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone)]
 pub enum Expr<'a> {
-    BinOp(BinOp, &'a Expr<'a>, &'a Expr<'a>),
+    // Number Literals
+    Float(FloatLiteral),
+
+    /// Integer Literals, e.g. `42`
+    Num(IntLiteral),
+
+    /// String Literals, e.g. `"foo"`
+    Str(StrLiteral),
+
+    /// eg 'b'
+    SingleQuote(SingleQuoteLiteral),
+
+    /// Look up exactly one field on a record or tuple, e.g. `x.foo` or `x.0`.
+    Access(&'a Expr<'a>, Accessor),
+
+    /// e.g. `.foo` or `.0`
+    AccessorFunction(Accessor),
+
+    /// List literals, e.g. `[1, 2, 3]`
+    List(ListSquare<'a, Expr<'a>>),
+
+    /// Record updates (e.g. `{ x & y: 3 }`)
+    RecordUpdate {
+        update: &'a Expr<'a>,
+        fields: ListCurly<'a, AssignedField<Expr<'a>>>,
+    },
+
+    /// Record literals, e.g. `{ x: 1, y: 2 }`
+    Record(ListCurly<'a, AssignedField<Expr<'a>>>),
+
+    /// Tuple literals, e.g. `(1, 2)`
+    Tuple(ListParen<'a, Expr<'a>>),
+
+    /// A variable, e.g. `x` or `SomeModule.x`
+    Var {
+        module_name: ModuleName, // Note: possibly empty
+        ident: ValueAccess,
+    },
+
+    /// An underscore, e.g. `_` or `_x`
+    Underscore(Underscore),
+
+    /// The "crash" keyword
+    Crash,
+
+    /// Tag
+    Tag(TagName),
+
+    /// Reference to an opaque type, e.g. @Opaq
+    OpaqueRef(OpaqueName),
+
+    /// Closure, e.g. `\x -> x`
+    Closure(&'a [Pattern<'a>], &'a Expr<'a>),
+
+    /// Indented block of statements and expressions
+    Block(Block<'a>),
+
+    /// A dbg expression, e.g. `dbg x`
+    Dbg(&'a Expr<'a>, &'a Expr<'a>),
+
+    /// Function application, e.g. `f x`
+    Apply(&'a Expr<'a>, &'a [Expr<'a>]),
+
+    /// Binary operator, e.g. `x + y`
+    BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
+
+    /// Unary operator, e.g. `-x`
+    UnaryOp(UnaryOp, &'a Expr<'a>),
+
+    /// If expression, e.g. `if x then y else z`
+    If(&'a [(Expr<'a>, Expr<'a>)], &'a Expr<'a>),
+
+    /// A when expression, e.g. `when x is y -> z` (you need a newline after the 'is')
+    When(
+        /// The condition
+        &'a Expr<'a>,
+        /// A | B if bool -> expression
+        /// <Pattern 1> | <Pattern 2> if <Guard> -> <Expr>
+        /// Vec, because there may be many patterns, and the guard
+        /// is Option<Expr> because each branch may be preceded by
+        /// a guard (".. if ..").
+        &'a [WhenBranch<'a>],
+    ),
+
+    TypeAnnotation(ValueDef, &'a TypeAnnotation<'a>),
+
+    Assignment(&'a Pattern<'a>, &'a Expr<'a>),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UnaryOp {
+    /// (-), e.g. (-x)
+    Negate,
+    /// (!), e.g. (!x)
+    Not,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BinOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    Eq,
-    Neq,
-    Lt,
-    Lte,
-    Gt,
-    Gte,
+    // highest precedence
+    Caret,
+    Star,
+    Slash,
+    DoubleSlash,
+    Percent,
+    Plus,
+    Minus,
+    Equals,
+    NotEquals,
+    LessThan,
+    GreaterThan,
+    LessThanOrEq,
+    GreaterThanOrEq,
     And,
     Or,
+    Pizza,
+    // lowest precedence
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct WhenBranch<'a> {
+    pub patterns: &'a [Pattern<'a>],
+    pub body: Expr<'a>,
+    pub guard: Option<Expr<'a>>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Pattern<'a> {
+    /// Identifier, e.g. `x`
+    Identifier(ValueDef),
+
+    /// Tag, e.g. `Just` in `Just x`
+    Tag(TagName),
+
+    /// Opaque reference, e.g. `@Opaq`
+    OpaqueRef(OpaqueName),
+
+    /// Function application, e.g. `f x`
+    Apply(&'a Pattern<'a>, &'a [Pattern<'a>]),
+
+    /// A record pattern, e.g. `{ x, y }` or `{ x, y: Just z }`
+    RecordDestructure(ListCurly<'a, FieldPattern<'a>>),
+
+    /// An integer literal, e.g. `42`
+    NumLiteral(IntLiteral),
+    FloatLiteral(FloatLiteral),
+    StrLiteral(StrLiteral),
+    Underscore(Underscore),
+    SingleQuote(SingleQuoteLiteral),
+
+    /// A tuple pattern, e.g. (Just x, 1)
+    Tuple(ListParen<'a, Pattern<'a>>),
+
+    /// A list pattern like [_, x, ..]
+    List(ListSquare<'a, ListItemPattern<'a>>),
+
+    /// As, e.g. `x as y`
+    As(&'a Pattern<'a>, ValueDef),
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Pattern<'a> {
-    Var(LowercaseIdent),
-    Tag(TagName),
-    Apply(&'a Pattern<'a>, &'a [Pattern<'a>]),
+pub enum ListItemPattern<'a> {
+    /// A pattern, e.g. `x`
+    Pattern(&'a Pattern<'a>),
+    /// A rest pattern, e.g. `..`
+    RestPattern(&'a Pattern<'a>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum FieldPattern<'a> {
+    /// Identifier, e.g. `x`
+    Identifier(ValueDef),
+
+    /// A required field pattern, e.g. { x: Just 0 } -> ...
+    /// Can only occur inside of a RecordDestructure
+    RequiredField(FieldName, &'a Pattern<'a>),
+
+    /// An optional field pattern, e.g. { x ? Just 0 } -> ...
+    /// Can only occur inside of a RecordDestructure
+    OptionalField(FieldName, &'a Expr<'a>),
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Context {
     Root,
+    FieldPattern,
     Header,
     InterfaceHeader,
     AppHeader,
@@ -285,6 +454,9 @@ pub enum Context {
     AssignedField,
     FieldName,
     Tag,
+    Expr,
+    Block,
+    Pattern,
 }
 
 #[derive(Debug, Clone)]
@@ -305,6 +477,8 @@ pub enum ErrorKind {
     ExpectedTagApply,
     HigherOrderTypeAnnotation,
     ExpectedTypeAnnotationEnd,
+    ExpectedNewline,
+    ExpectedNoModuleName,
 }
 
 pub trait Parse<'a>: Sized {
@@ -497,7 +671,7 @@ impl<'a> Parse<'a> for QualifiedTypeName {
         let initial = p.expect(Token::UpperIdent)?;
         let mut count = 1;
         let mut last = initial;
-        if (p.peek() == Some(Token::DotNoLeadingWhitespace) || p.peek() == Some(Token::DotLeadingWhitespace)) && p.peek_ahead(1) == Some(Token::UpperIdent) {
+        while (p.peek() == Some(Token::DotNoLeadingWhitespace) || p.peek() == Some(Token::DotLeadingWhitespace)) && p.peek_ahead(1) == Some(Token::UpperIdent) {
             p.token_index += 1;
             last = TokenId(p.token_index as u32);
             p.token_index += 1;
@@ -685,6 +859,424 @@ impl<'a> Parse<'a> for TypedIdent<'a> {
 //     }
 // }
 
+impl<'a> Parse<'a> for Block<'a> {
+    const CONTEXT: Context = Context::Block;
+    fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
+        let mut items = Vec::new_in(p.arena);
+        loop {
+            if p.peek_terminator() {
+                break;
+            }
+            items.push(parse_stmt_or_expr(p)?);
+            match p.peek() {
+                Some(Token::Newline) => p.token_index += 1,
+                None | Some(Token::CloseIndent) => break,
+                _ => return Err(p.error(ErrorKind::ExpectedNewline)),
+            }
+        }
+
+        Ok(Block { items: items.into_bump_slice() })
+    }
+}
+
+impl<'a> Parse<'a> for Pattern<'a> {
+    const CONTEXT: Context = Context::Pattern;
+    fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
+        match p.peek() {
+            Some(Token::OpenCurly) => {
+                p.token_index += 1;
+                let items = p.parse_comma_sep_list()?;
+                p.expect_masking_whitespace(Token::CloseCurly)?;
+                Ok(Pattern::RecordDestructure(ListCurly(items.into_bump_slice())))
+            }
+            _ => todo!("{:?}", p.peek()),
+        }
+    }
+}
+
+impl<'a> Parse<'a> for FieldPattern<'a> {
+    const CONTEXT: Context = Context::FieldPattern;
+    fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
+        let name = p.parse()?;
+
+        if p.consume(Token::Colon).is_some() {
+            let pat = p.parse()?;
+            Ok(FieldPattern::RequiredField(FieldName(name), p.arena.alloc(pat)))
+        } else if p.consume(Token::Question).is_some() {
+            let pat = p.parse()?;
+            Ok(FieldPattern::OptionalField(FieldName(name), p.arena.alloc(pat)))
+        } else {
+            Ok(FieldPattern::Identifier(ValueDef(name)))
+        }
+    }
+}
+
+impl<'a> Parse<'a> for Expr<'a> {
+    const CONTEXT: Context = Context::Expr;
+    fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
+        parse_expr(p, Prec::Pizza)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Prec {
+    Pizza,
+    AndOr, // BinOp::And, BinOp::Or,
+    Compare, // BinOp::Equals, BinOp::NotEquals, BinOp::LessThan, BinOp::GreaterThan, BinOp::LessThanOrEq, BinOp::GreaterThanOrEq,
+    Add, // BinOp::Plus, BinOp::Minus,
+    Multiply, // BinOp::Star, BinOp::Slash, BinOp::DoubleSlash, BinOp::Percent,
+    Exponent, // BinOp::Caret
+}
+
+impl Prec {
+    fn next(self) -> Prec {
+        match self {
+            Prec::Pizza => Prec::AndOr,
+            Prec::AndOr => Prec::Compare,
+            Prec::Compare => Prec::Add,
+            Prec::Add => Prec::Multiply,
+            Prec::Multiply => Prec::Exponent,
+            Prec::Exponent => Prec::Exponent,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Assoc {
+    Left,
+    Right,
+    NonAssociative,
+}
+
+impl BinOp {
+    fn prec(self) -> Prec {
+        match self {
+            BinOp::Caret => Prec::Exponent,
+            BinOp::Star | BinOp::Slash | BinOp::DoubleSlash | BinOp::Percent => Prec::Multiply,
+            BinOp::Plus | BinOp::Minus => Prec::Add,
+            BinOp::Equals | BinOp::NotEquals | BinOp::LessThan | BinOp::GreaterThan | BinOp::LessThanOrEq | BinOp::GreaterThanOrEq => Prec::Compare,
+            BinOp::And | BinOp::Or => Prec::AndOr,
+            BinOp::Pizza => Prec::Pizza,
+        }
+    }
+
+    fn assoc(self) -> Assoc {
+        match self {
+            BinOp::Caret => Assoc::Right,
+            BinOp::Star | BinOp::Slash | BinOp::DoubleSlash | BinOp::Percent => Assoc::Left,
+            BinOp::Plus | BinOp::Minus => Assoc::Left,
+            BinOp::Equals | BinOp::NotEquals | BinOp::LessThan | BinOp::GreaterThan | BinOp::LessThanOrEq | BinOp::GreaterThanOrEq => Assoc::NonAssociative,
+            BinOp::And | BinOp::Or => Assoc::Left,
+            BinOp::Pizza => Assoc::Left,
+        }
+    }
+}
+
+fn parse_stmt_or_expr<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error> {
+    let first = parse_expr(p, Prec::Pizza)?;
+
+    match p.peek() {
+        Some(Token::Colon) => {
+            let name = match first {
+                Expr::Var { module_name, ident } => {
+                    if module_name.name_count > 0 {
+                        return Err(p.error(ErrorKind::ExpectedNoModuleName));
+                    }
+                    ident
+                },
+                _ => todo!(),
+            };
+
+            p.token_index += 1;
+
+            let ty = p.parse()?;
+
+            Ok(Expr::TypeAnnotation(ValueDef(name.0), p.arena.alloc(ty)))
+        }
+        Some(Token::Assignment) => {
+            p.token_index += 1;
+
+            let pat = expr_to_pattern(p.arena, first)
+                .map_err(|kind| p.error(kind))?; // TODO: use error_at and an appropriate location
+
+            let value = p.parse()?;
+
+            Ok(Expr::Assignment(pat, p.arena.alloc(value)))
+        }
+        Some(Token::ColonEqual) => {
+            todo!();
+        }
+        None | Some(Token::Newline) | Some(Token::CloseIndent) => Ok(first),
+        _ => todo!("{:?}", p.peek()),
+    }
+}
+
+fn expr_to_pattern<'a>(arena: &'a Bump, expr: Expr<'a>) -> Result<&'a Pattern<'a>, ErrorKind> {
+    match expr {
+        Expr::Float(_) => todo!(),
+        Expr::Num(_) => todo!(),
+        Expr::Str(_) => todo!(),
+        Expr::SingleQuote(_) => todo!(),
+        Expr::Access(_, _) => todo!(),
+        Expr::AccessorFunction(_) => todo!(),
+        Expr::List(_) => todo!(),
+        Expr::RecordUpdate { update, fields } => todo!(),
+        Expr::Record(_) => todo!(),
+        Expr::Tuple(_) => todo!(),
+        Expr::Var { module_name, ident } => {
+            if module_name.name_count > 0 {
+                return Err(ErrorKind::ExpectedNoModuleName);
+            }
+            Ok(arena.alloc(Pattern::Identifier(ValueDef(ident.0))))
+        }
+        Expr::Underscore(_) => todo!(),
+        Expr::Crash => todo!(),
+        Expr::Tag(_) => todo!(),
+        Expr::OpaqueRef(_) => todo!(),
+        Expr::Closure(_, _) => todo!(),
+        Expr::Block(_) => todo!(),
+        Expr::Dbg(_, _) => todo!(),
+        Expr::Apply(_, _) => todo!(),
+        Expr::BinOp(_, _, _) => todo!(),
+        Expr::UnaryOp(_, _) => todo!(),
+        Expr::If(_, _) => todo!(),
+        Expr::When(_, _) => todo!(),
+        Expr::TypeAnnotation(_, _) => todo!(),
+        Expr::Assignment(_, _) => todo!(),
+    }
+}
+
+fn parse_expr<'a, 't>(p: &mut Parser<'a, 't>, min_prec: Prec) -> Result<Expr<'a>, Error> {
+    let mut result = parse_expr_atom(p)?;
+
+    loop {
+        let op = match p.peek() {
+            Some(Token::Colon | Token::ColonEqual | Token::Assignment | Token::Newline | Token::KwIs | Token::KwThen) => break,
+
+            Some(Token::Comma | Token::Ampersand) => break,
+            Some(t) if t.is_terminator() => break,
+            None => break,
+            Some(Token::And) => BinOp::And,
+            Some(Token::Or) => BinOp::Or,
+            Some(Token::Equals) => BinOp::Equals,
+            Some(Token::NotEquals) => BinOp::NotEquals,
+            Some(Token::LessThan) => BinOp::LessThan,
+            Some(Token::GreaterThan) => BinOp::GreaterThan,
+            Some(Token::LessThanOrEq) => BinOp::LessThanOrEq,
+            Some(Token::GreaterThanOrEq) => BinOp::GreaterThanOrEq,
+            Some(Token::Plus) => BinOp::Plus,
+            Some(Token::MinusTrailingWhitespace) => BinOp::Minus,
+            Some(Token::Star) => BinOp::Star,
+            Some(Token::Slash) => BinOp::Slash,
+            Some(Token::DoubleSlash) => BinOp::DoubleSlash,
+            Some(Token::Percent) => BinOp::Percent,
+            Some(Token::Caret) => BinOp::Caret,
+
+            Some(Token::LowerIdent | Token::UpperIdent) => {
+                // This is a call
+                todo!();
+            }
+            _ => todo!("{:?}", p.peek()),
+        };
+
+        let op_prec = op.prec();
+        let assoc = op.assoc();
+
+        // TODO: check that the associativity is right here!!!!!!
+        if op_prec < min_prec || (op_prec == min_prec && assoc == Assoc::Right) {
+            break;
+        }
+
+        p.token_index += 1;
+
+        let next_min_prec = if assoc == Assoc::Left {
+            op_prec
+        } else {
+            op_prec.next()
+        };
+
+        let second = parse_expr(p, next_min_prec)?;
+
+        result = Expr::BinOp(p.arena.alloc(result), op, p.arena.alloc(second));
+    }
+    
+    Ok(result)
+}
+
+fn parse_expr_atom<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error> {
+    match p.peek() {
+        Some(Token::LowerIdent) => {
+            let name = p.expect(Token::LowerIdent)?;
+
+            Ok(Expr::Var { module_name: ModuleName { start: name, name_count: 0}, ident: ValueAccess(LowercaseIdent(name)) })
+        }
+        Some(Token::UpperIdent) => {
+            let initial = p.expect(Token::UpperIdent)?;
+            let mut count = 1;
+            let mut last = initial;
+            while p.peek() == Some(Token::DotNoLeadingWhitespace) {
+                p.token_index += 1;
+
+                match p.peek() {
+                    Some(Token::UpperIdent) => {
+                        last = TokenId(p.token_index as u32);
+                        p.token_index += 1;
+                        count += 1;
+                    }
+                    Some(Token::LowerIdent) => {
+                        last = TokenId(p.token_index as u32);
+                        p.token_index += 1;
+                        // This must be a module.field access; start parsing any further field accesses
+                        return parse_field_accesses(p, Expr::Var { module_name: ModuleName { start: initial, name_count: count - 1}, ident: ValueAccess(LowercaseIdent(last)) });
+                    }
+                    _ => todo!("{:?}", p.peek()),
+                }
+            }
+
+            if count == 1 {
+                Ok(Expr::Tag(TagName(UppercaseIdent(initial))))
+            } else {
+                let module = ModuleName {
+                    start: initial,
+                    name_count: count - 1,
+                };
+
+                let ty = TypeName(UppercaseIdent(last));
+
+                // QualifiedTypeName {
+                //     module,
+                //     ty
+                // }
+                todo!();
+            }
+        }
+        Some(Token::IntBase10) => {
+            let num = p.expect(Token::IntBase10)?;
+
+            Ok(Expr::Num(IntLiteral(num)))
+        }
+        Some(Token::IntNonBase10) => {
+            let num = p.expect(Token::IntNonBase10)?;
+
+            Ok(Expr::Num(IntLiteral(num)))
+        }
+        Some(Token::OpenParen) => {
+            p.expect(Token::OpenParen)?;
+            let items = p.parse_comma_sep_list()?;
+            p.expect_masking_whitespace(Token::CloseParen)?;
+
+            if items.len() == 1 {
+                Ok(items[0])
+            } else {
+                Ok(Expr::Tuple(ListParen(items.into_bump_slice())))
+            }
+        }
+        Some(Token::OpenCurly) => {
+            p.expect(Token::OpenCurly)?;
+            let first = p.parse()?;
+            let mut items = Vec::new_in(p.arena);
+
+            if p.consume(Token::Ampersand).is_some() {
+                // This is a record update
+            } else {
+                if p.consume(Token::Comma).is_some() {
+                    items.push(AssignedField { name: expr_to_field_name(first)?, value: first });
+                } else {
+                    p.expect(Token::Colon)?;
+                    let expr = p.parse()?;
+                    items.push(AssignedField { name: expr_to_field_name(first)?, value: expr });
+                }
+            }
+            let items = p.append_comma_sep_list(items)?;
+            p.expect_masking_whitespace(Token::CloseCurly)?;
+
+            Ok(Expr::Record(ListCurly(items.into_bump_slice())))
+        }
+        Some(Token::KwWhen) => parse_expr_when(p),
+        Some(Token::KwIf) => parse_expr_if(p),
+        _ => todo!("{:?}", p.peek()),
+    }
+}
+
+fn parse_field_accesses<'a, 't>(p: &mut Parser<'a, 't>, mut expr: Expr<'a>) -> Result<Expr<'a>, Error> {
+    while p.peek() == Some(Token::DotNoLeadingWhitespace) {
+        p.token_index += 1;
+
+        match p.peek() {
+            Some(Token::LowerIdent) => {
+                let last = TokenId(p.token_index as u32);
+                p.token_index += 1;
+                expr = Expr::Access(p.arena.alloc(expr), Accessor::RecordField(FieldName(LowercaseIdent(last))));
+            }
+            Some(Token::IntBase10) => {
+                let last = TokenId(p.token_index as u32);
+                p.token_index += 1;
+                expr = Expr::Access(p.arena.alloc(expr), Accessor::TupleIndex(TupleIndex(IntLiteral(last))));
+            }
+            _ => todo!("{:?}", p.peek()),
+        }
+    }
+
+    Ok(expr)
+}
+
+fn expr_to_field_name(expr: Expr) -> Result<FieldName, Error> {
+    match expr {
+        Expr::Var { module_name, ident } => {
+            if module_name.name_count == 0 {
+                match ident {
+                    ValueAccess(name) => Ok(FieldName(name)),
+                    _ => todo!(),
+                }
+            } else {
+                todo!()
+            }
+        }
+        _ => todo!(),
+    }
+}
+
+fn parse_expr_when<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error> {
+    p.expect(Token::KwWhen)?;
+    let cond = p.parse()?;
+    p.expect(Token::KwIs)?;
+    p.expect(Token::OpenIndent)?;
+    let mut branches = Vec::new_in(p.arena);
+    while !p.peek_terminator() {
+        let mut patterns = Vec::new_in(p.arena);
+        patterns.push(p.parse()?);
+        while p.consume(Token::Bar).is_some() {
+            patterns.push(p.parse()?);
+        }
+        let guard = p.optional_if(Token::KwIf, |p| p.parse())?;
+        p.expect(Token::ForwardArrow)?;
+        let body = p.parse()?;
+        branches.push(WhenBranch { patterns: patterns.into_bump_slice(), body, guard });
+    }
+    p.expect(Token::CloseIndent)?;
+
+    Ok(Expr::When(p.arena.alloc(cond), branches.into_bump_slice()))
+}
+
+fn parse_expr_if<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error> {
+    let mut branches = Vec::new_in(p.arena);
+    loop {
+        p.expect(Token::KwIf)?;
+        let cond = p.parse()?;
+        p.expect(Token::KwThen)?;
+        let then = p.parse()?;
+        branches.push((cond, then));
+        p.expect(Token::KwElse)?;
+
+        if p.peek() == Some(Token::KwIf) {
+            continue;
+        } else {
+            let else_ = p.parse()?;
+            return Ok(Expr::If(branches.into_bump_slice(), p.arena.alloc(else_)));
+        };
+    }
+}
+
 impl<'a> Parse<'a> for TypeAnnotation<'a> {
     const CONTEXT: Context = Context::TypeAnnotation;
     fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
@@ -700,13 +1292,35 @@ impl<'a> Parse<'a> for TypeAnnotation<'a> {
 
     fn parse_seq_item<'t>(p: &mut Parser<'a, 't>, seq: &mut Vec<'a, Self>) -> Result<(), Error> {
         let start_index = seq.len();
+        dbg!();
 
         loop {
-            let part = parse_type_annotation_part(p)?;
+            dbg!(&seq);
+            let part = dbg!(parse_type_annotation_part(p)?);
 
             seq.push(part);
 
-            match p.peek() {
+            match dbg!(p.peek()) {
+                Some(Token::Bar) => {
+                    p.token_index += 1;
+
+                    let mut items = Vec::new_in(p.arena);
+
+                    let name = p.expect(Token::LowerIdent)?;
+                    p.expect(Token::KwHas)?;
+                    let abilities = parse_ability_list(p);
+
+                    items.push((name, abilities));
+
+                    while p.consume(Token::Comma).is_some() {
+                        let name = p.expect(Token::LowerIdent)?;
+                        p.expect(Token::KwHas)?;
+                        let abilities = parse_ability_list(p);
+
+                        items.push((name, abilities));
+                    }
+                    break;
+                }
                 Some(Token::ForwardArrow) => {
                     p.token_index += 1;
                     let res = p.parse()?;
@@ -716,6 +1330,7 @@ impl<'a> Parse<'a> for TypeAnnotation<'a> {
                     );
                     seq.truncate(start_index);
                     seq.push(item);
+                    break;
                 }
                 Some(Token::Comma) => {
                     p.token_index += 1;
@@ -724,6 +1339,7 @@ impl<'a> Parse<'a> for TypeAnnotation<'a> {
                 Some(Token::CloseCurly | Token::CloseSquare | Token::CloseParen | Token::CloseIndent |
                     Token::CloseCurlyNoTrailingWhitespace | Token::CloseSquareNoTrailingWhitespace |
                     Token::CloseParenNoTrailingWhitespace) => {
+                        // panic!();
                     break;
                 }
                 _ => {
@@ -732,8 +1348,18 @@ impl<'a> Parse<'a> for TypeAnnotation<'a> {
             }
         }
 
-        Ok(())
+        dbg!(Ok(()))
     }
+}
+
+fn parse_ability_list<'a, 't>(p: &mut Parser<'a, 't>) -> Result<&'a [AbilityName], Error> {
+    let mut abilities = Vec::new_in(p.arena);
+    abilities.push(AbilityName(p.parse()?));
+    while p.consume(Token::Ampersand).is_some() {
+        let ability = p.parse()?;
+        abilities.push(AbilityName(ability));
+    }
+    Ok(abilities.into_bump_slice())
 }
 
 fn is_type_annotation_seq_term(token: Option<Token>) -> bool {
@@ -746,7 +1372,7 @@ fn is_type_annotation_seq_term(token: Option<Token>) -> bool {
 }
 
 fn parse_type_annotation_part<'a, 't>(p: &mut Parser<'a, 't>) -> Result<TypeAnnotation<'a>, Error> {
-    Ok(match p.peek() {
+    let res = match p.peek() {
         Some(Token::OpenParen) => {
             p.expect(Token::OpenParen)?;
             let items = p.parse_comma_sep_list()?;
@@ -835,8 +1461,8 @@ fn parse_type_annotation_part<'a, 't>(p: &mut Parser<'a, 't>) -> Result<TypeAnno
             // parse type arguments immediately after (no parens, no delimeters)
             loop {
                 match p.peek() {
-                    Some(Token::OpenParen | Token::OpenCurly | Token::OpenSquare | Token::Star | Token::Underscore | Token::UpperIdent) => {
-                        args.push(parse_type_annotation_part(p)?);
+                    Some(Token::OpenParen | Token::OpenCurly | Token::OpenSquare | Token::Star | Token::Underscore | Token::UpperIdent | Token::LowerIdent) => {
+                        args.push(dbg!(parse_type_annotation_part(p)?));
                     }
                     _ => break,
                 }
@@ -844,8 +1470,14 @@ fn parse_type_annotation_part<'a, 't>(p: &mut Parser<'a, 't>) -> Result<TypeAnno
 
             TypeAnnotation::Apply(ty, args.into_bump_slice())
         }
+        Some(Token::LowerIdent) => {
+            let name = p.parse()?;
+            TypeAnnotation::BoundVariable(TypeVariableName(name))
+        }
         _ => todo!("{:?}", p.peek()),
-    })
+    };
+
+    dbg!(Ok(res))
 }
 
 impl<'a, T: Parse<'a>> Parse<'a> for AssignedField<T> {
@@ -948,12 +1580,7 @@ impl<'a, 't> Parser<'a, 't> {
     }
 
     fn peek_terminator(&self) -> bool {
-        self.peek().map(|t| match t {
-            Token::CloseCurly | Token::CloseSquare | Token::CloseParen | Token::CloseIndent |
-            Token::CloseCurlyNoTrailingWhitespace | Token::CloseSquareNoTrailingWhitespace |
-            Token::CloseParenNoTrailingWhitespace => true,
-            _ => false,
-        }).unwrap_or_default()
+        self.peek().map(|t| t.is_terminator()).unwrap_or_default()
     }
 
     fn peek_ahead(&self, index: usize) -> Option<Token> {
@@ -1054,7 +1681,11 @@ impl<'a, 't> Parser<'a, 't> {
     }
 
     fn parse_comma_sep_list<P: Parse<'a>>(&mut self) -> Result<Vec<'a, P>, Error> {
-        let mut items = Vec::new_in(self.arena);
+        let items = Vec::new_in(self.arena);
+        self.append_comma_sep_list(items)
+    }
+
+    fn append_comma_sep_list<P: Parse<'a>>(&mut self, mut items: Vec<'a, P>) -> Result<Vec<'a, P>, Error> {
         loop {
             if self.peek_terminator() {
                 break;

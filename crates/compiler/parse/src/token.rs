@@ -129,6 +129,15 @@ impl Token {
             _ => self,
         }
     }
+
+    pub fn is_terminator(self) -> bool {
+        match self {
+            Token::CloseCurly | Token::CloseSquare | Token::CloseParen | Token::CloseIndent |
+            Token::CloseCurlyNoTrailingWhitespace | Token::CloseSquareNoTrailingWhitespace |
+            Token::CloseParenNoTrailingWhitespace => true,
+            _ => false,
+        }
+    }
 }
 
 pub struct Trivia {
