@@ -63,6 +63,7 @@ pub enum Token {
     IntBase10 = 0b0101_0000,
     IntNonBase10 = 0b0101_0001,
     Float = 0b0101_0010,
+    IntBase10Neg = 0b0101_0100,
 
     // Symbols, which all match the pattern 0b10xx_xxxx
     Bang = 0b1000_0000, // !
@@ -138,6 +139,49 @@ impl Token {
             _ => false,
         }
     }
+
+    pub fn to_binop(self) -> Option<BinOp> {
+        match self {
+            Token::And => Some(BinOp::And),
+            Token::Or => Some(BinOp::Or),
+            Token::Equals => Some(BinOp::Equals),
+            Token::NotEquals => Some(BinOp::NotEquals),
+            Token::LessThan => Some(BinOp::LessThan),
+            Token::GreaterThan => Some(BinOp::GreaterThan),
+            Token::LessThanOrEq => Some(BinOp::LessThanOrEq),
+            Token::GreaterThanOrEq => Some(BinOp::GreaterThanOrEq),
+            Token::Plus => Some(BinOp::Plus),
+            Token::MinusTrailingWhitespace => Some(BinOp::Minus),
+            Token::Star => Some(BinOp::Star),
+            Token::Slash => Some(BinOp::Slash),
+            Token::DoubleSlash => Some(BinOp::DoubleSlash),
+            Token::Percent => Some(BinOp::Percent),
+            Token::Caret => Some(BinOp::Caret),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BinOp {
+    // highest precedence
+    Caret,
+    Star,
+    Slash,
+    DoubleSlash,
+    Percent,
+    Plus,
+    Minus,
+    Equals,
+    NotEquals,
+    LessThan,
+    GreaterThan,
+    LessThanOrEq,
+    GreaterThanOrEq,
+    And,
+    Or,
+    Pizza,
+    // lowest precedence
 }
 
 pub struct Trivia {
@@ -283,7 +327,7 @@ impl<'a, T: TriviaAccum> TokenState<'a, T> {
     }
 
     fn append(&mut self, token: Token, offset: usize) {
-        eprintln!("==> {:?}", token);
+        // eprintln!("==> {:?}", token);
         self.tokens.push(token);
         self.token_offsets.push(offset as u32);
     }
@@ -297,16 +341,16 @@ impl<'a, T: TriviaAccum> TokenState<'a, T> {
 
 
             if let Some(index) = outer_group {
-                eprintln!("Saw comma newline; popping {} scopes", self.scopes.len() - outer_group.unwrap_or(0) - 1);
+                // eprintln!("Saw comma newline; popping {} scopes", self.scopes.len() - outer_group.unwrap_or(0) - 1);
                 // Pop all the scopes up to the outer group
                 while self.scopes.len() > index + 1 {
                     let outer = self.scopes.pop();
-                    eprintln!("  Popping scope {:?}", outer.unwrap());
+                    // eprintln!("  Popping scope {:?}", outer.unwrap());
                     self.append(Token::CloseIndent, last.offset);
                     assert!(matches!(outer, Some(Scope::Indent(_))));
                 }
             } else {
-                eprintln!("Saw comma newline; no outer group");
+                // eprintln!("Saw comma newline; no outer group");
             }
         }
 
@@ -398,10 +442,8 @@ fn allow_dedent_or_newline(scope: Option<Scope>, last: Option<Token>, indent: us
     match scope {
         Some(Scope::Indent(outer_indent)) => {
             if indent < outer_indent {
-                eprintln!("a");
                 Some(false)
             } else if indent == outer_indent && !is_bin_op_maybe(cur) {
-                eprintln!("b");
                 Some(true)
             } else {
                 None
@@ -409,7 +451,6 @@ fn allow_dedent_or_newline(scope: Option<Scope>, last: Option<Token>, indent: us
         }
         None => {
             if indent == 0 && !is_bin_op_maybe(cur) {
-                eprintln!("c");
                 Some(true)
             } else {
                 None
@@ -497,7 +538,7 @@ impl<'a> Cursor<'a> {
             }
         }
 
-        self.saw_whitespace = self.offset > start;
+        self.saw_whitespace = self.offset == 0 || self.offset > start;
 
         saw_newline
     }
@@ -565,6 +606,9 @@ impl<'a> Cursor<'a> {
                     match self.buf.get(self.offset + 1) {
                         Some(b'>') => simple_token!(2, ForwardArrow),
                         Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, MinusTrailingWhitespace),
+                        Some(b @ b'0'..=b'9') => {
+                            Some(self.chomp_number(*b, true))
+                        },
                         _ => simple_token!(1, MinusNoTrailingWhitespace),
                     }
                 }
@@ -686,7 +730,7 @@ impl<'a> Cursor<'a> {
                     }
                 }
 
-                b'0'..=b'9' => Some(self.chomp_number(*b)),
+                b'0'..=b'9' => Some(self.chomp_number(*b, false)),
 
                 b'a'..=b'z' => Some(self.chomp_ident_lower()),
 
@@ -712,7 +756,7 @@ impl<'a> Cursor<'a> {
         None
     }
 
-    fn chomp_number(&mut self, b: u8) -> Token {
+    fn chomp_number(&mut self, b: u8, neg: bool) -> Token {
         let start = self.offset;
         self.offset += 1;
 
@@ -1173,12 +1217,11 @@ mod tests {
 
     #[test]
     fn test_paren_commas() {
-        // simple_test("(\n  a)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
-        // simple_test("(\n  a,\n  b\n)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
-        // simple_test("(a,\n  b)", vec![OpenParen, LowerIdent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
+        simple_test("(\n  a)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
+        simple_test("(\n  a,\n  b\n)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
+        simple_test("(a,\n  b)", vec![OpenParen, LowerIdent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
         simple_test("(\n  a,\n  #comment\n)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, Comma, CloseParen]);
     }
-    
 
     #[test]
     fn test_multibackpassing() {
@@ -1190,5 +1233,13 @@ mod tests {
             OpenIndent, LowerIdent, Comma, LowerIdent, BackArrow, LowerIdent, CloseIndent, 
             CloseParen,
         ]);
+    }
+
+    #[test]
+    fn test_when() {
+        simple_test("when a is\n  1 -> 2\n  2 -> 3", vec![KwWhen, LowerIdent, KwIs, OpenIndent, IntBase10, ForwardArrow, IntBase10, Newline, IntBase10, ForwardArrow, IntBase10, CloseIndent]);
+
+        // This doesn't work because the tokenizer doesn't have a baseline for the indent level, so it can't insert OpenIndent / Newline tokens
+        // simple_test("(when a is\n  1 -> 2\n  2 -> 3)", vec![OpenParen, KwWhen, LowerIdent, KwIs, OpenIndent, IntBase10, ForwardArrow, IntBase10, Newline, IntBase10, ForwardArrow, IntBase10, CloseIndent, CloseParen]);
     }
 }
