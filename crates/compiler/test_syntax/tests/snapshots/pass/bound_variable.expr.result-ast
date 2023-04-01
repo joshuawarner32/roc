@@ -30,7 +30,12 @@ Defs(
             ),
         ],
     },
-    @5-6 Num(
-        "0",
+    @5-6 SpaceBefore(
+        Num(
+            "0",
+        ),
+        [
+            Newline,
+        ],
     ),
 )

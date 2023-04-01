@@ -485,7 +485,13 @@ fn is_bin_op(token: Token) -> bool {
         Token::LessThanOrEq |
         Token::And |
         Token::Or |
-        Token::DoubleSlash
+        Token::DoubleSlash |
+
+        // Technically not binops, but we want to treat them as such
+        Token::Assignment |
+        Token::ColonEqual |
+        Token::Colon |
+        Token::Bar
     )
 }
 

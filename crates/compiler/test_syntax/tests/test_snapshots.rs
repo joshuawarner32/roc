@@ -558,7 +558,7 @@ mod test_snapshots {
         let input = func(&source);
 
         let arena = Bump::new();
-        let result = match input.parse_in(&arena) {
+        let result = match input.parse_in(&arena, expect == TestExpectation::Malformed) {
             Ok(ast) => {
                 if expect == TestExpectation::Pass {
                     assert!(!ast.is_malformed());
@@ -594,7 +594,7 @@ mod test_snapshots {
         compare_snapshots(&result_path, Some(&actual_result));
 
         if expect == TestExpectation::Pass || expect == TestExpectation::Malformed {
-            input.check_invariants(check_saved_formatting(input.as_str(), formatted_path), true);
+            input.check_invariants(check_saved_formatting(input.as_str(), formatted_path), true, expect == TestExpectation::Malformed);
         }
     }
 

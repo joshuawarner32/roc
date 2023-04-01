@@ -145,12 +145,14 @@ impl<'a> Input<'a> {
         }
     }
 
-    pub fn parse_in(&self, arena: &'a Bump) -> Result<Output<'a>, SyntaxError<'a>> {
+    pub fn parse_in(&self, arena: &'a Bump, expect_malformed: bool) -> Result<Output<'a>, SyntaxError<'a>> {
         match self {
             Input::Header(input) => {
                 let header = parse_header_with(arena, input)?;
 
-                parse_all_tokens::<roc_parse::tree::Header>(input, arena);
+                if !expect_malformed {
+                    parse_all_tokens::<roc_parse::tree::Header>(input, arena);
+                }
 
                 Ok(Output::Header(header))
             }
@@ -158,7 +160,9 @@ impl<'a> Input<'a> {
             Input::ModuleDefs(input) => {
                 let module_defs = parse_defs_with(arena, input)?;
 
-                parse_all_tokens::<roc_parse::tree::Block>(input, arena);
+                if !expect_malformed {
+                    parse_all_tokens::<roc_parse::tree::Block>(input, arena);
+                }
 
                 Ok(Output::ModuleDefs(module_defs))
             }
@@ -166,7 +170,9 @@ impl<'a> Input<'a> {
             Input::Expr(input) => {
                 let expr = parse_expr_with(arena, input)?;
 
-                parse_all_tokens::<roc_parse::tree::Block>(input, arena);
+                if !expect_malformed {
+                    parse_all_tokens::<roc_parse::tree::Block>(input, arena);
+                }
                 
                 Ok(Output::Expr(expr))
             }
@@ -183,7 +189,9 @@ impl<'a> Input<'a> {
                     .parse(arena, state, min_indent)
                     .map_err(|(_, fail)| fail)?;
 
-                parse_all_tokens::<roc_parse::tree::Root>(input, arena);
+                if !expect_malformed {
+                    parse_all_tokens::<roc_parse::tree::Root>(input, arena);
+                }
 
                 Ok(Output::Full {
                     header,
@@ -202,10 +210,11 @@ impl<'a> Input<'a> {
         &self,
         handle_formatted_output: impl Fn(Input),
         check_idempotency: bool,
+        expect_malformed: bool,
     ) {
         let arena = Bump::new();
 
-        let actual = self.parse_in(&arena).unwrap_or_else(|err| {
+        let actual = self.parse_in(&arena, expect_malformed).unwrap_or_else(|err| {
             panic!("Unexpected parse failure when parsing this for formatting:\n\n{}\n\nParse error was:\n\n{:?}\n\n", self.as_str(), err);
         });
 
@@ -213,7 +222,7 @@ impl<'a> Input<'a> {
 
         handle_formatted_output(output.as_ref());
 
-        let reparsed_ast = output.as_ref().parse_in(&arena).unwrap_or_else(|err| {
+        let reparsed_ast = output.as_ref().parse_in(&arena, expect_malformed).unwrap_or_else(|err| {
             panic!(
                 "After formatting, the source code no longer parsed!\n\n\
                 Parse error was: {:?}\n\n\

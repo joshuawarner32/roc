@@ -325,6 +325,10 @@ pub enum Expr<'a> {
         &'a [WhenBranch<'a>],
     ),
 
+
+    // TODO: move these vvvvv to a Stmt type
+
+
     /// Type annotation, e.g. `x: Num *` or `f: Str, Str -> Str`
     TypeAnnotation(ValueDef, &'a TypeAnnotation<'a>),
 
@@ -333,6 +337,34 @@ pub enum Expr<'a> {
 
     /// Expect, e.g. `expect 1 + 2 == 3`
     Expect(&'a Expr<'a>),
+
+    TypeDef {
+        header: TypeHeader<'a>,
+        typ: TypeAnnotation<'a>,
+    },
+
+    OpaqueTypeDef {
+        header: TypeHeader<'a>,
+        typ: TypeAnnotation<'a>,
+        abilities: Option<ListSquare<'a, Ability<'a>>>,
+    },
+
+    Ability {
+        header: TypeHeader<'a>,
+        members: &'a [AbilityMember<'a>],
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct AbilityMember<'a> {
+    pub name: ValueDef,
+    pub typ: &'a TypeAnnotation<'a>,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Ability<'a> {
+    name: AbilityName,
+    impls: Option<ListCurly<'a, LowercaseIdent>>, // TODO: might need to be more general than LowercaseIdent
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -409,6 +441,8 @@ pub enum FieldPattern<'a> {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Context {
     Root,
+    Ability,
+    AbilityName,
     ListItemPattern,
     FieldPattern,
     Accessor,
@@ -643,6 +677,22 @@ impl<'a> Parse<'a> for FieldName {
     const CONTEXT: Context = Context::FieldName;
     fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
         Ok(FieldName(LowercaseIdent(p.expect(Token::LowerIdent)?)))
+    }
+}
+
+impl<'a> Parse<'a> for AbilityName {
+    const CONTEXT: Context = Context::AbilityName;
+    fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
+        Ok(AbilityName(UppercaseIdent(p.expect(Token::UpperIdent)?)))
+    }
+}
+
+impl<'a> Parse<'a> for Ability<'a> {
+    const CONTEXT: Context = Context::Ability;
+    fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
+        let name = p.parse()?;
+        let impls = p.optional_if(Token::OpenCurly, |p| p.parse())?;
+        Ok(Ability { name, impls })
     }
 }
 
@@ -1055,21 +1105,25 @@ fn parse_stmt_or_expr<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error>
 
     match p.peek() {
         Some(Token::Colon) => {
-            let name = match first {
+            p.token_index += 1;
+
+            match first {
                 Expr::Var { module_name, ident } => {
                     if module_name.name_count > 0 {
                         return Err(p.error(ErrorKind::ExpectedNoModuleName));
                     }
-                    ident
+
+                    let ty = p.parse()?;
+
+                    Ok(Expr::TypeAnnotation(ValueDef(ident.0), p.arena.alloc(ty)))
+                },
+                Expr::Tag(name) => {
+                    let ty = p.parse()?;
+
+                    Ok(Expr::TypeDef { header: TypeHeader { name: TypeName(name.0), vars: &[] }, typ: ty })
                 },
                 _ => todo!("{:?}", first),
-            };
-
-            p.token_index += 1;
-
-            let ty = p.parse()?;
-
-            Ok(Expr::TypeAnnotation(ValueDef(name.0), p.arena.alloc(ty)))
+            }
         }
         Some(Token::Assignment) => {
             p.token_index += 1;
@@ -1079,23 +1133,91 @@ fn parse_stmt_or_expr<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error>
 
             let value = p.parse()?;
 
-            Ok(Expr::Assignment(pat, p.arena.alloc(value)))
+            Ok(Expr::Assignment(p.arena.alloc(pat), p.arena.alloc(value)))
         }
         Some(Token::ColonEqual) => {
-            todo!();
+            p.token_index += 1;
+
+            let pat = expr_to_pattern(p.arena, first)
+                .map_err(|kind| p.error(kind))?; // TODO: use error_at and an appropriate location
+
+            let typ = p.parse()?;
+            let abilities = p.optional_if(Token::KwHas, |p| {
+                p.expect(Token::KwHas)?;
+                p.parse()
+            })?;
+
+            let header = match pat {
+                Pattern::Apply(&Pattern::Tag(name), alias_args) => {
+                    TypeHeader {
+                        name: TypeName(name.0),
+                        vars: alias_args,
+                    }
+                }
+                Pattern::Tag(name) => {
+                    TypeHeader {
+                        name: TypeName(name.0),
+                        vars: &[],
+                    }
+                }
+                _ => todo!(),
+            };
+
+            Ok(Expr::OpaqueTypeDef { header, typ, abilities })
         }
         Some(Token::BackArrow) => {
             todo!();
         }
         Some(Token::KwHas) => {
-            todo!();
+            p.token_index += 1;
+
+            let pat = expr_to_pattern(p.arena, first)
+                .map_err(|kind| p.error(kind))?; // TODO: use error_at and an appropriate location
+
+            let header = match pat {
+                Pattern::Apply(&Pattern::Tag(name), alias_args) => {
+                    TypeHeader {
+                        name: TypeName(name.0),
+                        vars: alias_args,
+                    }
+                }
+                Pattern::Tag(name) => {
+                    TypeHeader {
+                        name: TypeName(name.0),
+                        vars: &[],
+                    }
+                }
+                _ => todo!(),
+            };
+
+            p.expect(Token::OpenIndent)?;
+
+            let mut members = Vec::new_in(p.arena);
+
+            loop {
+                let name = ValueDef(p.parse()?);
+                let typ = p.arena.alloc(p.parse()?);
+
+                members.push(AbilityMember { name, typ });
+
+                if p.consume(Token::Newline).is_none() {
+                    break;
+                }
+            }
+
+            p.expect(Token::CloseIndent)?;
+
+            Ok(Expr::Ability {
+                header,
+                members: members.into_bump_slice(),
+            })
         }
         None | Some(Token::Newline) | Some(Token::CloseIndent) => Ok(first),
         _ => todo!("{:?}", p.peek()),
     }
 }
 
-fn expr_to_pattern<'a>(arena: &'a Bump, expr: Expr<'a>) -> Result<&'a Pattern<'a>, ErrorKind> {
+fn expr_to_pattern<'a>(arena: &'a Bump, expr: Expr<'a>) -> Result<Pattern<'a>, ErrorKind> {
     match expr {
         Expr::Float(_) => todo!(),
         Expr::Num(_) => todo!(),
@@ -1111,16 +1233,23 @@ fn expr_to_pattern<'a>(arena: &'a Bump, expr: Expr<'a>) -> Result<&'a Pattern<'a
             if module_name.name_count > 0 {
                 return Err(ErrorKind::ExpectedNoModuleName);
             }
-            Ok(arena.alloc(Pattern::Identifier(ValueDef(ident.0))))
+            Ok(Pattern::Identifier(ValueDef(ident.0)))
         }
         Expr::Underscore(_) => todo!(),
         Expr::Crash => todo!(),
-        Expr::Tag(_) => todo!(),
+        Expr::Tag(name) => Ok(Pattern::Tag(name)),
         Expr::OpaqueRef(_) => todo!(),
         Expr::Closure(_, _) => todo!(),
         Expr::Block(_) => todo!(),
         Expr::Dbg => todo!(),
-        Expr::Apply(_, _) => todo!(),
+        Expr::Apply(func, args) => {
+            let func = expr_to_pattern(arena, *func)?;
+            let mut pat_args = Vec::new_in(arena);
+            for arg in args {
+                pat_args.push(expr_to_pattern(arena, *arg)?);
+            }
+            Ok(Pattern::Apply(arena.alloc(func), pat_args.into_bump_slice()))
+        }
         Expr::BinOp(_, _, _) => todo!(),
         Expr::UnaryOp(_, _) => todo!(),
         Expr::If(_, _) => todo!(),
@@ -1129,6 +1258,10 @@ fn expr_to_pattern<'a>(arena: &'a Bump, expr: Expr<'a>) -> Result<&'a Pattern<'a
         Expr::Assignment(_, _) => todo!(),
 
         Expr::Expect(_) => todo!(),
+        Expr::OpaqueTypeDef { header: _, typ: _, abilities: _ } => todo!(),
+        Expr::TypeDef { header: _, typ: _} => todo!(),
+        Expr::Ability { header, members } => todo!(),
+        
     }
 }
 
@@ -1520,7 +1653,7 @@ impl<'a> Parse<'a> for TypeAnnotation<'a> {
                 }
                 Some(Token::CloseCurly | Token::CloseSquare | Token::CloseParen | Token::CloseIndent |
                     Token::CloseCurlyNoTrailingWhitespace | Token::CloseSquareNoTrailingWhitespace |
-                    Token::CloseParenNoTrailingWhitespace | Token::Newline) => {
+                    Token::CloseParenNoTrailingWhitespace | Token::Newline | Token::KwHas) => {
                         // panic!();
                     break;
                 }
