@@ -422,7 +422,7 @@ fn allow_indent(scope: Option<Scope>, last: Option<Token>, indent: usize, cur: O
     let block_introducing_token = matches!(last, Some(
         Token::OpenCurly| Token::OpenSquare| Token::OpenParen |
         Token::ForwardArrow | Token::Assignment |
-        Token::KwIf | Token::KwThen | Token::KwElse | Token::KwWhen | Token::KwIs
+        Token::KwIf | Token::KwThen | Token::KwElse | Token::KwWhen | Token::KwIs | Token::KwHas
     ));
 
     let is_indented = match scope {
