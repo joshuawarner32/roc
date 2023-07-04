@@ -117,7 +117,15 @@ pub enum Token {
     CloseSquareNoTrailingWhitespace = 0b1101_0011, // ]
     CloseCurlyNoTrailingWhitespace = 0b1101_0101, // }
 
-    Newline = 0b1110_0000, // \n
+    // Newline = 0b1110_0000, // \n
+
+    LineStart = 0b1110_0001,
+    LineStartColonEqualHint = 0b1110_0010,
+    LineStartAssignmentHint = 0b1110_0011,
+    LineStartBackpassingHint = 0b1110_0100,
+    LineStartColonHint = 0b1110_0101,
+    LineStartAbilityHint = 0b1110_0110,
+    LineStartForwardArrowHint = 0b1110_0111,
 }
 
 impl Token {
@@ -136,6 +144,19 @@ impl Token {
             Token::CloseCurly | Token::CloseSquare | Token::CloseParen | Token::CloseIndent |
             Token::CloseCurlyNoTrailingWhitespace | Token::CloseSquareNoTrailingWhitespace |
             Token::CloseParenNoTrailingWhitespace => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_line_start(self) -> bool {
+        match self {
+            Token::LineStart |
+            Token::LineStartColonEqualHint |
+            Token::LineStartAssignmentHint |
+            Token::LineStartBackpassingHint |
+            Token::LineStartColonHint |
+            Token::LineStartAbilityHint |
+            Token::LineStartForwardArrowHint => true,
             _ => false,
         }
     }
@@ -253,6 +274,8 @@ struct Cursor<'a> {
 struct TokenState<'a, T: TriviaAccum> {
     cursor: Cursor<'a>,
 
+    last_line_start: Option<usize>,
+
     scopes: Vec<Scope>,
 
     tokens: Vec<Token>,
@@ -288,10 +311,12 @@ impl<'a, T: TriviaAccum> TokenState<'a, T> {
                 messages: Vec::new(),
             },
 
+            last_line_start: Some(0),
+
             scopes: Vec::new(),
 
-            tokens: Vec::new(),
-            token_offsets: Vec::new(),
+            tokens: vec![Token::LineStart],
+            token_offsets: vec![0],
 
             token_trivia: token_trivia,
         }
@@ -328,6 +353,35 @@ impl<'a, T: TriviaAccum> TokenState<'a, T> {
 
     fn append(&mut self, token: Token, offset: usize) {
         // eprintln!("==> {:?}", token);
+        if token == Token::BackArrow {
+            if let Some(start) = self.last_line_start.take() {
+                self.tokens[start] = Token::LineStartBackpassingHint;
+            }
+        }
+        if token == Token::Assignment {
+            if let Some(start) = self.last_line_start.take() {
+                self.tokens[start] = Token::LineStartAssignmentHint;
+            }
+        }
+        if token == Token::Colon {
+            if let Some(start) = self.last_line_start.take() {
+                self.tokens[start] = Token::LineStartColonHint;
+            }
+        }
+        if token == Token::ColonEqual {
+            if let Some(start) = self.last_line_start.take() {
+                self.tokens[start] = Token::LineStartColonEqualHint;
+            }
+        }
+        if token == Token::ForwardArrow {
+            if let Some(start) = self.last_line_start.take() {
+                self.tokens[start] = Token::LineStartForwardArrowHint;
+            }
+        }
+        // TODO check for 'has' token for abilities (might not generalize well!!!!)
+        if token == Token::LineStart {
+            self.last_line_start = Some(self.tokens.len());
+        }
         self.tokens.push(token);
         self.token_offsets.push(offset as u32);
     }
@@ -361,11 +415,12 @@ impl<'a, T: TriviaAccum> TokenState<'a, T> {
         if let Some(indent) = cur.indent {
             if allow_indent(self.scopes.last().copied(), last.token, indent, cur.token) {
                 self.append(Token::OpenIndent, cur.offset);
+                self.append(Token::LineStart, cur.offset);
                 self.scopes.push(Scope::Indent(indent));
             } else {
                 while let Some(is_newline) = allow_dedent_or_newline(self.scopes.last().copied(), last.token, indent, cur.token) {
                     if is_newline {
-                        self.append(Token::Newline, cur.offset);
+                        self.append(Token::LineStart, cur.offset);
                         break;
                     } else {
                         self.append(Token::CloseIndent, cur.offset);
@@ -443,14 +498,14 @@ fn allow_dedent_or_newline(scope: Option<Scope>, last: Option<Token>, indent: us
         Some(Scope::Indent(outer_indent)) => {
             if indent < outer_indent {
                 Some(false)
-            } else if indent == outer_indent && !is_bin_op_maybe(cur) {
+            } else if indent == outer_indent && cur.is_some() && !is_bin_op_maybe(cur) {
                 Some(true)
             } else {
                 None
             }
         }
         None => {
-            if indent == 0 && !is_bin_op_maybe(cur) {
+            if indent == 0 && cur.is_some() && !is_bin_op_maybe(cur) {
                 Some(true)
             } else {
                 None
@@ -1067,48 +1122,48 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        simple_test("", vec![]);
+        simple_test("", vec![LineStart]);
     }
 
     #[test]
     fn test_empty_groups() {
-        simple_test("()", vec![OpenParen, CloseParen]);
-        simple_test("[]", vec![OpenSquare, CloseSquare]);
-        simple_test("{}", vec![OpenCurly, CloseCurly]);
+        simple_test("()", vec![LineStart, OpenParen, CloseParen]);
+        simple_test("[]", vec![LineStart, OpenSquare, CloseSquare]);
+        simple_test("{}", vec![LineStart, OpenCurly, CloseCurly]);
     }
 
     #[test]
     fn test_plain_operators() {
-        simple_test("!", vec![Bang]);
-        simple_test("&", vec![Ampersand]);
-        simple_test(",", vec![Comma]);
-        simple_test("..", vec![DoubleDot]);
-        simple_test("...", vec![TripleDot]);
-        simple_test(":", vec![Colon]);
-        simple_test("?", vec![Question]);
-        simple_test("|", vec![Bar]);
-        simple_test("->", vec![ForwardArrow]);
-        simple_test("<-", vec![BackArrow]);
-        simple_test("+", vec![Plus]);
-        simple_test("*", vec![Star]);
-        simple_test("/", vec![Slash]);
-        simple_test("%", vec![Percent]);
-        simple_test("^", vec![Caret]);
-        simple_test(">", vec![GreaterThan]);
-        simple_test("<", vec![LessThan]);
-        simple_test("=", vec![Assignment]);
-        simple_test(":=", vec![ColonEqual]);
-        simple_test("|>", vec![Pizza]);
-        simple_test("==", vec![Equals]);
-        simple_test("!=", vec![NotEquals]);
-        simple_test(">=", vec![GreaterThanOrEq]);
-        simple_test("<=", vec![LessThanOrEq]);
-        simple_test("&&", vec![And]);
-        simple_test("||", vec![Or]);
-        simple_test("//", vec![DoubleSlash]);
-        simple_test("_", vec![Underscore]);
-        simple_test(".", vec![DotNoLeadingWhitespace]);
-        simple_test("-", vec![MinusNoTrailingWhitespace]);
+        simple_test("!", vec![LineStart, Bang]);
+        simple_test("&", vec![LineStart, Ampersand]);
+        simple_test(",", vec![LineStart, Comma]);
+        simple_test("..", vec![LineStart, DoubleDot]);
+        simple_test("...", vec![LineStart, TripleDot]);
+        simple_test(":", vec![LineStartColonHint, Colon]);
+        simple_test("?", vec![LineStart, Question]);
+        simple_test("|", vec![LineStart, Bar]);
+        simple_test("->", vec![LineStartForwardArrowHint, ForwardArrow]);
+        simple_test("<-", vec![LineStartBackpassingHint, BackArrow]);
+        simple_test("+", vec![LineStart, Plus]);
+        simple_test("*", vec![LineStart, Star]);
+        simple_test("/", vec![LineStart, Slash]);
+        simple_test("%", vec![LineStart, Percent]);
+        simple_test("^", vec![LineStart, Caret]);
+        simple_test(">", vec![LineStart, GreaterThan]);
+        simple_test("<", vec![LineStart, LessThan]);
+        simple_test("=", vec![LineStartAssignmentHint, Assignment]);
+        simple_test(":=", vec![LineStartColonEqualHint, ColonEqual]);
+        simple_test("|>", vec![LineStart, Pizza]);
+        simple_test("==", vec![LineStart, Equals]);
+        simple_test("!=", vec![LineStart, NotEquals]);
+        simple_test(">=", vec![LineStart, GreaterThanOrEq]);
+        simple_test("<=", vec![LineStart, LessThanOrEq]);
+        simple_test("&&", vec![LineStart, And]);
+        simple_test("||", vec![LineStart, Or]);
+        simple_test("//", vec![LineStart, DoubleSlash]);
+        simple_test("_", vec![LineStart, Underscore]);
+        simple_test(".", vec![LineStart, DotLeadingWhitespace]);
+        simple_test("-", vec![LineStart, MinusNoTrailingWhitespace]);
     }
 
     const BINOPS: &[(&str, Token)] = &[
@@ -1132,81 +1187,104 @@ mod tests {
     #[test]
     fn test_binops() {
         for (op, token) in BINOPS {
-            simple_test(&format!("1 {} 2", op), vec![IntBase10, *token, IntBase10]);
+            simple_test(&format!("1 {} 2", op), vec![LineStart, IntBase10, *token, IntBase10]);
         }
     }
 
     #[test]
     fn test_indent_after_binops() {
         for (op, token) in BINOPS {
-            simple_test(&format!("1 {}\n    2", op), vec![IntBase10, *token, IntBase10]);
+            simple_test(&format!("1 {}\n    2", op), vec![LineStart, IntBase10, *token, IntBase10]);
         }
     }
 
     #[test]
     fn test_indent_before_binops() {
         for (op, token) in BINOPS {
-            simple_test(&format!("1\n    {} 2", op), vec![IntBase10, *token, IntBase10]);
+            simple_test(&format!("1\n    {} 2", op), vec![LineStart, IntBase10, *token, IntBase10]);
         }
     }
 
     #[test]
     fn test_newline_before_binops() {
         for (op, token) in BINOPS {
-            simple_test(&format!("1\n{} 2", op), vec![IntBase10, *token, IntBase10]);
+            simple_test(&format!("1\n{} 2", op), vec![LineStart, IntBase10, *token, IntBase10]);
         }
     }
 
     #[test]
     fn test_newline_simple() {
-        simple_test("a\nb", vec![LowerIdent, Newline, LowerIdent]);
+        simple_test("a\nb", vec![LineStart, LowerIdent, LineStart, LowerIdent]);
     }
 
     #[test]
     fn test_block_simple() {
         simple_test("a =\n    b = 2\n    c", vec![
+            LineStartAssignmentHint,
             LowerIdent,
             Assignment,
             OpenIndent,
+            LineStartAssignmentHint,
             LowerIdent,
             Assignment,
             IntBase10,
-            Newline,
+            LineStart,
+            LowerIdent,
+            CloseIndent,
+        ]);
+        simple_test("a =\n    b = 2\n    c\n", vec![
+            LineStartAssignmentHint,
+            LowerIdent,
+            Assignment,
+            OpenIndent,
+            LineStartAssignmentHint,
+            LowerIdent,
+            Assignment,
+            IntBase10,
+            LineStart,
             LowerIdent,
             CloseIndent,
         ]);
         simple_test("a =\n    b = 2\nc", vec![
+            LineStartAssignmentHint,
             LowerIdent,
             Assignment,
             OpenIndent,
+            LineStartAssignmentHint,
             LowerIdent,
             Assignment,
             IntBase10,
             CloseIndent,
-            Newline,
+            LineStart,
             LowerIdent,
         ]);
         simple_test("a =\n    b =\n        c", vec![
+            LineStartAssignmentHint,
             LowerIdent,
             Assignment,
             OpenIndent,
+            LineStartAssignmentHint,
             LowerIdent,
             Assignment,
             OpenIndent,
+            LineStart,
             LowerIdent,
             CloseIndent,
             CloseIndent,
         ]);
         simple_test("a =\n    b =\n        c\n    b+4", vec![
+            LineStartAssignmentHint,
             LowerIdent,
             Assignment,
             OpenIndent,
+            LineStartAssignmentHint,
             LowerIdent,
             Assignment,
             OpenIndent,
+            LineStart,
             LowerIdent,
             CloseIndent,
-            Newline,
+            LineStart,
             LowerIdent,
             Plus,
             IntBase10,
@@ -1216,36 +1294,37 @@ mod tests {
 
     #[test]
     fn test_string() {
-        simple_test("\"hello\"", vec![String]);
-        simple_test("\"\\\"hello\\\"\"", vec![String]);
-        simple_test("\"hello\\n\"", vec![String]);
+        simple_test("\"hello\"", vec![LineStart, String]);
+        simple_test("\"\\\"hello\\\"\"", vec![LineStart, String]);
+        simple_test("\"hello\\n\"", vec![LineStart, String]);
     }
 
     #[test]
     fn test_paren_commas() {
-        simple_test("(\n  a)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
-        simple_test("(\n  a,\n  b\n)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
-        simple_test("(a,\n  b)", vec![OpenParen, LowerIdent, Comma, OpenIndent, LowerIdent, CloseIndent, CloseParen]);
-        simple_test("(\n  a,\n  #comment\n)", vec![OpenParen, OpenIndent, LowerIdent, CloseIndent, Comma, CloseParen]);
+        simple_test("(\n  a)", vec![LineStart, OpenParen, OpenIndent, LineStart, LowerIdent, CloseIndent, CloseParen]);
+        simple_test("(\n  a,\n  b\n)", vec![LineStart, OpenParen, OpenIndent, LineStart, LowerIdent, CloseIndent, Comma, OpenIndent, LineStart, LowerIdent, CloseIndent, CloseParen]);
+        simple_test("(a,\n  b)", vec![LineStart, OpenParen, LowerIdent, Comma, OpenIndent, LineStart, LowerIdent, CloseIndent, CloseParen]);
+        simple_test("(\n  a,\n  #comment\n)", vec![LineStart, OpenParen, OpenIndent, LineStart, LowerIdent, CloseIndent, Comma, CloseParen]);
     }
 
     #[test]
     fn test_multibackpassing() {
-        simple_test("a, b <- myCall", vec![LowerIdent, Comma, LowerIdent, BackArrow, LowerIdent]);
-        simple_test("(\n  a, b <- myCall\n)", vec![OpenParen, OpenIndent, LowerIdent, Comma, LowerIdent, BackArrow, LowerIdent, CloseIndent, CloseParen]);
+        simple_test("a, b <- myCall", vec![LineStartBackpassingHint, LowerIdent, Comma, LowerIdent, BackArrow, LowerIdent]);
+        simple_test("(\n  a, b <- myCall\n)", vec![LineStart, OpenParen, OpenIndent, LineStartBackpassingHint, LowerIdent, Comma, LowerIdent, BackArrow, LowerIdent, CloseIndent, CloseParen]);
         simple_test("(\n  a, b <- myCall,\n  a, b <- myCall\n)", vec![
+            LineStart,
             OpenParen,
-            OpenIndent, LowerIdent, Comma, LowerIdent, BackArrow, LowerIdent, CloseIndent, Comma,
-            OpenIndent, LowerIdent, Comma, LowerIdent, BackArrow, LowerIdent, CloseIndent, 
+            OpenIndent, LineStartBackpassingHint, LowerIdent, Comma, LowerIdent, BackArrow, LowerIdent, CloseIndent, Comma,
+            OpenIndent, LineStartBackpassingHint, LowerIdent, Comma, LowerIdent, BackArrow, LowerIdent, CloseIndent, 
             CloseParen,
         ]);
     }
 
     #[test]
     fn test_when() {
-        simple_test("when a is\n  1 -> 2\n  2 -> 3", vec![KwWhen, LowerIdent, KwIs, OpenIndent, IntBase10, ForwardArrow, IntBase10, Newline, IntBase10, ForwardArrow, IntBase10, CloseIndent]);
+        simple_test("when a is\n  1 -> 2\n  2 -> 3", vec![LineStart, KwWhen, LowerIdent, KwIs, OpenIndent, LineStartForwardArrowHint, IntBase10, ForwardArrow, IntBase10, LineStartForwardArrowHint, IntBase10, ForwardArrow, IntBase10, CloseIndent]);
 
-        // This doesn't work because the tokenizer doesn't have a baseline for the indent level, so it can't insert OpenIndent / Newline tokens
-        // simple_test("(when a is\n  1 -> 2\n  2 -> 3)", vec![OpenParen, KwWhen, LowerIdent, KwIs, OpenIndent, IntBase10, ForwardArrow, IntBase10, Newline, IntBase10, ForwardArrow, IntBase10, CloseIndent, CloseParen]);
+        // This doesn't work because the tokenizer doesn't have a baseline for the indent level, so it can't insert OpenIndent / LineStart tokens
+        // simple_test("(when a is\n  1 -> 2\n  2 -> 3)", vec![OpenParen, KwWhen, LowerIdent, KwIs, OpenIndent, IntBase10, ForwardArrow, IntBase10, LineStart, IntBase10, ForwardArrow, IntBase10, CloseIndent, CloseParen]);
     }
 }

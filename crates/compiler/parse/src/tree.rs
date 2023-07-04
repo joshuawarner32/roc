@@ -501,11 +501,12 @@ pub enum ErrorKind {
     ExpectedTagApply,
     HigherOrderTypeAnnotation,
     ExpectedTypeAnnotationEnd,
-    ExpectedNewline,
     ExpectedNoModuleName,
     ExpectedAccessor,
     ExpectedPattern,
+    ExpectedBlockItem,
     ExpectedExpr,
+    ExpectedLineStart,
 }
 
 pub trait Parse<'a>: Sized {
@@ -555,7 +556,7 @@ impl<'a> Parse<'a> for Root<'a> {
     const CONTEXT: Context = Context::Root;
     fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
         let header = p.parse()?;
-        let defs = p.parse_block_inner();
+        let defs = p.parse()?;
         Ok(Root { header, defs })
     }
 }
@@ -563,6 +564,7 @@ impl<'a> Parse<'a> for Root<'a> {
 impl<'a> Parse<'a> for Header<'a> {
     const CONTEXT: Context = Context::Header;
     fn parse<'t>(p: &mut Parser<'a, 't>) -> Result<Self, Error> {
+        p.expect_line_start()?;
         let header = match p.peek() {
             Some(Token::KwInterface) => Header::Interface(p.parse()?),
             Some(Token::KwApp) => Header::App(p.parse()?),
@@ -571,7 +573,7 @@ impl<'a> Parse<'a> for Header<'a> {
             Some(Token::KwHosted) => Header::Hosted(p.parse()?),
             _ => panic!("expected header"),
         };
-        p.consume(Token::Newline);
+        // p.consume(Token::Newline);
         Ok(header)
     }
 }
@@ -920,16 +922,59 @@ impl<'a> Parse<'a> for Block<'a> {
             if p.peek_terminator() {
                 break;
             }
-            parse_stmt_or_expr_seq(p, &mut items)?;
             match p.peek() {
-                Some(Token::Newline) => p.token_index += 1,
-                None | Some(Token::CloseIndent) => break,
-                _ => return Err(p.error(ErrorKind::ExpectedNewline)),
+                Some(Token::LineStart) => {
+                    p.token_index += 1;
+                    parse_stmts_simple(p, &mut items)?;
+                }
+                Some(Token::LineStartColonEqualHint) => todo!(),
+                Some(Token::LineStartAssignmentHint) => {
+                    p.token_index += 1;
+                    items.push(parse_stmt_assignment(p)?);
+                }
+                Some(Token::LineStartBackpassingHint) => {
+                    p.token_index += 1;
+                    items.push(parse_stmt_backpassing(p)?);
+                }
+                Some(Token::LineStartColonHint) => todo!(),
+                Some(Token::LineStartAbilityHint) => todo!(),
+                Some(Token::LineStartForwardArrowHint) => todo!(),
+                _ => {
+                    return Err(p.error(ErrorKind::ExpectedBlockItem));
+                }
             }
         }
 
         Ok(Block { items: items.into_bump_slice() })
     }
+}
+
+fn parse_stmt_backpassing<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error> {
+    let mut args = Vec::new_in(p.arena);
+    args.push(p.parse()?);
+    while p.peek() == Some(Token::Comma) {
+        p.token_index += 1;
+        args.push(p.parse()?);
+    }
+    p.expect(Token::BackArrow)?;
+    let call = p.parse()?;
+    Ok(Expr::Backpassing { args: args.into_bump_slice(), call: p.arena.alloc(call) })
+}
+
+fn parse_stmt_assignment<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error> {
+    let target = p.parse()?;
+    p.expect(Token::Assignment)?;
+    let value = p.parse()?;
+    Ok(Expr::Assignment(p.arena.alloc(target), p.arena.alloc(value)))
+}
+
+fn parse_stmts_simple<'a, 't>(p: &mut Parser<'a, 't>, items: &mut Vec<Expr<'a>>) -> Result<(), Error> {
+    items.push(p.parse()?);
+    while p.peek() == Some(Token::Comma) {
+        p.token_index += 1;
+        items.push(p.parse()?);
+    }
+    Ok(())
 }
 
 impl<'a> Parse<'a> for Pattern<'a> {
@@ -994,7 +1039,18 @@ fn parse_pattern_atom<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Pattern<'a>, Err
         }
         Some(Token::UpperIdent) => {
             let name = p.parse()?;
-            Ok(Pattern::Tag(TagName(name)))
+
+            let tag = Pattern::Tag(TagName(name));
+
+            if is_pattern_end(p.peek()) {
+                Ok(tag)
+            } else {
+                let mut args = Vec::new_in(p.arena);
+                while !is_pattern_end(p.peek()) {
+                    args.push(p.parse()?);
+                }
+                Ok(Pattern::Apply(p.arena.alloc(tag), args.into_bump_slice()))
+            }
         }
         Some(Token::OpaqueName) => {
             let name = TokenId(p.token_index as u32);
@@ -1228,9 +1284,10 @@ fn parse_stmt_or_expr_seq<'a, 't>(p: &mut Parser<'a, 't>, seq: &mut Vec<'a, Expr
 
                         members.push(AbilityMember { name, typ });
 
-                        if p.consume(Token::Newline).is_none() {
-                            break;
-                        }
+                        panic!();
+                        // if p.consume(Token::Newline).is_none() {
+                        //     break;
+                        // }
                     }
 
                     p.expect(Token::CloseIndent)?;
@@ -1250,7 +1307,7 @@ fn parse_stmt_or_expr_seq<'a, 't>(p: &mut Parser<'a, 't>, seq: &mut Vec<'a, Expr
             }
             None | Some(Token::CloseCurly | Token::CloseSquare | Token::CloseParen | Token::CloseIndent |
                 Token::CloseCurlyNoTrailingWhitespace | Token::CloseSquareNoTrailingWhitespace |
-                Token::CloseParenNoTrailingWhitespace | Token::Newline) =>
+                Token::CloseParenNoTrailingWhitespace/*  | Token::Newline */) =>
             {
                 seq.push(first);
                 break;
@@ -1495,8 +1552,8 @@ fn parse_expr_atom<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error> {
             let expr = parse_expr_atom(p)?;
             Expr::UnaryOp(UnaryOp::Not, p.arena.alloc(expr))
         }
-        _ => todo!("{:?}", p.peek()),
-        // _ => return Err(p.error(ErrorKind::ExpectedExpr)),
+        // _ => todo!("{:?}", p.peek()),
+        _ => return Err(p.error(ErrorKind::ExpectedExpr)),
     };
 
     while p.peek() == Some(Token::DotNoLeadingWhitespace) {
@@ -1539,11 +1596,16 @@ fn is_expr_atom_end(token: Option<Token>) -> bool {
 fn is_expr_end(token: Option<Token>) -> bool {
     match token {
         None => true,
-        Some(t) if t.is_terminator() => true,
-        Some(Token::Colon | Token::ColonEqual | Token::Assignment | Token::Newline | Token::KwIs | Token::KwThen | Token::KwElse) => true,
+        Some(t) if t.is_terminator() || t.is_line_start() => true,
+        Some(Token::Colon | Token::ColonEqual | Token::Assignment | Token::KwIs | Token::KwThen | Token::KwElse) => true,
         Some(Token::Comma | Token::Ampersand | Token::BackArrow | Token::KwHas) => true,
         _ => false,
     }
+}
+
+fn is_pattern_end(token: Option<Token>) -> bool {
+    // TODO: this should probably be different?????
+    is_expr_end(token)
 }
 
 fn parse_field_accesses<'a, 't>(p: &mut Parser<'a, 't>, mut expr: Expr<'a>) -> Result<Expr<'a>, Error> {
@@ -1591,6 +1653,7 @@ fn parse_expr_when<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error> {
     p.expect(Token::OpenIndent)?;
     let mut branches = Vec::new_in(p.arena);
     while !p.peek_terminator() {
+        p.expect_line_start()?;
         let mut patterns = Vec::new_in(p.arena);
         patterns.push(p.parse()?);
         while p.consume(Token::Bar).is_some() {
@@ -1599,7 +1662,6 @@ fn parse_expr_when<'a, 't>(p: &mut Parser<'a, 't>) -> Result<Expr<'a>, Error> {
         let guard = p.optional_if(Token::KwIf, |p| p.parse())?;
         p.expect(Token::ForwardArrow)?;
         let body = p.parse()?;
-        p.consume(Token::Newline);
         branches.push(WhenBranch { patterns: patterns.into_bump_slice(), body, guard });
     }
     p.expect(Token::CloseIndent)?;
@@ -1702,7 +1764,7 @@ impl<'a> Parse<'a> for TypeAnnotation<'a> {
                 None |
                 Some(Token::CloseCurly | Token::CloseSquare | Token::CloseParen | Token::CloseIndent |
                     Token::CloseCurlyNoTrailingWhitespace | Token::CloseSquareNoTrailingWhitespace |
-                    Token::CloseParenNoTrailingWhitespace | Token::Newline | Token::KwHas | Token::Colon) => {
+                    Token::CloseParenNoTrailingWhitespace/*  | Token::Newline */ | Token::KwHas | Token::Colon) => {
                         // panic!();
                     break;
                 }
@@ -1948,13 +2010,27 @@ impl<'a, 't> Parser<'a, 't> {
     }
 
     fn peek_terminator(&self) -> bool {
-        self.peek().map(|t| t.is_terminator()).unwrap_or_default()
+        self.peek().map(|t| t.is_terminator()).unwrap_or(true)
     }
 
     fn peek_ahead(&self, index: usize) -> Option<Token> {
         self.tokens.get(self.token_index + index).copied()
     }
 
+    fn expect_line_start(&mut self) -> Result<(), Error> {
+        if !matches!(self.peek(), Some(
+            Token::LineStart |
+            Token::LineStartColonEqualHint |
+            Token::LineStartAssignmentHint |
+            Token::LineStartBackpassingHint |
+            Token::LineStartColonHint |
+            Token::LineStartAbilityHint |
+            Token::LineStartForwardArrowHint)) {
+            return Err(self.error(ErrorKind::ExpectedLineStart));
+        }
+        self.token_index += 1;
+        Ok(())
+    }
 
     fn expect(&mut self, token: Token) -> Result<TokenId, Error> {
         if self.peek() != Some(token) {
@@ -1968,7 +2044,7 @@ impl<'a, 't> Parser<'a, 't> {
     fn ws(&mut self) -> Result<(), Error> {
         fn is_whitespace(token: Option<Token>) -> bool {
             match token {
-                Some(Token::Newline) | Some(Token::OpenIndent) | Some(Token::CloseIndent) => true,
+                /* Some(Token::Newline) |  */Some(Token::OpenIndent) | Some(Token::CloseIndent) => true,
                 _ => false,
             }
         }
@@ -2067,9 +2143,5 @@ impl<'a, 't> Parser<'a, 't> {
             self.parse_seq_item(&mut items)?;
         }
         Ok(items)
-    }
-
-    fn parse_block_inner(&mut self) -> Block<'a> {
-        panic!("TODO")
     }
 }
