@@ -1,6 +1,9 @@
+#![allow(dead_code)]
+#![allow(unused)]
+
 use bumpalo::{collections::Vec, Bump};
 
-use crate::{token::{Token, BinOp}};
+use crate::token::{Token, BinOp};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TokenId(u32);
@@ -1284,10 +1287,10 @@ fn parse_stmt_or_expr_seq<'a, 't>(p: &mut Parser<'a, 't>, seq: &mut Vec<'a, Expr
 
                         members.push(AbilityMember { name, typ });
 
-                        panic!();
-                        // if p.consume(Token::Newline).is_none() {
-                        //     break;
-                        // }
+                        // panic!();
+                        if p.consume(Token::Ampersand).is_none() { // TODO THIS IS REALLY BUSTED
+                            break;
+                        }
                     }
 
                     p.expect(Token::CloseIndent)?;
