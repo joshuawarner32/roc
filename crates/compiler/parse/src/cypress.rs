@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
+use std::collections::VecDeque;
+
 pub struct TokenenizedBuffer {
     kinds: Vec<T>,
     offsets: Vec<u32>,
@@ -171,6 +173,54 @@ impl Tree {
     fn len(&self) -> u32 {
         self.kinds.len() as u32
     }
+
+    fn debug_vis_grouping(&self) -> String {
+        let mut stack = Vec::<(usize, String)>::new();
+
+        for (i, (&kind, &subtree_start_pos)) in self.kinds.iter().zip(self.subtree_start_positions.iter()).enumerate() {
+
+            if (subtree_start_pos as usize) < i {
+                let mut items = VecDeque::new();
+                while let Some((j, item)) = stack.pop() {
+                    if j >= subtree_start_pos as usize {
+                        items.push_front(item);
+                    } else {
+                        stack.push((j, item));
+                        break;
+                    }
+                }
+
+                // (a b c)
+                let mut s = String::new();
+                s.push('(');
+                for (i, item) in items.into_iter().enumerate() {
+                    if i > 0 {
+                        s.push(' ');
+                    }
+                    s.push_str(&item);
+                }
+                s.push(')');
+
+                s.push(' ');
+                s.push_str(&format!("{:?}", kind));
+
+                stack.push((i, s));
+            } else {
+                stack.push((i, format!("{:?}", kind)));
+            }
+        }
+        
+        // (a b c)
+        let mut s = String::new();
+        for (i, (_, item)) in stack.into_iter().enumerate() {
+            if i > 0 {
+                s.push(' ');
+            }
+            s.push_str(&item);
+        }
+
+        s
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -241,7 +291,7 @@ enum Assoc {
 impl BinOp {
     fn prec(self) -> Prec {
         match self {
-            BinOp::AssignBlock => Prec::DeclSeq,
+            BinOp::AssignBlock => Prec::Outer,
             BinOp::DeclSeq => Prec::DeclSeq,
             BinOp::Assign | BinOp::Backpassing => Prec::Decl,
             BinOp::Apply => Prec::Apply,
@@ -254,9 +304,9 @@ impl BinOp {
         }
     }
 
-    fn assoc(self) -> Assoc {
+    fn grouping_assoc(self) -> Assoc {
         match self {
-            BinOp::AssignBlock => Assoc::Left,
+            BinOp::AssignBlock => Assoc::Right,
             BinOp::DeclSeq => Assoc::Right,
             BinOp::Assign | BinOp::Backpassing => Assoc::Right,
             BinOp::Apply => Assoc::Left,
@@ -266,6 +316,14 @@ impl BinOp {
             BinOp::Equals | BinOp::NotEquals | BinOp::LessThan | BinOp::GreaterThan | BinOp::LessThanOrEq | BinOp::GreaterThanOrEq => Assoc::NonAssociative,
             BinOp::And | BinOp::Or => Assoc::Left,
             BinOp::Pizza => Assoc::Left,
+        }
+    }
+
+    fn matching_assoc(self) -> Assoc {
+        if self == BinOp::AssignBlock {
+            return Assoc::Left;
+        } else {
+            self.grouping_assoc()
         }
     }
 
@@ -337,6 +395,7 @@ impl State {
         self.tree.kinds.push(kind);
         let pos = subtree_start.unwrap_or(self.tree.subtree_start_positions.len() as u32);
         self.tree.subtree_start_positions.push(pos);
+        eprintln!("{:indent$}tree: {:?}", "", self.tree.debug_vis_grouping(), indent = 2 * self.frames.len() + 4);
     }
 
     fn push_next_frame(&mut self, frame: Frame) {
@@ -388,7 +447,7 @@ impl State {
             eprintln!("{:indent$}next op {:?}", "", op, indent = 2 * self.frames.len() + 2);
 
             let op_prec = op.prec();
-            let assoc = op.assoc();
+            let assoc = op.matching_assoc();
 
             let next_min_prec = if assoc == Assoc::Left {
                 op_prec
@@ -440,7 +499,7 @@ impl State {
             _ => return None,
         };
 
-        if op.prec() < min_prec || (op.prec() == min_prec && op.assoc() == Assoc::Left) {
+        if op.prec() < min_prec || (op.prec() == min_prec && op.grouping_assoc() == Assoc::Left) {
             return None;
         }
 
@@ -453,11 +512,6 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    struct Expect {
-        kinds: Vec<N>,
-        subtree_start_positions: Vec<u32>,
-    }
 
     enum ExpectAtom {
         Seq(Vec<ExpectAtom>),
@@ -496,22 +550,21 @@ mod tests {
             }
         }
 
-        fn finish(mut self) -> Expect {
-            Expect {
+        fn finish(mut self) -> Tree {
+            Tree {
                 kinds: self.kinds,
                 subtree_start_positions: self.subtree_start_positions,
+                tokens: Vec::new(), // TODO
             }
         }
     }
 
-    impl Expect {
-        fn build(items: Vec<ExpectAtom>) -> Expect {
-            let mut b = ExpectBuilder::new();
-            
-            b.consume_items(items);
+    fn build_expect(items: Vec<ExpectAtom>) -> Tree {
+        let mut b = ExpectBuilder::new();
+        
+        b.consume_items(items);
 
-            b.finish()
-        }
+        b.finish()
     }
 
     macro_rules! cvt_item {
@@ -526,14 +579,14 @@ mod tests {
 
     macro_rules! expect {
         ($($items:tt)*) => {{
-            Expect::build(vec![$(cvt_item!($items)),*])
+            build_expect(vec![$(cvt_item!($items)),*])
         }};
     }
 
     #[test]
     fn simple_tests() {
         #[track_caller]
-        fn test(kinds: &[T], expected: Expect) {
+        fn test(kinds: &[T], expected: Tree) {
             let mut state = State::from_tokens(kinds);
 
             state.pump();
@@ -593,13 +646,15 @@ mod tests {
     #[test]
     fn decl_tests() {
         #[track_caller]
-        fn test(kinds: &[T], expected: Expect) {
+        fn test(kinds: &[T], expected: Tree) {
             let mut state = State::from_tokens(kinds);
 
             state.pump();
 
-            assert_eq!(&state.tree.kinds, &expected.kinds);
-            assert_eq!(&state.tree.subtree_start_positions, &expected.subtree_start_positions);
+            // assert_eq!(&state.tree.kinds, &expected.kinds);
+            // eprintln!("{:?}", state.tree.subtree_start_positions);
+            // eprintln!("{:?}", expected.subtree_start_positions);
+            assert_eq!(&state.tree.debug_vis_grouping(), &expected.debug_vis_grouping());
         }
 
         // a = b
@@ -617,6 +672,18 @@ mod tests {
         // a =; b = c; d
         test(
             &[T::LowerIdent, T::OpAssign, T::Newline, T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline, T::LowerIdent],
+            expect!((Ident ((Ident Ident) Assign Ident) DeclSeq) Assign),
+        );
+
+        // a=; b; d
+        test(
+            &[T::LowerIdent, T::OpAssign, T::Newline, T::LowerIdent, T::Newline, T::LowerIdent],
+            expect!(((Ident Ident) Assign Ident) DeclSeq),
+        );
+
+        // a =; b =; c; d
+        test(
+            &[T::LowerIdent, T::OpAssign, T::Newline, T::LowerIdent, T::OpAssign, T::Newline, T::LowerIdent, T::Newline, T::LowerIdent],
             expect!((Ident ((Ident Ident) Assign Ident) DeclSeq) Assign),
         );
     }
