@@ -13,6 +13,9 @@ pub struct TokenenizedBuffer {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum T {
     Newline,
+
+    Indent, // Not produced by the tokenizer. Used in the formatter.
+    Dedent, // Not produced by the tokenizer. Used in the formatter.
     
     Float,
     Num,
@@ -364,15 +367,15 @@ impl From<BinOp> for N {
 #[derive(Debug)]
 enum Frame {
     StartExpr { min_prec: Prec },
-    ContinueExpr { min_prec: Prec, subtree_start: u32, cur_op: Option<BinOp>, num_found: usize },
-    ContinueBlock { subtree_start: u32, num_found: usize },
+    ContinueExpr { min_prec: Prec, cur_op: Option<BinOp>, num_found: usize },
+    ContinueBlock { num_found: usize },
     FinishParen,
-    FinishAssignBlock { subtree_start: u32 },
-    ContinueTopLevel { subtree_start: i32, num_found: i32 },
-    ContinueClosureArgs { subtree_start: u32 },
-    ContinueIf { subtree_start: u32, next: IfState },
-    ContinueWhen { subtree_start: u32, next: WhenState },
-    FinishClosure { subtree_start: u32 },
+    FinishAssignBlock,
+    ContinueTopLevel { num_found: i32 },
+    ContinueClosureArgs,
+    ContinueIf { next: IfState },
+    ContinueWhen { next: WhenState },
+    FinishClosure,
 }
 
 impl Frame {
@@ -381,7 +384,22 @@ impl Frame {
     }
 
     fn continue_top_level() -> Frame {
-        Frame::ContinueTopLevel { subtree_start: 0, num_found: 0 }
+        Frame::ContinueTopLevel { num_found: 0 }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ExprCfg {
+    when_branch_indent_floor: Option<Indent>, // when branches must be indented more than this. None means no restriction.
+    allow_multi_backpassing: bool,
+}
+
+impl Default for ExprCfg {
+    fn default() -> Self {
+        ExprCfg {
+            when_branch_indent_floor: None,
+            allow_multi_backpassing: true,
+        }
     }
 }
 
@@ -395,19 +413,34 @@ enum IfState {
 #[derive(Debug)]
 enum WhenState {
     Is,
-    FirstBranch,
-    RestBranches(Indent),
-    End,
+    BranchPattern(Indent),
+    BranchArrow(Indent),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 struct Indent {
     num_spaces: u16,
     num_tabs: u16,
 }
 
+impl Indent {
+    fn is_indented_more_than(&self, indent: Indent) -> Result<bool, Error> {
+        if self.num_spaces == indent.num_spaces {
+            Ok(self.num_tabs > indent.num_tabs)
+        } else if self.num_tabs == indent.num_tabs {
+            Ok(self.num_spaces > indent.num_spaces)
+        } else {
+            Err(Error::InconsistentIndent)
+        }
+    }
+}
+
+enum Error {
+    InconsistentIndent,
+}
+
 struct State {
-    frames: Vec<Frame>,
+    frames: Vec<(u32, ExprCfg, Frame)>,
     buf: TokenenizedBuffer,
     pos: usize,
     line: usize,
@@ -442,6 +475,10 @@ impl State {
 
     fn cur_indent(&self) -> Indent {
         self.buf.indents.get(self.line).copied().unwrap_or(Indent { num_spaces: 0, num_tabs: 0 })
+    }
+
+    fn at_terminator(&self) -> bool {
+        matches!(self.cur(), None | Some(T::CloseRound) | Some(T::CloseSquare) | Some(T::CloseCurly))
     }
 
     fn bump(&mut self) {
@@ -491,61 +528,72 @@ impl State {
         eprintln!("{:indent$}tree: {:?}", "", self.tree.debug_vis_grouping(), indent = 2 * self.frames.len() + 4);
     }
 
-    fn push_next_frame(&mut self, frame: Frame) {
+    fn push_next_frame(&mut self, subtree_start: u32, cfg: ExprCfg, frame: Frame) {
         eprintln!("{:indent$}pushing frame {:?}", "", frame, indent = 2 * self.frames.len() + 2);
-        self.frames.push(frame);
+        self.frames.push((subtree_start, cfg, frame));
+    }
+
+    fn push_next_frame_starting_here(&mut self, cfg: ExprCfg, frame: Frame) {
+        let subtree_start = self.tree.len();
+        self.push_next_frame(subtree_start, cfg, frame)
     }
 
     fn pump(&mut self) {
-        while let Some(frame) = self.frames.pop() {
+        while let Some((subtree_start, cfg, frame)) = self.frames.pop() {
             eprintln!("{:indent$}@{} pumping frame {:?}", "", self.pos, frame, indent = 2 * self.frames.len());
             match frame {
-                Frame::StartExpr { min_prec } => self.pump_start_expr(min_prec),
+                Frame::StartExpr { min_prec } => self.pump_start_expr(cfg, min_prec),
                 Frame::FinishParen => self.pump_finish_paren(),
-                Frame::FinishClosure { subtree_start } => self.pump_finish_closure(subtree_start),
-                Frame::ContinueExpr { min_prec, subtree_start, cur_op, num_found } => self.pump_continue_expr(min_prec, subtree_start, cur_op, num_found),
-                Frame::ContinueBlock { subtree_start, num_found } => self.pump_continue_block(subtree_start, num_found),
-                Frame::FinishAssignBlock { subtree_start } => self.pump_finish_assign_block(subtree_start),
-                Frame::ContinueTopLevel { subtree_start, num_found } => self.pump_continue_top_level(subtree_start, num_found),
-                Frame::ContinueClosureArgs { subtree_start } => self.pump_continue_closure_args(subtree_start),
-                Frame::ContinueIf { subtree_start, next } => self.pump_continue_if(subtree_start, next),
-                Frame::ContinueWhen { subtree_start, next } => self.pump_continue_when(subtree_start, next),
+                Frame::FinishClosure => self.pump_finish_closure(subtree_start),
+                Frame::ContinueExpr { min_prec, cur_op, num_found } => self.pump_continue_expr(subtree_start, cfg, min_prec, cur_op, num_found),
+                Frame::ContinueBlock { num_found } => self.pump_continue_block(subtree_start, cfg, num_found),
+                Frame::FinishAssignBlock => self.pump_finish_assign_block(subtree_start, cfg),
+                Frame::ContinueTopLevel { num_found } => self.pump_continue_top_level(subtree_start, cfg, num_found),
+                Frame::ContinueClosureArgs => self.pump_continue_closure_args(subtree_start, cfg),
+                Frame::ContinueIf { next } => self.pump_continue_if(subtree_start, cfg, next),
+                Frame::ContinueWhen { next } => self.pump_continue_when(subtree_start, cfg, next),
             }
         }
     }
 
-    fn pump_start_expr(&mut self, mut min_prec: Prec) {
+    fn pump_start_expr(&mut self, cfg: ExprCfg, mut min_prec: Prec) {
         loop {
             let subtree_start = self.tree.len();
-            match self.buf.kind(self.pos) {
+            match self.cur() {
                 Some(T::OpenRound) => {
                     self.bump();
-                    self.push_next_frame(Frame::ContinueExpr { min_prec, subtree_start, cur_op: None, num_found: 1 });
-                    self.push_next_frame(Frame::FinishParen);
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr { min_prec, cur_op: None, num_found: 1 });
+                    self.push_next_frame(subtree_start, cfg, Frame::FinishParen);
                     min_prec = Prec::Outer;
                     continue;
                 }
                 Some(T::LowerIdent) => {
                     self.bump();
-                    self.push_next_frame(Frame::ContinueExpr { min_prec, subtree_start, cur_op: None, num_found: 1 });
                     self.push_node(N::Ident, None);
+
+                    match self.cur() {
+                        None | Some(T::OpArrow) => return,
+                        _ => {}
+                    }
+
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr { min_prec, cur_op: None, num_found: 1 });
                     return;
                 }
                 Some(T::OpBackslash) => {
                     self.bump();
-                    self.push_next_frame(Frame::ContinueClosureArgs { subtree_start });
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueClosureArgs);
                     return;
                 }
                 Some(T::KwIf) => {
                     self.bump();
-                    self.push_next_frame(Frame::ContinueIf { subtree_start, next: IfState::Then });
-                    self.push_next_frame(Frame::start_expr());
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueIf { next: IfState::Then });
+                    self.start_expr(cfg);
                     return;
                 }
                 Some(T::KwWhen) => {
                     self.bump();
-                    self.push_next_frame(Frame::ContinueWhen { subtree_start, next: WhenState::Is });
-                    self.push_next_frame(Frame::start_expr());
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::Is });
+                    self.start_expr(cfg);
                     return;
                 }
                 k => todo!("{:?}", k),
@@ -553,7 +601,7 @@ impl State {
         }
     }
 
-    fn pump_continue_expr(&mut self, min_prec: Prec, subtree_start: u32, cur_op: Option<BinOp>, mut num_found: usize) {
+    fn pump_continue_expr(&mut self, subtree_start: u32, cfg: ExprCfg, min_prec: Prec, cur_op: Option<BinOp>, mut num_found: usize) {
         if let Some(op) = self.next_op(min_prec, cur_op) {
             if let Some(cur_op) = cur_op {
                 if op != cur_op || !op.n_arity() {
@@ -561,11 +609,10 @@ impl State {
                 }
             }
 
-            if op == BinOp::AssignBlock {
-                let current_pos = self.tree.len();
-                self.push_next_frame(Frame::FinishAssignBlock { subtree_start });
-                self.push_next_frame(Frame::ContinueBlock { subtree_start: current_pos, num_found });
-                self.push_next_frame(Frame::start_expr());
+            if op == BinOp::Assign && self.consume_newline() {
+                self.push_next_frame(subtree_start, cfg, Frame::FinishAssignBlock);
+                self.push_next_frame_starting_here(cfg, Frame::ContinueBlock { num_found: 1 });
+                self.start_expr(cfg);
                 return;
             }
 
@@ -580,8 +627,8 @@ impl State {
                 op_prec.next()
             };
 
-            self.push_next_frame(Frame::ContinueExpr { min_prec, subtree_start, cur_op: Some(op), num_found });
-            self.push_next_frame(Frame::StartExpr { min_prec: next_min_prec });
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr { min_prec, cur_op: Some(op), num_found });
+            self.push_next_frame_starting_here(cfg, Frame::StartExpr { min_prec: next_min_prec });
             return;
         } else if let Some(cur_op) = cur_op {
             self.push_node(cur_op.into(), Some(subtree_start));
@@ -597,22 +644,7 @@ impl State {
             Some(T::OpPlus) => (BinOp::Plus, 1),
             Some(T::OpStar) => (BinOp::Star, 1),
             Some(T::OpPizza) => (BinOp::Pizza, 1),
-            Some(T::OpAssign) => {
-                if self.buf.kind(self.pos + 1) == Some(T::Newline) {
-                    (BinOp::AssignBlock, 2)
-                } else {
-                    (BinOp::Assign, 1)
-                }
-            },
-            Some(T::Newline) => {
-                // dbg!(cur_op);
-                // if matches!(cur_op, Some(BinOp::Assign | BinOp::AssignBlock)) {
-                //     (BinOp::DeclSeq, 1)
-                // } else {
-                //     return None;
-                // }
-                return None;
-            }
+            Some(T::OpAssign) => (BinOp::Assign, 1),
             _ => return None,
         };
 
@@ -633,54 +665,51 @@ impl State {
         self.push_node(N::Closure, Some(subtree_start));
     }
 
-    fn pump_continue_block(&mut self, subtree_start: u32, num_found: usize) {
+    fn pump_continue_block(&mut self, subtree_start: u32, cfg: ExprCfg, num_found: usize) {
         while self.consume_newline() {}
 
         // need to inspect the expr we just parsed.
         // if it's a decl we keep going; if it's not, we're done.
-        let kind = self.tree.kinds.last().copied().unwrap();
-        if kind.is_decl() {
-            self.push_next_frame(Frame::ContinueBlock { subtree_start, num_found: num_found + 1 });
-            self.push_next_frame(Frame::start_expr());
+        if self.tree.kinds.last().copied().unwrap().is_decl() {
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueBlock { num_found: num_found + 1 });
+            self.start_expr(cfg);
         } else if num_found > 1 {
             self.push_node(N::DeclSeq, Some(subtree_start));
-        } else {
-            // No need to push anoy other nodes
         }
     }
 
-    fn pump_finish_assign_block(&mut self, subtree_start: u32) {
+    fn pump_finish_assign_block(&mut self, subtree_start: u32, cfg: ExprCfg) {
         self.push_node(N::Assign, Some(subtree_start));
     }
 
-    fn pump_continue_top_level(&mut self, subtree_start: i32, num_found: i32) {
+    fn pump_continue_top_level(&mut self, subtree_start: u32, cfg: ExprCfg, num_found: i32) {
         // keep parsing decls until the end
         while self.consume_newline() {}
 
         if self.pos < self.buf.kinds.len() {
-            self.push_next_frame(Frame::ContinueTopLevel { subtree_start, num_found: num_found + 1 });
-            self.push_next_frame(Frame::start_expr());
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueTopLevel { num_found: num_found + 1 });
+            self.push_next_frame_starting_here(cfg, Frame::start_expr());
         } else {
             self.push_node(N::DeclSeq, Some(subtree_start as u32));
         }
     }
 
-    fn pump_continue_closure_args(&mut self, subtree_start: u32) {
+    fn pump_continue_closure_args(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::OpArrow) {
-            self.push_next_frame(Frame::FinishClosure { subtree_start });
-            self.start_block();
+            self.push_next_frame(subtree_start, cfg, Frame::FinishClosure);
+            self.start_block(cfg);
         } else {
-            self.push_next_frame(Frame::ContinueClosureArgs { subtree_start });
-            self.push_next_frame(Frame::start_expr());
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueClosureArgs);
+            self.push_next_frame_starting_here(cfg, Frame::start_expr());
         }
     }
 
-    fn pump_continue_if(&mut self, subtree_start: u32, next: IfState) {
+    fn pump_continue_if(&mut self, subtree_start: u32, cfg: ExprCfg, next: IfState) {
         match next {
             IfState::Then => {
                 self.expect(T::KwThen);
-                self.push_next_frame(Frame::ContinueIf { subtree_start, next: IfState::Else });
-                self.start_block();
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueIf { next: IfState::Else });
+                self.start_block(cfg);
             }
             IfState::Else => {
                 self.expect(T::KwElse);
@@ -691,8 +720,8 @@ impl State {
                     IfState::End
                 };
 
-                self.push_next_frame(Frame::ContinueIf { subtree_start, next });
-                self.start_block();
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueIf { next });
+                self.start_block(cfg);
             }
             IfState::End => {
                 self.push_node(N::If, Some(subtree_start));
@@ -700,35 +729,57 @@ impl State {
         }
     }
 
-    fn pump_continue_when(&mut self, subtree_start: u32, next: WhenState) {
+    fn pump_continue_when(&mut self, subtree_start: u32, cfg: ExprCfg, next: WhenState) {
         match next {
             WhenState::Is => {
                 self.expect(T::KwIs);
-                let indent = if self.buf.kind(self.pos) == Some(T::Newline) {
-                    self.pos += 1;
-                    self.cur_indent()
-                } else {
-                    todo!()
-                };
-                self.push_next_frame(Frame::ContinueWhen { subtree_start, next: WhenState::FirstBranch });
+                self.consume_newline();
+                let indent = self.cur_indent();
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::BranchArrow(indent) });
+                self.start_expr(cfg);
             },
-            WhenState::FirstBranch => todo!(),
-            WhenState::RestBranches(indent) => todo!(),
-            WhenState::End => todo!(),
+            WhenState::BranchPattern(indent) => {
+                if let Some(min_indent) = cfg.when_branch_indent_floor {
+                    if self.check(self.cur_indent().is_indented_more_than(min_indent)) && !self.at_terminator() {
+                        self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::BranchArrow(indent) });
+                        self.start_expr(cfg);
+                        return;
+                    }
+                }
+                self.push_node(N::When, Some(subtree_start));
+            }
+            WhenState::BranchArrow(indent) => {
+                self.expect(T::OpArrow);
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::BranchPattern(indent) });
+                self.start_block(cfg);
+            }
         }
     }
 
-    fn start_block(&mut self) {
-        if self.buf.kind(self.pos) == Some(T::Newline) {
-            self.pos += 1;
-            self.push_next_frame(Frame::ContinueBlock { subtree_start: self.tree.len(), num_found: 0 });
+    fn start_block(&mut self, cfg: ExprCfg) {
+        if self.consume_newline() {
+            self.push_next_frame_starting_here(cfg, Frame::ContinueBlock { num_found: 1 });
+            self.start_expr(cfg);
         } else {
-            self.push_next_frame(Frame::start_expr());
+            self.start_expr(cfg);
         }
+    }
+
+    fn start_expr(&mut self, cfg: ExprCfg) {
+        self.push_next_frame_starting_here(cfg, Frame::start_expr());
     }
 
     fn assert_end(&self) {
-        assert_eq!(self.pos, self.buf.kinds.len());
+        assert_eq!(self.pos, self.buf.kinds.len(),
+            "Expected to be at the end, but these tokens remain: {:?}",
+            &self.buf.kinds[self.pos..]);
+    }
+
+    fn check<T>(&self, v: Result<T, Error>) -> T {
+        match v {
+            Ok(v) => v,
+            Err(e) => todo!(),
+        }
     }
 }
 
@@ -806,10 +857,44 @@ mod tests {
         }};
     }
 
+    fn unindentify(input: &[T]) -> (Vec<T>, Vec<Indent>) {
+        let mut output = Vec::new();
+        let mut indents = Vec::new();
+
+        let mut cur_indent = Indent::default();
+
+        // loop over tokens, incrementing indent level when we see an indent, and decrementing when we see a dedent
+        // when we see a newline, we add the current indent level to the indents list
+        // also remove indent/dedent tokens since the parser doesn't need them.
+
+        for &tok in input {
+            match tok {
+                T::Newline => {
+                    indents.push(cur_indent);
+                    output.push(tok);
+                }
+                T::Indent => {
+                    cur_indent.num_spaces += 1;
+                }
+                T::Dedent => {
+                    cur_indent.num_spaces -= 1;
+                }
+                _ => {
+                    output.push(tok);
+                }
+            }
+        }
+
+        (output, indents)
+    }
+
     #[track_caller]
     fn expr_test(kinds: &[T], expected: Tree) {
-        let mut state = State::from_tokens(kinds);
-        state.push_next_frame(Frame::start_expr());
+        let (kinds, indents) = unindentify(kinds);
+
+        let mut state = State::from_tokens(&kinds);
+        state.buf.indents = indents;
+        state.start_expr(ExprCfg::default());
         state.pump();
         state.assert_end();
 
@@ -895,11 +980,36 @@ mod tests {
             expect!((Ident Ident Ident) If),
         );
     }
+
+    #[test]
+    fn test_when() {
+        expr_test(
+            &[T::KwWhen, T::LowerIdent, T::KwIs, T::LowerIdent, T::OpArrow, T::LowerIdent],
+            expect!((Ident Ident Ident) When),
+        );
+    }
+
+    #[test]
+    fn test_nested_when() {
+        expr_test(
+            &[
+                T::KwWhen, T::LowerIdent, T::KwIs, T::Newline,
+                    T::LowerIdent, T::OpArrow, T::Newline,
+                        T::KwWhen, T::LowerIdent, T::KwIs, T::Newline,
+                            T::Indent,
+                            T::LowerIdent, T::OpArrow, T::LowerIdent, T::Newline,
+                            T::Dedent,
+            ],
+            expect!((Ident Ident (Ident Ident Ident) When) When),
+        );
+    }
     
     #[track_caller]
     fn decl_test(kinds: &[T], expected: Tree) {
-        let mut state = State::from_tokens(kinds);
-        state.push_next_frame(Frame::continue_top_level());
+        let (kinds, indents) = unindentify(kinds);
+        let mut state = State::from_tokens(&kinds);
+        state.buf.indents = indents;
+        state.push_next_frame_starting_here(ExprCfg::default(), Frame::continue_top_level());
         state.pump();
         state.assert_end();
 
@@ -953,6 +1063,12 @@ mod tests {
 
     #[test]
     fn test_double_nested_decl() {
+        /*
+        a =
+            b =
+                c
+            d
+        */
         decl_test(
             &[
                 T::LowerIdent, T::OpAssign, T::Newline,
