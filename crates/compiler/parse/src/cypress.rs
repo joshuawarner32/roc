@@ -120,7 +120,7 @@ pub enum N {
     Closure,
 
     /// Indented block of statements and expressions
-    Block,
+    BeginBlock, EndBlock,
 
     /// The special dbg function, e.g. `dbg x`
     Dbg,
@@ -133,9 +133,6 @@ pub enum N {
 
     /// Assignment declaration, e.g. `x = 1`
     Assign,
-
-    /// A sequence of declarations, e.g. `x = 1 <newline> y = 2`
-    DeclSeq,
 
     /// Binary operators, e.g. `x + y`
     BinOpPlus,
@@ -150,6 +147,8 @@ pub enum N {
     /// A when expression, e.g. `when x is y -> z` (you need a newline after the 'is')
     When,
     ArgList,
+    EndTopLevelDecls,
+    BeginTopLevelDecls,
 }
 
 impl N {
@@ -360,7 +359,6 @@ impl From<BinOp> for N {
             BinOp::Plus => N::BinOpPlus,
             BinOp::Minus => N::BinOpStar,
             BinOp::Assign => N::Assign,
-            BinOp::DeclSeq => N::DeclSeq,
             BinOp::AssignBlock => N::Assign,
             _ => todo!("binop to node {:?}", op),
         }
@@ -371,7 +369,7 @@ impl From<BinOp> for N {
 enum Frame {
     StartExpr { min_prec: Prec },
     ContinueExpr { min_prec: Prec, cur_op: Option<BinOp>, num_found: usize },
-    ContinueBlock { num_found: usize },
+    ContinueBlock,
     FinishParen,
     FinishAssignBlock,
     ContinueTopLevel { num_found: i32 },
@@ -384,10 +382,6 @@ enum Frame {
 impl Frame {
     fn start_expr() -> Frame {
         Frame::StartExpr { min_prec: Prec::DeclSeq }
-    }
-
-    fn continue_top_level() -> Frame {
-        Frame::ContinueTopLevel { num_found: 0 }
     }
 }
 
@@ -549,7 +543,7 @@ impl State {
                 Frame::FinishParen => self.pump_finish_paren(),
                 Frame::FinishClosure => self.pump_finish_closure(subtree_start),
                 Frame::ContinueExpr { min_prec, cur_op, num_found } => self.pump_continue_expr(subtree_start, cfg, min_prec, cur_op, num_found),
-                Frame::ContinueBlock { num_found } => self.pump_continue_block(subtree_start, cfg, num_found),
+                Frame::ContinueBlock => self.pump_continue_block(subtree_start, cfg),
                 Frame::FinishAssignBlock => self.pump_finish_assign_block(subtree_start, cfg),
                 Frame::ContinueTopLevel { num_found } => self.pump_continue_top_level(subtree_start, cfg, num_found),
                 Frame::ContinueClosureArgs => self.pump_continue_closure_args(subtree_start, cfg),
@@ -614,7 +608,8 @@ impl State {
 
             if op == BinOp::Assign && self.consume_newline() {
                 self.push_next_frame(subtree_start, cfg, Frame::FinishAssignBlock);
-                self.push_next_frame_starting_here(cfg, Frame::ContinueBlock { num_found: 1 });
+                self.push_next_frame_starting_here(cfg, Frame::ContinueBlock);
+                self.push_node(N::BeginBlock, None);
                 self.start_expr(cfg);
                 return;
             }
@@ -668,16 +663,16 @@ impl State {
         self.push_node(N::Closure, Some(subtree_start));
     }
 
-    fn pump_continue_block(&mut self, subtree_start: u32, cfg: ExprCfg, num_found: usize) {
+    fn pump_continue_block(&mut self, subtree_start: u32, cfg: ExprCfg) {
         while self.consume_newline() {}
 
         // need to inspect the expr we just parsed.
         // if it's a decl we keep going; if it's not, we're done.
         if self.tree.kinds.last().copied().unwrap().is_decl() {
-            self.push_next_frame(subtree_start, cfg, Frame::ContinueBlock { num_found: num_found + 1 });
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueBlock);
             self.start_expr(cfg);
-        } else if num_found > 1 {
-            self.push_node(N::DeclSeq, Some(subtree_start));
+        } else {
+            self.push_node(N::EndBlock, Some(subtree_start));
         }
     }
 
@@ -693,14 +688,14 @@ impl State {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueTopLevel { num_found: num_found + 1 });
             self.push_next_frame_starting_here(cfg, Frame::start_expr());
         } else {
-            self.push_node(N::DeclSeq, Some(subtree_start as u32));
+            self.push_node(N::EndTopLevelDecls, Some(subtree_start as u32));
         }
     }
 
     fn pump_continue_closure_args(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::OpArrow) {
             self.push_next_frame(subtree_start, cfg, Frame::FinishClosure);
-            self.start_block(cfg);
+            self.start_block_or_expr(cfg);
         } else {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueClosureArgs);
             self.push_next_frame_starting_here(cfg, Frame::start_expr());
@@ -712,7 +707,7 @@ impl State {
             IfState::Then => {
                 self.expect(T::KwThen);
                 self.push_next_frame(subtree_start, cfg, Frame::ContinueIf { next: IfState::Else });
-                self.start_block(cfg);
+                self.start_block_or_expr(cfg);
             }
             IfState::Else => {
                 self.expect(T::KwElse);
@@ -724,7 +719,7 @@ impl State {
                 };
 
                 self.push_next_frame(subtree_start, cfg, Frame::ContinueIf { next });
-                self.start_block(cfg);
+                self.start_block_or_expr(cfg);
             }
             IfState::End => {
                 self.push_node(N::If, Some(subtree_start));
@@ -754,14 +749,20 @@ impl State {
             WhenState::BranchArrow(indent) => {
                 self.expect(T::OpArrow);
                 self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::BranchPattern(indent) });
-                self.start_block(cfg);
+                self.start_block_or_expr(cfg);
             }
         }
     }
 
-    fn start_block(&mut self, cfg: ExprCfg) {
+    fn start_top_level_decls(&mut self) {
+        self.push_next_frame_starting_here(ExprCfg::default(), Frame::ContinueTopLevel { num_found: 0 });
+        self.push_node(N::BeginTopLevelDecls, None);
+    }
+
+    fn start_block_or_expr(&mut self, cfg: ExprCfg) {
         if self.consume_newline() {
-            self.push_next_frame_starting_here(cfg, Frame::ContinueBlock { num_found: 1 });
+            self.push_next_frame_starting_here(cfg, Frame::ContinueBlock);
+            self.push_node(N::BeginBlock, None);
             self.start_expr(cfg);
         } else {
             self.start_expr(cfg);
@@ -787,8 +788,17 @@ impl State {
 }
 
 struct FormattedBuffer {
-    kinds: Vec<T>,
-    offsets: Vec<u32>,
+    kinds: VecDeque<T>,
+    offsets: VecDeque<u32>,
+}
+
+impl FormattedBuffer {
+    fn new() -> FormattedBuffer {
+        FormattedBuffer {
+            kinds: VecDeque::new(),
+            offsets: VecDeque::new(),
+        }
+    }
 }
 
 struct Formatter<'a> {
@@ -797,9 +807,27 @@ struct Formatter<'a> {
     out: FormattedBuffer,
 }
 
-fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
-    
-}
+// fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
+//     let mut buf = FormattedBuffer::new();
+//     for (i, &node) in tree.kinds.iter().enumerate() {
+//         match node {
+//             N::Ident => T::LowerIdent,
+//             N::Assign => T::OpAssign,
+//             N::DeclSeq => T::Newline,
+//             N::BinOpPlus => T::OpPlus,
+//             N::BinOpStar => T::OpStar,
+//             N::Apply => T::Newline,
+//             N::Pizza => T::OpPizza,
+//             N::Closure => T::OpBackslash,
+//             N::If => T::KwIf,
+//             N::When => T::KwWhen,
+//             _ => todo!(),
+//         };
+
+//         buf.kinds.push_back(kind);
+//         buf.offsets.push_back(i as u32);
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -1018,7 +1046,7 @@ mod tests {
                             T::LowerIdent, T::OpArrow, T::LowerIdent, T::Newline,
                             T::Dedent,
             ],
-            expect!((Ident Ident (Ident Ident Ident) When) When),
+            expect!((Ident Ident (BeginBlock (Ident Ident Ident) When) EndBlock) When),
         );
     }
     
@@ -1027,7 +1055,7 @@ mod tests {
         let (kinds, indents) = unindentify(kinds);
         let mut state = State::from_tokens(&kinds);
         state.buf.indents = indents;
-        state.push_next_frame_starting_here(ExprCfg::default(), Frame::continue_top_level());
+        state.start_top_level_decls();
         state.pump();
         state.assert_end();
 
@@ -1041,7 +1069,7 @@ mod tests {
     fn test_simple_assign_decl() {
         decl_test(
             &[T::LowerIdent, T::OpAssign, T::LowerIdent],
-            expect!(((Ident Ident) Assign) DeclSeq),
+            expect!((BeginTopLevelDecls (Ident Ident) Assign) EndTopLevelDecls),
         );
     }
 
@@ -1049,7 +1077,7 @@ mod tests {
     fn test_double_assign_decl() {
         decl_test(
             &[T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline, T::LowerIdent, T::OpAssign, T::LowerIdent],
-            expect!(((Ident Ident) Assign (Ident Ident) Assign) DeclSeq),
+            expect!((BeginTopLevelDecls (Ident Ident) Assign (Ident Ident) Assign) EndTopLevelDecls),
         );
     }
 
@@ -1061,10 +1089,12 @@ mod tests {
                     T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline,
                     T::LowerIdent],
             expect!(
-                ((Ident
-                    ((Ident Ident) Assign Ident) DeclSeq)
-                    Assign)
-                DeclSeq),
+                (
+                    BeginTopLevelDecls
+                    (Ident
+                        (BeginBlock (Ident Ident) Assign Ident) EndBlock)
+                        Assign)
+                EndTopLevelDecls),
         );
     }
 
@@ -1075,7 +1105,7 @@ mod tests {
                 T::LowerIdent, T::OpAssign, T::Newline,
                     T::LowerIdent, T::Newline,
                 T::LowerIdent], // Note we really should error on the top-level expr
-            expect!(((Ident Ident) Assign Ident) DeclSeq),
+            expect!((BeginTopLevelDecls (Ident (BeginBlock Ident) EndBlock) Assign Ident) EndTopLevelDecls),
         );
     }
 
@@ -1093,7 +1123,9 @@ mod tests {
                     T::LowerIdent, T::OpAssign, T::Newline,
                         T::LowerIdent, T::Newline,
                     T::LowerIdent],
-            expect!(((Ident ((Ident Ident) Assign Ident) DeclSeq) Assign) DeclSeq),
+            expect!((BeginTopLevelDecls
+                    (Ident (BeginBlock (Ident (BeginBlock Ident) EndBlock) Assign Ident) EndBlock) Assign
+                ) EndTopLevelDecls),
         );
     }
 
@@ -1106,9 +1138,10 @@ mod tests {
                 T::LowerIdent, T::OpAssign, T::Newline, T::LowerIdent],
             expect!(
                 (
-                    (Ident Ident) Assign
-                    (Ident Ident) Assign
-                ) DeclSeq
+                    BeginTopLevelDecls
+                    (Ident (BeginBlock Ident) EndBlock) Assign
+                    (Ident (BeginBlock Ident) EndBlock) Assign
+                ) EndTopLevelDecls
             ),
         );
     }
@@ -1117,7 +1150,7 @@ mod tests {
     fn test_closure_decl() {
         decl_test(
             &[T::LowerIdent, T::OpAssign, T::OpBackslash, T::LowerIdent, T::OpArrow, T::LowerIdent],
-            expect!(((Ident (Ident Ident) Closure) Assign) DeclSeq),
+            expect!((BeginTopLevelDecls (Ident (Ident Ident) Closure) Assign) EndTopLevelDecls),
         );
     }
 }
