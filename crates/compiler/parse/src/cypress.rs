@@ -16,6 +16,7 @@ pub enum T {
 
     Indent, // Not produced by the tokenizer. Used in the formatter.
     Dedent, // Not produced by the tokenizer. Used in the formatter.
+    CommentNewline, // Not produced by the tokenizer. Used in the formatter.
     
     Float,
     Num,
@@ -95,6 +96,8 @@ pub enum N {
 
     /// Record updates (e.g. `{ x & y: 3 }`)
     RecordUpdate,
+
+    Parens,
 
     /// Tuple literals, e.g. `(1, 2)`
     Tuple,
@@ -781,6 +784,21 @@ impl State {
             Err(e) => todo!(),
         }
     }
+}
+
+struct FormattedBuffer {
+    kinds: Vec<T>,
+    offsets: Vec<u32>,
+}
+
+struct Formatter<'a> {
+    tree: &'a Tree,
+    buf: &'a TokenenizedBuffer,
+    out: FormattedBuffer,
+}
+
+fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
+    
 }
 
 #[cfg(test)]
