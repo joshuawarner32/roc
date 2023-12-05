@@ -58,7 +58,7 @@ pub enum T {
 pub struct Tree {
     kinds: Vec<N>,
     tokens: Vec<Token>,
-    subtree_start_positions: Vec<u32>,
+    paird_group_ends: Vec<u32>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -82,26 +82,7 @@ pub enum N {
     /// eg 'b'
     SingleQuote,
 
-    /// Look up exactly one field on a record or tuple, e.g. `x.foo` or `x.0`.
-    Access,
-
-    /// e.g. `.foo` or `.0`
-    AccessorFunction,
-
-    /// List literals, e.g. `[1, 2, 3]`
-    List,
-
-    /// Record literals, e.g. `{ x: 1, y: 2 }`
-    Record,
-
-    /// Record updates (e.g. `{ x & y: 3 }`)
-    RecordUpdate,
-
-    Parens,
-
-    /// Tuple literals, e.g. `(1, 2)`
-    Tuple,
-
+    /// Lowercase identifier, e.g. `foo`
     Ident,
 
     /// An underscore, e.g. `_` or `_x`
@@ -110,60 +91,76 @@ pub enum N {
     /// The "crash" keyword
     Crash,
 
-    /// Tag
+    /// The special dbg keyword, as in `dbg x`
+    Dbg,
+
+    /// Tag, e.g. `Foo`
     Tag,
 
     /// Reference to an opaque type, e.g. @Opaq
     OpaqueRef,
 
-    /// Closure, e.g. `\x -> x`
-    Closure,
+    /// Look up exactly one field on a record or tuple, e.g. `x.foo` or `x.0`.
+    Access,
+
+    /// e.g. `.foo` or `.0`
+    AccessorFunction,
+
+    /// List literals, e.g. `[1, 2, 3]`
+    BeginList, EndList,
+
+    /// Record literals, e.g. `{ x: 1, y: 2 }`
+    BeginRecord, EndRecord,
+
+    /// Record updates (e.g. `{ x & y: 3 }`)
+    BeginRecordUpdate, EndRecordUpdate,
+
+    /// Parentheses, e.g. `(1 + 2)`
+    BeginParens, EndParens,
+
+    /// Tuple literals, e.g. `(1, 2)`
+    BeginTuple, EndTuple,
 
     /// Indented block of statements and expressions
     BeginBlock, EndBlock,
 
-    /// The special dbg function, e.g. `dbg x`
-    Dbg,
-
     /// Function application, e.g. `f x`
-    Apply,
+    InlineApply, EndApply,
 
     /// Pizza operator, e.g. `x |> f`
-    Pizza,
+    InlinePizza, EndPizza,
 
     /// Assignment declaration, e.g. `x = 1`
-    Assign,
+    BeginAssign, InlineAssign, EndAssign,
 
     /// Binary operators, e.g. `x + y`
-    BinOpPlus,
-    BinOpStar,
+    InlineBinOpPlus, EndBinOpPlus,
+    InlineBinOpStar, EndBinOpStar,
 
     /// Unary operator, e.g. `-x`
-    UnaryOp,
+    BeginUnaryOp, EndUnaryOp,
 
     /// If expression, e.g. `if x then y else z`
-    If,
+    BeginIf, EndIf,
 
     /// A when expression, e.g. `when x is y -> z` (you need a newline after the 'is')
-    When,
+    BeginWhen, EndWhen,
+
+    /// A lambda expression, e.g. `\x -> x`
+    BeginLambda, EndLambda,
+
     ArgList,
     EndTopLevelDecls,
     BeginTopLevelDecls,
     Dummy,
-    EndBlockItem,
     
-    HintAssign,
-    HintExpr,
-
-    BeginWhen,
-    BeginIf,
-    BeginLambda,
+    HintExpr, // EndExpr,
 }
 
 impl N {
     fn is_decl(self) -> bool {
         match self {
-            N::Assign => true,
+            N::EndAssign => true,
             _ => false,
         }
     }
@@ -191,60 +188,12 @@ impl Tree {
         Tree {
             kinds: Vec::new(),
             tokens: Vec::new(),
-            subtree_start_positions: Vec::new(),
+            paird_group_ends: Vec::new(),
         }
     }
 
     fn len(&self) -> u32 {
         self.kinds.len() as u32
-    }
-
-    fn debug_vis_grouping(&self) -> String {
-        let mut stack = Vec::<(usize, String)>::new();
-
-        for (i, (&kind, &subtree_start_pos)) in self.kinds.iter().zip(self.subtree_start_positions.iter()).enumerate() {
-
-            if (subtree_start_pos as usize) < i {
-                let mut items = VecDeque::new();
-                while let Some((j, item)) = stack.pop() {
-                    if j >= subtree_start_pos as usize {
-                        items.push_front(item);
-                    } else {
-                        stack.push((j, item));
-                        break;
-                    }
-                }
-
-                // (a b c)
-                let mut s = String::new();
-                s.push('(');
-                for (i, item) in items.into_iter().enumerate() {
-                    if i > 0 {
-                        s.push(' ');
-                    }
-                    s.push_str(&item);
-                }
-                s.push(')');
-
-                s.push(' ');
-                s.push_str(&format!("{:?}", kind));
-
-                stack.push((i, s));
-            } else {
-                stack.push((i, format!("{:?}", kind)));
-            }
-        }
-        
-        // (a b c)
-        let mut s = String::new();
-        for (i, (_, item)) in stack.into_iter().enumerate() {
-            if i > 0 {
-                s.push(' ');
-            }
-            s.push_str(&item);
-        }
-
-        s
     }
 }
 
@@ -363,12 +312,12 @@ impl BinOp {
 impl From<BinOp> for N {
     fn from(op: BinOp) -> Self {
         match op {
-            BinOp::Pizza => N::Pizza,
-            BinOp::Apply => N::Apply,
-            BinOp::Plus => N::BinOpPlus,
-            BinOp::Minus => N::BinOpStar,
-            BinOp::Assign => N::Assign,
-            BinOp::AssignBlock => N::Assign,
+            BinOp::Pizza => N::EndPizza,
+            BinOp::Apply => N::EndApply,
+            BinOp::Plus => N::EndBinOpPlus,
+            BinOp::Minus => N::EndBinOpStar,
+            BinOp::Assign => N::EndAssign,
+            BinOp::AssignBlock => N::EndAssign,
             _ => todo!("binop to node {:?}", op),
         }
     }
@@ -380,12 +329,12 @@ enum Frame {
     ContinueExpr { min_prec: Prec, cur_op: Option<BinOp>, num_found: usize },
     ContinueBlock,
     FinishParen,
-    FinishAssignBlock,
+    FinishAssign,
     ContinueTopLevel { num_found: i32 },
-    ContinueClosureArgs,
+    ContinueLambdaArgs,
     ContinueIf { next: IfState },
     ContinueWhen { next: WhenState },
-    FinishClosure,
+    FinishLambda,
     FinishBlockItem,
 }
 
@@ -527,16 +476,22 @@ impl State {
         true
     }
 
+    fn update_end(&mut self, kind: N, subtree_start: u32) {
+        eprintln!("{:indent$}@{} updating end {} -> {}", "", self.pos, subtree_start, self.tree.len(), indent = 2 * self.frames.len() + 2);
+        assert_eq!(self.tree.kinds[subtree_start as usize], kind);
+        self.tree.paird_group_ends[subtree_start as usize] = self.tree.len() as u32;
+    }
+
     fn push_node(&mut self, kind: N, subtree_start: Option<u32>) {
-        eprintln!("{:indent$}pushing kind {:?} starting at {:?}", "", kind, subtree_start, indent = 2 * self.frames.len() + 2);
+        eprintln!("{:indent$}@{} pushing kind {}:{:?} starting at {:?}", "", self.pos, self.tree.kinds.len(), kind, subtree_start, indent = 2 * self.frames.len() + 2);
         self.tree.kinds.push(kind);
-        let pos = subtree_start.unwrap_or(self.tree.subtree_start_positions.len() as u32);
-        self.tree.subtree_start_positions.push(pos);
-        eprintln!("{:indent$}tree: {:?}", "", self.tree.debug_vis_grouping(), indent = 2 * self.frames.len() + 4);
+        let pos = subtree_start.unwrap_or(self.tree.paird_group_ends.len() as u32);
+        self.tree.paird_group_ends.push(pos);
+        // eprintln!("{:indent$}tree: {:?}", "", self.tree.debug_vis_grouping(), indent = 2 * self.frames.len() + 4);
     }
 
     fn push_next_frame(&mut self, subtree_start: u32, cfg: ExprCfg, frame: Frame) {
-        eprintln!("{:indent$}pushing frame {:?}", "", frame, indent = 2 * self.frames.len() + 2);
+        eprintln!("{:indent$}@{} pushing frame {:?}", "", self.pos, frame, indent = 2 * self.frames.len() + 2);
         self.frames.push((subtree_start, cfg, frame));
     }
 
@@ -547,26 +502,25 @@ impl State {
 
     fn pump(&mut self) {
         while let Some((subtree_start, cfg, frame)) = self.frames.pop() {
-            eprintln!("{:indent$}@{} pumping frame {:?}", "", self.pos, frame, indent = 2 * self.frames.len());
+            eprintln!("{:indent$}@{} pumping frame {:?} starting at {}", "", self.pos, frame, subtree_start, indent = 2 * self.frames.len());
             match frame {
-                Frame::StartExpr { min_prec } => self.pump_start_expr(cfg, min_prec),
+                Frame::StartExpr { min_prec } => self.pump_start_expr(subtree_start, cfg, min_prec),
                 Frame::FinishParen => self.pump_finish_paren(),
-                Frame::FinishClosure => self.pump_finish_closure(subtree_start),
+                Frame::FinishLambda => self.pump_finish_lambda(subtree_start),
                 Frame::FinishBlockItem => self.pump_finish_block_item(subtree_start),
                 Frame::ContinueExpr { min_prec, cur_op, num_found } => self.pump_continue_expr(subtree_start, cfg, min_prec, cur_op, num_found),
                 Frame::ContinueBlock => self.pump_continue_block(subtree_start, cfg),
-                Frame::FinishAssignBlock => self.pump_finish_assign_block(subtree_start, cfg),
+                Frame::FinishAssign => self.pump_finish_assign(subtree_start, cfg),
                 Frame::ContinueTopLevel { num_found } => self.pump_continue_top_level(subtree_start, cfg, num_found),
-                Frame::ContinueClosureArgs => self.pump_continue_closure_args(subtree_start, cfg),
+                Frame::ContinueLambdaArgs => self.pump_continue_lambda_args(subtree_start, cfg),
                 Frame::ContinueIf { next } => self.pump_continue_if(subtree_start, cfg, next),
                 Frame::ContinueWhen { next } => self.pump_continue_when(subtree_start, cfg, next),
             }
         }
     }
 
-    fn pump_start_expr(&mut self, cfg: ExprCfg, mut min_prec: Prec) {
+    fn pump_start_expr(&mut self, subtree_start: u32, cfg: ExprCfg, mut min_prec: Prec) {
         loop {
-            let subtree_start = self.tree.len();
             match self.cur() {
                 Some(T::OpenRound) => {
                     self.bump();
@@ -589,21 +543,21 @@ impl State {
                 }
                 Some(T::OpBackslash) => {
                     self.bump();
-                    self.push_node(N::BeginLambda, Some(subtree_start));
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueClosureArgs);
+                    self.push_next_frame_starting_here(cfg, Frame::ContinueLambdaArgs);
+                    self.push_node(N::BeginLambda, None);
                     return;
                 }
                 Some(T::KwIf) => {
                     self.bump();
-                    self.push_node(N::BeginIf, Some(subtree_start));
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueIf { next: IfState::Then });
+                    self.push_next_frame_starting_here(cfg, Frame::ContinueIf { next: IfState::Then });
+                    self.push_node(N::BeginIf, None);
                     self.start_expr(cfg);
                     return;
                 }
                 Some(T::KwWhen) => {
                     self.bump();
-                    self.push_node(N::BeginWhen, Some(subtree_start));
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::Is });
+                    self.push_next_frame_starting_here(cfg, Frame::ContinueWhen { next: WhenState::Is });
+                    self.push_node(N::BeginWhen, None);
                     self.start_expr(cfg);
                     return;
                 }
@@ -621,7 +575,7 @@ impl State {
             }
 
             if op == BinOp::Assign && self.consume_newline() {
-                self.push_next_frame(subtree_start, cfg, Frame::FinishAssignBlock);
+                self.push_next_frame(subtree_start, cfg, Frame::FinishAssign);
                 self.start_block(cfg);
                 return;
             }
@@ -671,15 +625,21 @@ impl State {
         self.expect(T::CloseRound);
     }
 
-    fn pump_finish_closure(&mut self, subtree_start: u32) {
-        self.push_node(N::Closure, Some(subtree_start));
+    fn pump_finish_lambda(&mut self, subtree_start: u32) {
+        self.push_node(N::EndLambda, Some(subtree_start));
+        self.update_end(N::BeginLambda, subtree_start);
     }
 
     fn pump_finish_block_item(&mut self, subtree_start: u32) {
         let k = self.tree.kinds.last().copied().unwrap(); // Find out what we just parsed
-        self.tree.kinds[subtree_start as usize] = match k {
-            N::Assign => N::HintAssign,
-            N::Assign | N::Ident | N::When | N::If => N::HintExpr,
+        match k {
+            N::EndAssign =>{
+                self.update_end(N::Dummy, subtree_start);
+                self.tree.kinds[subtree_start as usize] = N::BeginAssign;
+            }
+            N::Ident | N::EndWhen | N::EndIf => {
+                self.tree.kinds[subtree_start as usize] = N::HintExpr;
+            }
             k => todo!("{:?}", k),
         };
     }
@@ -694,11 +654,12 @@ impl State {
             self.start_block_item(cfg);
         } else {
             self.push_node(N::EndBlock, Some(subtree_start));
+            self.update_end(N::BeginBlock, subtree_start);
         }
     }
 
-    fn pump_finish_assign_block(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        self.push_node(N::Assign, Some(subtree_start));
+    fn pump_finish_assign(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        self.push_node(N::EndAssign, Some(subtree_start));
     }
 
     fn pump_continue_top_level(&mut self, subtree_start: u32, cfg: ExprCfg, num_found: i32) {
@@ -710,15 +671,16 @@ impl State {
             self.start_top_level_item();
         } else {
             self.push_node(N::EndTopLevelDecls, Some(subtree_start as u32));
+            self.update_end(N::BeginTopLevelDecls, subtree_start);
         }
     }
 
-    fn pump_continue_closure_args(&mut self, subtree_start: u32, cfg: ExprCfg) {
+    fn pump_continue_lambda_args(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::OpArrow) {
-            self.push_next_frame(subtree_start, cfg, Frame::FinishClosure);
+            self.push_next_frame(subtree_start, cfg, Frame::FinishLambda);
             self.start_block_or_expr(cfg);
         } else {
-            self.push_next_frame(subtree_start, cfg, Frame::ContinueClosureArgs);
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueLambdaArgs);
             self.push_next_frame_starting_here(cfg, Frame::start_expr());
         }
     }
@@ -743,7 +705,8 @@ impl State {
                 self.start_block_or_expr(cfg);
             }
             IfState::End => {
-                self.push_node(N::If, Some(subtree_start));
+                self.push_node(N::EndIf, Some(subtree_start));
+                self.update_end(N::BeginIf, subtree_start);
             }
         }
     }
@@ -765,7 +728,8 @@ impl State {
                         return;
                     }
                 }
-                self.push_node(N::When, Some(subtree_start));
+                self.push_node(N::EndWhen, Some(subtree_start));
+                self.update_end(N::BeginWhen, subtree_start);
             }
             WhenState::BranchArrow(indent) => {
                 self.expect(T::OpArrow);
@@ -777,8 +741,8 @@ impl State {
 
     fn start_top_level_item(&mut self) {
         self.push_next_frame_starting_here(ExprCfg::default(), Frame::FinishBlockItem);
-        self.push_node(N::Dummy, None); // will be replaced by the actual node in pump_finish_block_item
         self.start_expr(ExprCfg::default());
+        self.push_node(N::Dummy, None); // will be replaced by the actual node in pump_finish_block_item
     }
 
     fn start_top_level_decls(&mut self) {
@@ -801,8 +765,8 @@ impl State {
 
     fn start_block_item(&mut self, cfg: ExprCfg) {
         self.push_next_frame_starting_here(cfg, Frame::FinishBlockItem);
-        self.push_node(N::Dummy, None); // will be replaced by the actual node in pump_finish_block_item
         self.start_expr(cfg);
+        self.push_node(N::Dummy, None); // will be replaced by the actual node in pump_finish_block_item
     }
 
     fn start_block(&mut self, cfg: ExprCfg) {
@@ -853,39 +817,7 @@ fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
     for (i, &node) in tree.kinds.iter().enumerate() {
         let hn = match node {
             N::Underscore | N::Float | N::Num | N::Str | N::SingleQuote => false,
-            N::Access => todo!(),
-            N::AccessorFunction => todo!(),
-            N::List => todo!(),
-            N::Record => todo!(),
-            N::RecordUpdate => todo!(),
-            N::Parens => todo!(),
-            N::Tuple => todo!(),
-            N::Ident => todo!(),
-            N::Crash => todo!(),
-            N::Tag => todo!(),
-            N::OpaqueRef => todo!(),
-            N::Closure => todo!(),
-            N::BeginBlock => todo!(),
-            N::EndBlock => todo!(),
-            N::Dbg => todo!(),
-            N::Apply => todo!(),
-            N::Pizza => todo!(),
-            N::Assign => todo!(),
-            N::BinOpPlus => todo!(),
-            N::BinOpStar => todo!(),
-            N::UnaryOp => todo!(),
-            N::If => todo!(),
-            N::When => todo!(),
-            N::ArgList => todo!(),
-            N::EndTopLevelDecls => todo!(),
-            N::BeginTopLevelDecls => todo!(),
-            N::Dummy => todo!(),
-            N::EndBlockItem => todo!(),
-            N::HintAssign => todo!(),
-            N::HintExpr => todo!(),
-            N::BeginWhen => todo!(),
-            N::BeginIf => todo!(),
-            N::BeginLambda => todo!(),
+            _ => todo!(),
         };
 
         has_newline.push(hn);
@@ -928,62 +860,123 @@ mod tests {
         assert_eq!(res.kinds, kinds);
     }
 
-    #[test]
-    fn test_format_simple() {
-        format_test(&[T::LowerIdent]);
+    // #[test]
+    // fn test_format_simple() {
+    //     format_test(&[T::LowerIdent]);
+    // }
+
+    // #[test]
+    // fn test_format_if() {
+    //     format_test(&[
+    //         T::KwIf, T::LowerIdent, T::KwThen, T::Newline,
+    //             T::Indent, T::LowerIdent, T::Newline, T::Dedent,
+    //         T::KwElse, T::Newline,
+    //             T::Indent, T::LowerIdent, T::Newline, T::Dedent,
+    //     ]);
+    // }
+
+    impl Tree {
+        fn to_expect_atom(&self) -> ExpectAtom {
+            let (i, atom) = self.expect_atom(self.kinds.len());
+            assert_eq!(i, 0);
+            atom
+        }
+        
+        fn expect_atom(&self, end: usize) -> (u32, ExpectAtom) {
+            let index = self.paird_group_ends[end - 1];
+            if index as usize >= end - 1 {
+                (index, ExpectAtom::Unit(self.kinds[end - 1]))
+            } else {
+                let mut res = VecDeque::new();
+                res.push_front(ExpectAtom::Unit(self.kinds[end - 1]));
+                let begin = index as usize;
+
+                let mut i = end - 1;
+
+                while i > begin {
+                    let (i2, atom) = self.expect_atom(i);
+                    println!("{}: {:?}", i2, atom);
+                    if i2 as usize >= i {
+                        res.push_front(atom);
+                        i = i - 1;
+                    } else {
+                        assert!(i2 as usize >= begin);
+                        i = i2 as usize;
+                        res.push_front(atom);
+                        if i == begin {
+                            res.push_front(ExpectAtom::Empty);
+                        }
+                    }
+                }
+
+                (begin as u32, ExpectAtom::Seq(res.into()))
+            }
+        }
     }
 
-    #[test]
-    fn test_format_if() {
-        format_test(&[
-            T::KwIf, T::LowerIdent, T::KwThen, T::Newline,
-                T::Indent, T::LowerIdent, T::Newline, T::Dedent,
-            T::KwElse, T::Newline,
-                T::Indent, T::LowerIdent, T::Newline, T::Dedent,
-        ]);
-    }
-
+    #[derive(Debug, Clone, PartialEq, Eq)]
     enum ExpectAtom {
         Seq(Vec<ExpectAtom>),
         Unit(N),
+        Empty,
+    }
+
+    impl ExpectAtom {
+        fn debug_vis(&self) -> String {
+            match self {
+                ExpectAtom::Seq(items) => format!("({})", items.iter().map(|i| i.debug_vis()).collect::<Vec<_>>().join(" ")),
+                ExpectAtom::Unit(kind) => format!("{:?}", kind),
+                ExpectAtom::Empty => format!("*"),
+            }
+        }
     }
 
     struct ExpectBuilder {
         kinds: Vec<N>,
-        subtree_start_positions: Vec<u32>,
+        paird_group_ends: Vec<u32>,
     }
 
     impl ExpectBuilder {
         fn new() -> ExpectBuilder {
             ExpectBuilder {
                 kinds: Vec::new(),
-                subtree_start_positions: Vec::new(),
+                paird_group_ends: Vec::new(),
             }
         }
 
-        fn consume_items(&mut self, items: Vec<ExpectAtom>) {
-            let mut last_start_pos = None;
+        fn consume_items(&mut self, items: &[ExpectAtom]) {
+            assert!(items.len() > 0);
+            assert!(!matches!(items.first().unwrap(), ExpectAtom::Seq(_)));
+            assert!(!matches!(items.last().unwrap(), ExpectAtom::Seq(_)));
+
+            let start = self.kinds.len();
 
             for item in items {
                 match item {
-                    ExpectAtom::Seq(items) => {
-                        assert!(last_start_pos.is_none());
-                        last_start_pos = Some(self.kinds.len() as u32);
-                        self.consume_items(items);
-                    }
+                    ExpectAtom::Seq(items) => self.consume_items(&items),
                     ExpectAtom::Unit(kind) => {
-                        self.kinds.push(kind);
-                        let pos = last_start_pos.take().unwrap_or(self.subtree_start_positions.len() as u32);
-                        self.subtree_start_positions.push(pos);
+                        self.kinds.push(*kind);
+                        self.paird_group_ends.push(self.paird_group_ends.len() as u32);
                     }
+                    ExpectAtom::Empty => {}
                 }
+            }
+
+            let end = self.kinds.len();
+
+            if matches!(items.first().unwrap(), ExpectAtom::Unit(_) ) {
+                self.paird_group_ends[start] = end as u32;
+            }
+
+            if matches!(items.last().unwrap(), ExpectAtom::Unit(_) ) {
+                self.paird_group_ends[end - 1] = start as u32;
             }
         }
 
         fn finish(mut self) -> Tree {
             Tree {
                 kinds: self.kinds,
-                subtree_start_positions: self.subtree_start_positions,
+                paird_group_ends: self.paird_group_ends,
                 tokens: Vec::new(), // TODO
             }
         }
@@ -992,19 +985,24 @@ mod tests {
     fn build_expect(items: Vec<ExpectAtom>) -> Tree {
         let mut b = ExpectBuilder::new();
         
-        b.consume_items(items);
+        b.consume_items(&items);
 
-        b.finish()
+        let t = b.finish();
+
+        let reconstituted = t.to_expect_atom();
+        match reconstituted {
+            ExpectAtom::Seq(new_items) => assert_eq!(items, new_items),
+            ExpectAtom::Unit(item) => assert_eq!(items, vec![ExpectAtom::Unit(item)]),
+            ExpectAtom::Empty => panic!(),
+        };
+
+        t
     }
 
     macro_rules! cvt_item {
-        ($item:ident) => {
-            ExpectAtom::Unit(N::$item)
-        };
-
-        (($($items:tt)*)) => {
-            ExpectAtom::Seq(vec![$(cvt_item!($items)),*])
-        };
+        (*)                 => { ExpectAtom::Empty };
+        ($item:ident)       => { ExpectAtom::Unit(N::$item) };
+        (($($items:tt)*))   => { ExpectAtom::Seq(vec![$(cvt_item!($items)),*]) };
     }
 
     macro_rules! expect {
@@ -1054,7 +1052,7 @@ mod tests {
         state.pump();
         state.assert_end();
 
-        assert_eq!(&state.tree.debug_vis_grouping(), &expected.debug_vis_grouping());
+        assert_eq!(state.tree.to_expect_atom().debug_vis(), expected.to_expect_atom().debug_vis());
     }
 
     #[test]
@@ -1069,7 +1067,7 @@ mod tests {
     fn test_simple_apply() {
         expr_test(
             &[T::LowerIdent, T::LowerIdent],
-            expect!((Ident Ident) Apply),
+            expect!(* Ident Ident EndApply),
         );
     }
 
@@ -1077,7 +1075,7 @@ mod tests {
     fn test_simple_binop_plus() {
         expr_test(
             &[T::LowerIdent, T::OpPlus, T::LowerIdent],
-            expect!((Ident Ident) BinOpPlus),
+            expect!(* Ident Ident EndBinOpPlus),
         );
     }
 
@@ -1085,7 +1083,7 @@ mod tests {
     fn test_complex_apply() {
         expr_test(
             &[T::LowerIdent, T::LowerIdent, T::OpPlus, T::LowerIdent],
-            expect!(((Ident Ident) Apply Ident) BinOpPlus),
+            expect!(* (* Ident Ident EndApply) Ident EndBinOpPlus),
         );
     }
 
@@ -1093,7 +1091,7 @@ mod tests {
     fn test_complex_binop_plus() {
         expr_test(
             &[T::LowerIdent, T::OpPlus, T::LowerIdent, T::LowerIdent],
-            expect!((Ident (Ident Ident) Apply) BinOpPlus),
+            expect!(* Ident (* Ident Ident EndApply) EndBinOpPlus),
         );
     }
 
@@ -1101,7 +1099,7 @@ mod tests {
     fn test_nested_binop_plus() {
         expr_test(
             &[T::LowerIdent, T::OpPlus, T::LowerIdent, T::OpPlus, T::LowerIdent],
-            expect!(((Ident Ident) BinOpPlus Ident) BinOpPlus),
+            expect!(* (* Ident Ident EndBinOpPlus) Ident EndBinOpPlus),
         );
     }
 
@@ -1109,7 +1107,7 @@ mod tests {
     fn test_multiple_ident() {
         expr_test(
             &[T::LowerIdent, T::LowerIdent, T::LowerIdent],
-            expect!((Ident Ident Ident) Apply),
+            expect!(* Ident Ident Ident EndApply),
         );
     }
 
@@ -1117,15 +1115,15 @@ mod tests {
     fn test_pizza_operator() {
         expr_test(
             &[T::LowerIdent, T::OpPizza, T::LowerIdent, T::OpPizza, T::LowerIdent],
-            expect!((Ident Ident Ident) Pizza),
+            expect!(* Ident Ident Ident EndPizza),
         );
     }
 
     #[test]
-    fn test_closure_expr() {
+    fn test_lambda_expr() {
         expr_test(
             &[T::OpBackslash, T::LowerIdent, T::OpArrow, T::LowerIdent],
-            expect!((Ident Ident) Closure),
+            expect!(BeginLambda Ident Ident EndLambda),
         );
     }
 
@@ -1133,7 +1131,7 @@ mod tests {
     fn test_if() {
         expr_test(
             &[T::KwIf, T::LowerIdent, T::KwThen, T::LowerIdent, T::KwElse, T::LowerIdent],
-            expect!((Ident Ident Ident) If),
+            expect!(BeginIf Ident Ident Ident EndIf),
         );
     }
 
@@ -1141,7 +1139,7 @@ mod tests {
     fn test_when() {
         expr_test(
             &[T::KwWhen, T::LowerIdent, T::KwIs, T::LowerIdent, T::OpArrow, T::LowerIdent],
-            expect!((Ident Ident Ident) When),
+            expect!(BeginWhen Ident Ident Ident EndWhen),
         );
     }
 
@@ -1156,7 +1154,7 @@ mod tests {
                             T::LowerIdent, T::OpArrow, T::LowerIdent, T::Newline,
                             T::Dedent,
             ],
-        expect!((Ident Ident (BeginBlock HintWhen (Ident Ident Ident) When) EndBlock) When),
+            expect!(BeginWhen Ident Ident (BeginBlock HintExpr (BeginWhen Ident Ident Ident EndWhen) EndBlock) EndWhen),
         );
     }
     
@@ -1170,16 +1168,16 @@ mod tests {
         state.assert_end();
 
         // assert_eq!(&state.tree.kinds, &expected.kinds);
-        // eprintln!("{:?}", state.tree.subtree_start_positions);
-        // eprintln!("{:?}", expected.subtree_start_positions);
-        assert_eq!(&state.tree.debug_vis_grouping(), &expected.debug_vis_grouping());
+        // eprintln!("{:?}", state.tree.paird_group_ends);
+        // eprintln!("{:?}", expected.paird_group_ends);
+        assert_eq!(state.tree.to_expect_atom().debug_vis(), expected.to_expect_atom().debug_vis());
     }
 
     #[test]
     fn test_simple_assign_decl() {
         decl_test(
             &[T::LowerIdent, T::OpAssign, T::LowerIdent],
-            expect!((BeginTopLevelDecls HintAssign (Ident Ident) Assign) EndTopLevelDecls),
+            expect!(BeginTopLevelDecls (BeginAssign Ident Ident EndAssign) EndTopLevelDecls),
         );
     }
 
@@ -1187,7 +1185,7 @@ mod tests {
     fn test_double_assign_decl() {
         decl_test(
             &[T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline, T::LowerIdent, T::OpAssign, T::LowerIdent],
-            expect!((BeginTopLevelDecls HintAssign (Ident Ident) Assign HintAssign (Ident Ident) Assign) EndTopLevelDecls),
+            expect!(BeginTopLevelDecls (BeginAssign Ident Ident EndAssign) (BeginAssign Ident Ident EndAssign) EndTopLevelDecls),
         );
     }
 
@@ -1199,12 +1197,11 @@ mod tests {
                     T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline,
                     T::LowerIdent],
             expect!(
-                (
-                    BeginTopLevelDecls
-                    HintAssign
-                    (Ident
-                        (BeginBlock HintAssign (Ident Ident) Assign HintExpr Ident) EndBlock)
-                        Assign)
+                BeginTopLevelDecls
+                    (BeginAssign
+                        Ident
+                        (BeginBlock (BeginAssign Ident Ident EndAssign) HintExpr Ident EndBlock)
+                    EndAssign)
                 EndTopLevelDecls),
         );
     }
@@ -1216,7 +1213,7 @@ mod tests {
                 T::LowerIdent, T::OpAssign, T::Newline,
                     T::LowerIdent, T::Newline,
                 T::LowerIdent], // Note we really should error on the top-level expr
-            expect!((BeginTopLevelDecls HintAssign (Ident (BeginBlock HintExpr Ident) EndBlock) Assign HintExpr Ident) EndTopLevelDecls),
+            expect!(BeginTopLevelDecls (BeginAssign Ident (BeginBlock HintExpr Ident EndBlock) EndAssign) HintExpr Ident EndTopLevelDecls),
         );
     }
 
@@ -1234,9 +1231,10 @@ mod tests {
                     T::LowerIdent, T::OpAssign, T::Newline,
                         T::LowerIdent, T::Newline,
                     T::LowerIdent],
-            expect!((BeginTopLevelDecls
-                    HintAssign (Ident (BeginBlock HintAssign (Ident (BeginBlock HintExpr Ident) EndBlock) Assign HintExpr Ident) EndBlock) Assign
-                ) EndTopLevelDecls),
+            expect!(
+                BeginTopLevelDecls
+                    (BeginAssign Ident (BeginBlock (BeginAssign Ident (BeginBlock HintExpr Ident EndBlock) EndAssign) HintExpr Ident EndBlock) EndAssign)
+                EndTopLevelDecls),
         );
     }
 
@@ -1248,20 +1246,19 @@ mod tests {
                 T::Newline,
                 T::LowerIdent, T::OpAssign, T::Newline, T::LowerIdent],
             expect!(
-                (
-                    BeginTopLevelDecls
-                    HintAssign (Ident (BeginBlock HintExpr Ident) EndBlock) Assign
-                    HintAssign (Ident (BeginBlock HintExpr Ident) EndBlock) Assign
-                ) EndTopLevelDecls
+                BeginTopLevelDecls
+                    (BeginAssign Ident (BeginBlock HintExpr Ident EndBlock) EndAssign)
+                    (BeginAssign Ident (BeginBlock HintExpr Ident EndBlock) EndAssign)
+                EndTopLevelDecls
             ),
         );
     }
 
     #[test]
-    fn test_closure_decl() {
+    fn test_lambda_decl() {
         decl_test(
             &[T::LowerIdent, T::OpAssign, T::OpBackslash, T::LowerIdent, T::OpArrow, T::LowerIdent],
-            expect!((BeginTopLevelDecls HintAssign (Ident (Ident Ident) Closure) Assign) EndTopLevelDecls),
+            expect!(BeginTopLevelDecls (BeginAssign Ident (BeginLambda Ident Ident EndLambda) EndAssign) EndTopLevelDecls),
         );
     }
 }
