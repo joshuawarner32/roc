@@ -1,4 +1,4 @@
-//! Cypress: an experimental parser for the Roc language.
+//! Cypress: an experimental (and very incomplete) parser for the Roc language.
 //! Inspired by the Carbon language parser, described here: https://docs.google.com/document/d/1RRYMm42osyqhI2LyjrjockYCutQ5dOf8Abu50kTrkX0/edit?resourcekey=0-kHyqOESbOHmzZphUbtLrTw
 //! Cypress is more-or-less a recursive descent parser, but written in a very unusual style, and outputting an unusual AST.
 //! 
