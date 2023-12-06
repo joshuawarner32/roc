@@ -141,7 +141,7 @@ pub enum N {
     BeginUnaryOp, EndUnaryOp,
 
     /// If expression, e.g. `if x then y else z`
-    BeginIf, EndIf,
+    BeginIf, InlineThen, InlineElse, EndIf,
 
     /// A when expression, e.g. `when x is y -> z` (you need a newline after the 'is')
     BeginWhen, EndWhen,
@@ -154,7 +154,7 @@ pub enum N {
     BeginTopLevelDecls,
     Dummy,
     
-    HintExpr, // EndExpr,
+    HintExpr,
 }
 
 impl N {
@@ -574,10 +574,13 @@ impl State {
                 }
             }
 
-            if op == BinOp::Assign && self.consume_newline() {
-                self.push_next_frame(subtree_start, cfg, Frame::FinishAssign);
-                self.start_block(cfg);
-                return;
+            if op == BinOp::Assign {
+                self.push_node(N::InlineAssign, None);
+                if self.consume_newline() {
+                    self.push_next_frame(subtree_start, cfg, Frame::FinishAssign);
+                    self.start_block(cfg);
+                    return;
+                }
             }
 
             eprintln!("{:indent$}next op {:?}", "", op, indent = 2 * self.frames.len() + 2);
@@ -689,11 +692,13 @@ impl State {
         match next {
             IfState::Then => {
                 self.expect(T::KwThen);
+                self.push_node(N::InlineThen, None);
                 self.push_next_frame(subtree_start, cfg, Frame::ContinueIf { next: IfState::Else });
                 self.start_block_or_expr(cfg);
             }
             IfState::Else => {
                 self.expect(T::KwElse);
+                self.push_node(N::InlineElse, None);
 
                 let next = if self.consume(T::KwIf) {
                     IfState::Then
@@ -814,16 +819,78 @@ fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
     
     let mut has_newline = Vec::with_capacity(tree.len() as usize);
 
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    enum H {
+        If,
+        Expr,
+    }
+
+    let mut stack = Vec::new();
+
+    dbg!(&tree.kinds);
+
     for (i, &node) in tree.kinds.iter().enumerate() {
         let hn = match node {
-            N::Underscore | N::Float | N::Num | N::Str | N::SingleQuote => false,
-            _ => todo!(),
+            N::Ident | N::Underscore | N::Float | N::Num | N::Str | N::SingleQuote => {
+                stack.push((H::Expr, false));
+                false
+            }
+
+            N::BeginTopLevelDecls  => false,
+            N::EndTopLevelDecls => {
+                // pop any Expr nodes. Note this is not technically correct, since we shouldn't be allowing expr nodes in top-level decls.
+                while let Some((H::Expr, _)) = stack.last() {
+                    stack.pop();
+                }
+                false
+            }
+
+            N::BeginAssign => false,
+            N::InlineAssign => {
+                assert_eq!(stack.pop(), Some((H::Expr, false)));
+                true
+            }
+            N::EndAssign =>  {
+                let body = stack.pop().unwrap();
+                assert_eq!(body.0, H::Expr);
+                body.1
+            }
+
+            N::HintExpr => false,
+
+            // Wrong: N::BeginIf | N::InlineThen | N::InlineElse | N::EndIf => false,
+            // Then/Else/Endif need to pop the expr nodes
+            N::BeginIf => false,
+            N::InlineThen => {
+                assert_eq!(stack.pop(), Some((H::Expr, false)));
+                false
+            }
+            N::InlineElse => {
+                assert_eq!(stack.pop(), Some((H::Expr, false)));
+                false
+            }
+            N::EndIf => {
+                assert_eq!(stack.pop(), Some((H::Expr, false)));
+                false
+            }
+
+            N::BeginBlock | N::EndBlock => true,
+            node => todo!("{:?}", node),
         };
 
         has_newline.push(hn);
     }
-    
 
+    assert_eq!(stack, &[]);
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    enum St {
+        Assign0,
+        Assign1,
+        Expr,
+    }
+
+    let mut stack = Vec::new();
 
     for (i, &node) in tree.kinds.iter().enumerate() {
         match node {
@@ -832,10 +899,44 @@ fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
             }
             N::BeginTopLevelDecls => {}
             N::EndTopLevelDecls => {}
+
+            N::BeginAssign => {
+                stack.push(St::Assign0);
+            }
+            N::InlineAssign => {
+                assert_eq!(stack.pop(), Some(St::Assign0));
+                buf.kinds.push_back(T::OpAssign);
+                stack.push(St::Assign1);
+            }
+            N::EndAssign => {
+                assert_eq!(stack.pop(), Some(St::Assign1));
+                buf.kinds.push_back(T::Newline);
+            }
+            
             N::HintExpr => {}
+
             N::BeginIf => {
                 buf.kinds.push_back(T::KwIf);
             }
+            N::InlineThen => {
+                buf.kinds.push_back(T::KwThen);
+                buf.kinds.push_back(T::Newline);
+                buf.kinds.push_back(T::Indent);
+            }
+            N::InlineElse => {
+                buf.kinds.push_back(T::Dedent);
+                buf.kinds.push_back(T::Newline);
+                buf.kinds.push_back(T::KwElse);
+                buf.kinds.push_back(T::Newline);
+                buf.kinds.push_back(T::Indent);
+            }
+            N::EndIf => {
+                buf.kinds.push_back(T::Dedent);
+                buf.kinds.push_back(T::Newline);
+            }
+
+            N::BeginBlock => {}
+            N::EndBlock => {}
             _ => todo!("{:?}", node),
         }
     }
@@ -846,6 +947,7 @@ fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
 mod tests {
     use super::*;
 
+    #[track_caller]
     fn format_test(kinds: &[T]) {
         let (unindented_kinds, indents) = unindentify(kinds);
 
@@ -860,20 +962,53 @@ mod tests {
         assert_eq!(res.kinds, kinds);
     }
 
-    // #[test]
-    // fn test_format_simple() {
-    //     format_test(&[T::LowerIdent]);
-    // }
+    #[track_caller]
+    fn format_test_2(kinds: &[T], expected_kinds: &[T]) {
+        let (unindented_kinds, indents) = unindentify(kinds);
 
-    // #[test]
-    // fn test_format_if() {
-    //     format_test(&[
-    //         T::KwIf, T::LowerIdent, T::KwThen, T::Newline,
-    //             T::Indent, T::LowerIdent, T::Newline, T::Dedent,
-    //         T::KwElse, T::Newline,
-    //             T::Indent, T::LowerIdent, T::Newline, T::Dedent,
-    //     ]);
-    // }
+        let mut state = State::from_tokens(&unindented_kinds);
+        state.buf.indents = indents;
+        state.start_top_level_decls();
+        state.pump();
+        state.assert_end();
+        
+        let res = pretty(&state.tree, &state.buf);
+
+        assert_eq!(res.kinds, expected_kinds);
+    }
+
+    #[test]
+    fn test_format_ident() {
+        format_test(&[T::LowerIdent]);
+    }
+
+    #[test]
+    fn test_format_assign() {
+        format_test(&[T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline]);
+    }
+
+    #[test]
+    fn test_format_double_assign() {
+        format_test(&[T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline, T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline]);
+    }
+
+    #[test]
+    fn test_format_if() {
+        format_test_2(
+            &[
+                T::KwIf, T::LowerIdent, T::KwThen, T::Newline,
+                    T::Indent, T::LowerIdent, T::Dedent, T::Newline,
+                T::KwElse, // missing newline - should be added by the formatter!
+                    T::Indent, T::LowerIdent, T::Dedent, T::Newline,
+            ],
+            &[
+                T::KwIf, T::LowerIdent, T::KwThen, T::Newline,
+                    T::Indent, T::LowerIdent, T::Dedent, T::Newline,
+                T::KwElse, T::Newline,
+                    T::Indent, T::LowerIdent, T::Dedent, T::Newline,
+            ],
+        );
+    }
 
     impl Tree {
         fn to_expect_atom(&self) -> ExpectAtom {
@@ -1131,7 +1266,7 @@ mod tests {
     fn test_if() {
         expr_test(
             &[T::KwIf, T::LowerIdent, T::KwThen, T::LowerIdent, T::KwElse, T::LowerIdent],
-            expect!(BeginIf Ident Ident Ident EndIf),
+            expect!(BeginIf Ident InlineThen Ident InlineElse Ident EndIf),
         );
     }
 
@@ -1177,7 +1312,7 @@ mod tests {
     fn test_simple_assign_decl() {
         decl_test(
             &[T::LowerIdent, T::OpAssign, T::LowerIdent],
-            expect!(BeginTopLevelDecls (BeginAssign Ident Ident EndAssign) EndTopLevelDecls),
+            expect!(BeginTopLevelDecls (BeginAssign Ident InlineAssign Ident EndAssign) EndTopLevelDecls),
         );
     }
 
@@ -1185,7 +1320,7 @@ mod tests {
     fn test_double_assign_decl() {
         decl_test(
             &[T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline, T::LowerIdent, T::OpAssign, T::LowerIdent],
-            expect!(BeginTopLevelDecls (BeginAssign Ident Ident EndAssign) (BeginAssign Ident Ident EndAssign) EndTopLevelDecls),
+            expect!(BeginTopLevelDecls (BeginAssign Ident InlineAssign Ident EndAssign) (BeginAssign Ident InlineAssign Ident EndAssign) EndTopLevelDecls),
         );
     }
 
@@ -1200,7 +1335,8 @@ mod tests {
                 BeginTopLevelDecls
                     (BeginAssign
                         Ident
-                        (BeginBlock (BeginAssign Ident Ident EndAssign) HintExpr Ident EndBlock)
+                        InlineAssign
+                        (BeginBlock (BeginAssign Ident InlineAssign Ident EndAssign) HintExpr Ident EndBlock)
                     EndAssign)
                 EndTopLevelDecls),
         );
@@ -1213,7 +1349,7 @@ mod tests {
                 T::LowerIdent, T::OpAssign, T::Newline,
                     T::LowerIdent, T::Newline,
                 T::LowerIdent], // Note we really should error on the top-level expr
-            expect!(BeginTopLevelDecls (BeginAssign Ident (BeginBlock HintExpr Ident EndBlock) EndAssign) HintExpr Ident EndTopLevelDecls),
+            expect!(BeginTopLevelDecls (BeginAssign Ident InlineAssign (BeginBlock HintExpr Ident EndBlock) EndAssign) HintExpr Ident EndTopLevelDecls),
         );
     }
 
@@ -1233,7 +1369,7 @@ mod tests {
                     T::LowerIdent],
             expect!(
                 BeginTopLevelDecls
-                    (BeginAssign Ident (BeginBlock (BeginAssign Ident (BeginBlock HintExpr Ident EndBlock) EndAssign) HintExpr Ident EndBlock) EndAssign)
+                    (BeginAssign Ident InlineAssign (BeginBlock (BeginAssign Ident InlineAssign (BeginBlock HintExpr Ident EndBlock) EndAssign) HintExpr Ident EndBlock) EndAssign)
                 EndTopLevelDecls),
         );
     }
@@ -1247,8 +1383,8 @@ mod tests {
                 T::LowerIdent, T::OpAssign, T::Newline, T::LowerIdent],
             expect!(
                 BeginTopLevelDecls
-                    (BeginAssign Ident (BeginBlock HintExpr Ident EndBlock) EndAssign)
-                    (BeginAssign Ident (BeginBlock HintExpr Ident EndBlock) EndAssign)
+                    (BeginAssign Ident InlineAssign (BeginBlock HintExpr Ident EndBlock) EndAssign)
+                    (BeginAssign Ident InlineAssign (BeginBlock HintExpr Ident EndBlock) EndAssign)
                 EndTopLevelDecls
             ),
         );
@@ -1258,7 +1394,7 @@ mod tests {
     fn test_lambda_decl() {
         decl_test(
             &[T::LowerIdent, T::OpAssign, T::OpBackslash, T::LowerIdent, T::OpArrow, T::LowerIdent],
-            expect!(BeginTopLevelDecls (BeginAssign Ident (BeginLambda Ident Ident EndLambda) EndAssign) EndTopLevelDecls),
+            expect!(BeginTopLevelDecls (BeginAssign Ident InlineAssign (BeginLambda Ident Ident EndLambda) EndAssign) EndTopLevelDecls),
         );
     }
 }
