@@ -1,5 +1,100 @@
-#![allow(dead_code)]
-#![allow(unused)]
+//! Cypress: an experimental parser for the Roc language.
+//! Inspired by the Carbon language parser, described here: https://docs.google.com/document/d/1RRYMm42osyqhI2LyjrjockYCutQ5dOf8Abu50kTrkX0/edit?resourcekey=0-kHyqOESbOHmzZphUbtLrTw
+//! Cypress is more-or-less a recursive descent parser, but written in a very unusual style, and outputting an unusual AST.
+//! 
+//! Notably, the tree we produce is made of two vecs: one vec of N (node) enums - just u8's basically - and one vec of some arbitrary index data, the interpretation of which varies by node type.
+//! Here's an example of what the tree looks like:
+//! 
+//! Original text: `f = \x -> x + 1`
+//! Tokens:            LowerIdent,   OpAssign,   OpBackslash, LowerIdent,  OpArrow,   LowerIdent,    OpPlus,   Num
+//!  Tree:                  ^            ^                         ^           ^            ^           ^       ^
+//!             ____________|____________|_________________________|___________|____________|___________|_______|_________________
+//!            /            |            |            _____________|___________|____________|___________|_______|_______          \
+//!           v             |            |           V             |           |            |           |       |       V          V
+//! Nodes: BeginAssign, LowerIdent, InlineAssign, BeginLambda, LowerIdent, InlineArrow, LowerIdent, InlinePlus, Num, EndLambda, EndAssign
+//! 
+//! The nodes are a flat list of nodes, and the arrows represent what each index is referring to.
+//! The indices associated with BeginAssign/EndAssign and BeginLambda/EndLambda point to each other, because they're paired groups.
+//! The indicies for most of the remaining nodes refer back to the token buffer - and specifically to the token they come from.
+//! 
+//! This is a very unusual way to represent a tree, but it has some nice properties:
+//! * It's very compact. The tree is just two vecs - five bytes per node.
+//!     (note however that in order to make the tree easy to traverse, we add some redundant nodes - so it's harder to directly compare to other tree encodings)
+//! * It's very fast to traverse. We can traverse the tree without any indirection - usually by walking in a straight line through the vecs.
+//! * We still have enough information to skip around the tree if we want - for example, in order to collect a hash map of the identifiers defined at the top level.
+//! * It's very fast to build. The current parser doesn't take great advantage of this - but you could imagine a future where we fast-path the common case of a sequence of lower idents and use SIMD ops to splat the nodes and indices into the tree.
+//! 
+//! Note that this tree isn't really designed to work well with the later stages of compiling.
+//! We'll be able to do some simple things like:
+//! * name resolution
+//! * syntax desugaring
+//! * canonicalization
+//! 
+//! ... but we won't be able to do more complex things like type inference/checking, code generation, etc.
+//! 
+//! To facilitate this, we'll do name resolution / desugaring / canonicalization in a single pass over the tree,
+//! and then convert it to a more traditional IR representation for the later parts of the compiler.
+//! 
+//! Notably however, interactive operations like formatting can be done without converting to a different representation.
+//! 
+//! ------------------------------------------------------------------
+//! 
+//! The other unusual aspect of the parser is that it's written in a style where we reify the parser state as a stack of frames, instead of using recursion.
+//! 
+//! Which is to say, we take a function like the following:
+//! 
+//! ```
+//! fn parse_if() -> Result<If, Error> {
+//!    expect(T::KwIf)?; // start state
+//!    let cond = parse_expr()?;
+//!    expect(T::KwThen)?; // where we'll return to after parsing the condition
+//!    let then = parse_expr()?;
+//!    expect(T::KwElse)?; // where we'll return to after parsing the then branch
+//!    let else = parse_expr()?;
+//!    Ok(If { cond, then, else }) // where we'll return to after parsing the else branch
+//! }
+//! ```
+//! 
+//! And we rewrite it to a series of enum variants that look something like:
+//! 
+//! ```
+//! enum Frame {
+//!     StartIf, // the initial state, at the start of the function
+//!     ContinueAtThenKw, // the return point after parsing the condition
+//!     ContinueAtElseKw, // the return point after parsing the then branch
+//!     FinishIf, // the return point after parsing the else branch
+//! 
+//!     // ... other frames for other constructs
+//!     StartExpr,
+//! }
+//! ```
+//! (this is a lie in several ways; but it's close enough for now)
+//! 
+//! The parser is then just a loop:
+//! * pop the top frame off the stack
+//! * call the corresponding `pump` function
+//! 
+//! In the `pump_*` functions, each time we want to call a parsing "function" recursively (e.g. `parse_expr()`), we:
+//! * push the state for the return pos onto the stack, e.g. `ContinueAtThenKw`
+//! * push the state for the start of the function onto the stack, e.g. `StartExpr`
+//! 
+//! In practice however, we can short-circuit the enum variant + loop iteration in a few cases. e.g. We don't technically need a `StartIf` frame,
+//! since we can immediately (1) check there's a `KwIf` token, (2) parse the condition, (3) push the `ContinueAtThenKw` frame, and (4) push the `StartExpr` frame.
+//!
+//! 
+//! Overall this design has some advantages:
+//! * When an error occurs, we can simply copy the enums representing stack frames and directly use those for generating error messages. We don't need any other mechanism for tracking the context around an error.
+//! * (minor) This allows us to handle much deeper trees, since we don't have to worry about blowing the stack.
+//! * (minor) We also consume less memory for deep trees (the explicit stack can be more compact)
+//! * (in the future...) We can use the fact that the stack is reified to do some interesting things, like:
+//!     * Store the stack at the location of the user's cursor in the editor, and use that to incrementally re-parse the tree as the user types.
+//!     * Build debugging visualizations of the parser state, without having to resort to a debugger.
+//! 
+//! That said, I haven't benchmarked this, and I don't really have a good intuition for how it compares to a normal recursive descent parser.
+//! On the one hand, we can in principle reduce overall memory traffic associated with stack frame setup, and on the other hand, we're not able to take advantage of the return address branch prediction in the CPU.
+
+#![allow(dead_code)] // temporarily during development
+#![allow(unused)] // temporarily during development
 
 use std::collections::{VecDeque, btree_map::Keys};
 
