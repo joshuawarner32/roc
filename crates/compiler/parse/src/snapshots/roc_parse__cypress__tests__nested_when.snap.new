@@ -1,0 +1,16 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+assertion_line: 1436
+description: "when abc is def ->\n    when ghi is jkl ->\n        mno\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginWhen
+        Ident
+        Ident
+        (BeginBlock
+            HintExpr
+            (BeginWhen Ident Ident (BeginBlock HintExpr Ident EndBlock) EndWhen)
+        EndBlock)
+    EndWhen)
+EndTopLevelDecls)

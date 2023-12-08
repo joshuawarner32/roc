@@ -1,0 +1,6 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+assertion_line: 1411
+description: abc def ghi
+---
+(BeginTopLevelDecls (* HintExpr Ident Ident Ident EndApply) EndTopLevelDecls)
