@@ -1,9 +1,8 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-assertion_line: 1431
 description: when abc is def -> ghi
 ---
 (BeginTopLevelDecls
     HintExpr
-    (BeginWhen Ident Ident Ident EndWhen)
+    (BeginWhen Ident=>LowerIdent@1 Ident=>LowerIdent@3 Ident=>LowerIdent@5 EndWhen)
 EndTopLevelDecls)

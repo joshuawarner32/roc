@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: abc |> def |> ghi |> jkl
+---
+(BeginTopLevelDecls
+    (*
+        HintExpr
+        Ident=>LowerIdent@0
+        Ident=>LowerIdent@2
+        Ident=>LowerIdent@4
+        Ident=>LowerIdent@6
+    EndPizza)
+EndTopLevelDecls)

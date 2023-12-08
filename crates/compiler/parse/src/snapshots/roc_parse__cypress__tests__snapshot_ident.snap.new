@@ -1,6 +1,0 @@
----
-source: crates/compiler/parse/src/cypress.rs
-assertion_line: 1381
-description: abc
----
-(BeginTopLevelDecls HintExpr Ident EndTopLevelDecls)

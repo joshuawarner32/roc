@@ -1,9 +1,0 @@
----
-source: crates/compiler/parse/src/cypress.rs
-assertion_line: 1426
-description: if abc then def else ghi
----
-(BeginTopLevelDecls
-    HintExpr
-    (BeginIf Ident InlineThen Ident InlineElse Ident EndIf)
-EndTopLevelDecls)

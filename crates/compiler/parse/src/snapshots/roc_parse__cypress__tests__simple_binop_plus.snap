@@ -1,0 +1,7 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: abc + def
+---
+(BeginTopLevelDecls
+    (* HintExpr Ident=>LowerIdent@0 Ident=>LowerIdent@2 EndBinOpPlus)
+EndTopLevelDecls)
