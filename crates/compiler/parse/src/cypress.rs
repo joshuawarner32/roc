@@ -1306,6 +1306,7 @@ mod tests {
             let mut tokenizer = Tokenizer::new(text);
             tokenizer.tokenize();
             let tb = tokenizer.finish();
+            eprintln!("tokens: {:?}", tb.kinds);
             let mut state = State::from_buf(tb);
             state.start_top_level_decls();
             state.pump();
@@ -1478,7 +1479,7 @@ mod tests {
     fn test_lambda_decl() {
         snapshot_test!(block_indentify(r#"
         |abc = \def ->
-            ghi
+        |    ghi
         "#))
     }
 }
