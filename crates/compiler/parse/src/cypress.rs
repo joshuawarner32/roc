@@ -1299,96 +1299,6 @@ mod tests {
     //     assert_eq!(state.tree.to_expect_atom().debug_vis(), expected.to_expect_atom().debug_vis());
     // }
 
-    // #[test]
-    // fn test_simple_assign_decl() {
-    //     decl_test(
-    //         &[T::LowerIdent, T::OpAssign, T::LowerIdent],
-    //         expect!(BeginTopLevelDecls (BeginAssign Ident InlineAssign Ident EndAssign) EndTopLevelDecls),
-    //     );
-    // }
-
-    // #[test]
-    // fn test_double_assign_decl() {
-    //     decl_test(
-    //         &[T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline, T::LowerIdent, T::OpAssign, T::LowerIdent],
-    //         expect!(BeginTopLevelDecls (BeginAssign Ident InlineAssign Ident EndAssign) (BeginAssign Ident InlineAssign Ident EndAssign) EndTopLevelDecls),
-    //     );
-    // }
-
-    // #[test]
-    // fn test_simple_nested_assign_decl() {
-    //     decl_test(
-    //         &[
-    //             T::LowerIdent, T::OpAssign, T::Newline,
-    //                 T::LowerIdent, T::OpAssign, T::LowerIdent, T::Newline,
-    //                 T::LowerIdent],
-    //         expect!(
-    //             BeginTopLevelDecls
-    //                 (BeginAssign
-    //                     Ident
-    //                     InlineAssign
-    //                     (BeginBlock (BeginAssign Ident InlineAssign Ident EndAssign) HintExpr Ident EndBlock)
-    //                 EndAssign)
-    //             EndTopLevelDecls),
-    //     );
-    // }
-
-    // #[test]
-    // fn test_decl_then_top_level_expr() {
-    //     decl_test(
-    //         &[
-    //             T::LowerIdent, T::OpAssign, T::Newline,
-    //                 T::LowerIdent, T::Newline,
-    //             T::LowerIdent], // Note we really should error on the top-level expr
-    //         expect!(BeginTopLevelDecls (BeginAssign Ident InlineAssign (BeginBlock HintExpr Ident EndBlock) EndAssign) HintExpr Ident EndTopLevelDecls),
-    //     );
-    // }
-
-    // #[test]
-    // fn test_double_nested_decl() {
-    //     /*
-    //     a =
-    //         b =
-    //             c
-    //         d
-    //     */
-    //     decl_test(
-    //         &[
-    //             T::LowerIdent, T::OpAssign, T::Newline,
-    //                 T::LowerIdent, T::OpAssign, T::Newline,
-    //                     T::LowerIdent, T::Newline,
-    //                 T::LowerIdent],
-    //         expect!(
-    //             BeginTopLevelDecls
-    //                 (BeginAssign Ident InlineAssign (BeginBlock (BeginAssign Ident InlineAssign (BeginBlock HintExpr Ident EndBlock) EndAssign) HintExpr Ident EndBlock) EndAssign)
-    //             EndTopLevelDecls),
-    //     );
-    // }
-
-    // #[test]
-    // fn test_double_assign_block_decl() {
-    //     decl_test(
-    //         &[
-    //             T::LowerIdent, T::OpAssign, T::Newline, T::LowerIdent,
-    //             T::Newline,
-    //             T::LowerIdent, T::OpAssign, T::Newline, T::LowerIdent],
-    //         expect!(
-    //             BeginTopLevelDecls
-    //                 (BeginAssign Ident InlineAssign (BeginBlock HintExpr Ident EndBlock) EndAssign)
-    //                 (BeginAssign Ident InlineAssign (BeginBlock HintExpr Ident EndBlock) EndAssign)
-    //             EndTopLevelDecls
-    //         ),
-    //     );
-    // }
-
-    // #[test]
-    // fn test_lambda_decl() {
-    //     decl_test(
-    //         &[T::LowerIdent, T::OpAssign, T::OpBackslash, T::LowerIdent, T::OpArrow, T::LowerIdent],
-    //         expect!(BeginTopLevelDecls (BeginAssign Ident InlineAssign (BeginLambda Ident Ident EndLambda) EndAssign) EndTopLevelDecls),
-    //     );
-    // }
-
     macro_rules! snapshot_test {
         ($text:expr) => {{
             let text = $text;
@@ -1468,15 +1378,6 @@ mod tests {
         snapshot_test!("when abc is def -> ghi");
     }
 
-    #[test]
-    fn test_nested_when() {
-        snapshot_test!(&block_indentify(r#"
-        |when abc is def ->
-        |    when ghi is jkl ->
-        |        mno
-        "#));
-    }
-
     fn block_indentify(text: &str) -> String {
         // remove the leading | from each line, along with any whitespace before that.
         // if the line is completely whitespace, remove it entirely.
@@ -1509,5 +1410,75 @@ mod tests {
         |def
         |ghi
         "#), "abc\ndef\nghi\n");
+    }
+
+    #[test]
+    fn test_nested_when() {
+        snapshot_test!(block_indentify(r#"
+        |when abc is def ->
+        |    when ghi is jkl ->
+        |        mno
+        "#));
+    }
+
+    #[test]
+    fn test_simple_assign_decl() {
+        snapshot_test!(block_indentify(r#"
+        |abc = def
+        "#))
+    }
+
+    #[test]
+    fn test_double_assign_decl() {
+        snapshot_test!(block_indentify(r#"
+        |abc = def
+        |ghi = jkl
+        "#))
+    }
+
+    #[test]
+    fn test_simple_nested_assign_decl() {
+        snapshot_test!(block_indentify(r#"
+        |abc =
+        |    def = ghi
+        |    jkl
+        "#))
+    }
+
+    #[test]
+    fn test_decl_then_top_level_expr() {
+        snapshot_test!(block_indentify(r#"
+        |abc =
+        |    def
+        |ghi
+        "#))
+    }
+
+    #[test]
+    fn test_double_nested_decl() {
+        snapshot_test!(block_indentify(r#"
+        |a =
+        |    b =
+        |        c
+        |    d
+        "#))
+    }
+
+    #[test]
+    fn test_double_assign_block_decl() {
+        snapshot_test!(block_indentify(r#"
+        |abc =
+        |    def
+        |ghi =
+        |    jkl
+        "#))
+    }
+
+    #[test]
+    fn test_lambda_decl() {
+        snapshot_test!(block_indentify(r#"
+        |abc = \def ->
+            ghi
+        "#))
     }
 }

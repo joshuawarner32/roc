@@ -1,0 +1,19 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "abc =\n    def = ghi\n    jkl\n"
+---
+(BeginTopLevelDecls
+    (BeginAssign
+        Ident=>LowerIdent@0
+        InlineAssign=>OpAssign@1
+        (BeginBlock
+            (BeginAssign
+                Ident=>LowerIdent@3
+                InlineAssign=>OpAssign@4
+                Ident=>LowerIdent@5
+            EndAssign)
+            HintExpr
+            Ident=>LowerIdent@7
+        EndBlock)
+    EndAssign)
+EndTopLevelDecls)
