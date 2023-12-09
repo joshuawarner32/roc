@@ -6,6 +6,13 @@ description: abc + def ghi
     (*
         HintExpr
         Ident=>LowerIdent@0
-        (* Ident=>LowerIdent@2 Ident=>LowerIdent@3 EndApply)
+        InlineBinOpPlus=>OpPlus@1
+        (* Ident=>LowerIdent@2 InlineApply=>LowerIdent@2 Ident=>LowerIdent@3 EndApply)
     EndBinOpPlus)
 EndTopLevelDecls)
+
+[=== canfmt below ===]
+Expr(BinOp(Ident("abc"), Plus, Apply(Ident("def"), [Ident("ghi")])))
+
+[=== formatted below ===]
+ abc + def ghi

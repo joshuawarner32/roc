@@ -6,8 +6,17 @@ description: abc |> def |> ghi |> jkl
     (*
         HintExpr
         Ident=>LowerIdent@0
+        InlinePizza=>OpPizza@1
         Ident=>LowerIdent@2
+        InlinePizza=>OpPizza@3
         Ident=>LowerIdent@4
+        InlinePizza=>OpPizza@5
         Ident=>LowerIdent@6
     EndPizza)
 EndTopLevelDecls)
+
+[=== canfmt below ===]
+Expr(Pizza([Ident("abc"), Ident("def"), Ident("ghi"), Ident("jkl")]))
+
+[=== formatted below ===]
+ abc |> def |> ghi |> jkl

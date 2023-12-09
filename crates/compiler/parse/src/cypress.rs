@@ -190,7 +190,7 @@ pub enum N {
     BeginWhen, EndWhen,
 
     /// A lambda expression, e.g. `\x -> x`
-    BeginLambda, EndLambda,
+    BeginLambda, InlineArrow, EndLambda,
 
     EndTopLevelDecls,
     BeginTopLevelDecls,
@@ -225,7 +225,7 @@ impl N {
             N::EndIf | N::EndWhen | N::EndLambda | N::EndTopLevelDecls =>
                 NodeIndexKind::End,
             N::InlineApply | N::InlinePizza | N::InlineAssign | N::InlineBinOpPlus | N::InlineBinOpStar |
-            N::InlineThen | N::InlineElse =>
+            N::InlineThen | N::InlineElse | N::InlineArrow =>
                 NodeIndexKind::Token,
             N::Num | N::Str | N::Ident | N::Tag | N::OpaqueRef | N::Access | N::AccessorFunction =>
                 NodeIndexKind::Token,
@@ -241,10 +241,6 @@ impl N {
 impl TokenenizedBuffer {
     fn kind(&self, pos: usize) -> Option<T> {
         self.kinds.get(pos).copied()
-    }
-
-    fn from_tokens(kinds: &[T]) -> TokenenizedBuffer {
-        TokenenizedBuffer { kinds:  kinds.to_owned(), offsets: Vec::new(), indents: Vec::new() }
     }
 }
 
@@ -278,7 +274,7 @@ enum Prec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum BinOp {
+pub enum BinOp { // shouldn't be pub. only pub because of canfmt. should just use a different enum.
     AssignBlock,
     DeclSeq,
     Assign,
@@ -372,6 +368,32 @@ impl BinOp {
             _ => false,
         }
     }
+
+    fn to_inline(&self) -> N {
+        match self {
+            BinOp::AssignBlock => todo!(),
+            BinOp::DeclSeq => todo!(),
+            BinOp::Assign => N::InlineAssign,
+            BinOp::Backpassing => todo!(),
+            BinOp::Pizza => N::InlinePizza,
+            BinOp::And => todo!(),
+            BinOp::Or => todo!(),
+            BinOp::Equals => todo!(),
+            BinOp::NotEquals => todo!(),
+            BinOp::LessThan => todo!(),
+            BinOp::GreaterThan => todo!(),
+            BinOp::LessThanOrEq => todo!(),
+            BinOp::GreaterThanOrEq => todo!(),
+            BinOp::Plus => N::InlineBinOpPlus,
+            BinOp::Minus => todo!(),
+            BinOp::Star => N::InlineBinOpStar,
+            BinOp::Slash => todo!(),
+            BinOp::DoubleSlash => todo!(),
+            BinOp::Percent => todo!(),
+            BinOp::Caret => todo!(),
+            BinOp::Apply => N::InlineApply,
+        }
+    }
 }
 
 impl From<BinOp> for N {
@@ -456,16 +478,6 @@ impl State {
         State {
             frames: vec![],
             buf: buf,
-            pos: 0,
-            line: 0,
-            tree: Tree::new(),
-        }
-    }
-
-    fn from_tokens(tokens: &[T]) -> Self {
-        State {
-            frames: vec![],
-            buf: TokenenizedBuffer::from_tokens(tokens),
             pos: 0,
             line: 0,
             tree: Tree::new(),
@@ -621,14 +633,16 @@ impl State {
                 }
             }
 
+            self.push_node(op.to_inline(), Some(self.pos as u32 - 1));
+
             if op == BinOp::Assign {
-                self.push_node(N::InlineAssign, Some(self.pos as u32 - 1));
                 if self.consume_newline() {
                     self.push_next_frame(subtree_start, cfg, Frame::FinishAssign);
                     self.start_block(cfg);
                     return;
                 }
             }
+            
 
             eprintln!("{:indent$}next op {:?}", "", op, indent = 2 * self.frames.len() + 2);
 
@@ -728,6 +742,7 @@ impl State {
 
     fn pump_continue_lambda_args(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::OpArrow) {
+            self.push_node(N::InlineArrow, Some(self.pos as u32 - 1));
             self.push_next_frame(subtree_start, cfg, Frame::FinishLambda);
             self.start_block_or_expr(cfg);
         } else {
@@ -843,26 +858,95 @@ impl State {
 }
 
 struct FormattedBuffer {
-    kinds: VecDeque<T>,
-    offsets: VecDeque<u32>,
+    text: String,
+    indent: usize,
+    pending_spaces: usize,
+    pending_newlines: usize,
+
+    pretend_space: bool,
 }
 
 impl FormattedBuffer {
     fn new() -> FormattedBuffer {
         FormattedBuffer {
-            kinds: VecDeque::new(),
-            offsets: VecDeque::new(),
+            text: String::new(),
+            indent: 0,
+            pending_spaces: 0,
+            pending_newlines: 0,
+
+            pretend_space: false,
         }
+    }
+
+    fn _flush(&mut self) {
+        for _ in 0..self.pending_newlines {
+            self.text.push('\n');
+        }
+        for _ in 0..self.pending_spaces {
+            self.text.push(' ');
+        }
+        self.pending_newlines = 0;
+        self.pending_spaces = 0;
+        self.pretend_space = false;
+    }
+
+    fn push_str(&mut self, s: &str) {
+        self._flush();
+        self.text.push_str(s);
+    }
+
+    fn push_sp_str_sp(&mut self, s: &str) {
+        self.space();
+        self.push_str(s);
+        self.space();
+    }
+
+    fn push_sp_str(&mut self, s: &str) {
+        self.space();
+        self.push_str(s);
+    }
+
+    fn push_newline(&mut self) {
+        self.pending_spaces = 0;
+        self.pending_newlines += 1;
+    }
+
+    fn space(&mut self) {
+        if !self.pretend_space && self.pending_spaces == 0 && self.pending_newlines == 0 && self.text.len() > 0 {
+            self.pending_spaces = 1;
+        }
+    }
+
+    fn indent(&mut self) {
+        self.indent += 1;
+    }
+
+    fn dedent(&mut self) {
+        self.indent += 1;
     }
 }
 
-struct Formatter<'a> {
+#[derive(Copy, Clone)]
+pub struct FormatCtx<'a> {
     tree: &'a Tree,
-    buf: &'a TokenenizedBuffer,
-    out: FormattedBuffer,
+    toks: &'a TokenenizedBuffer,
+    text: &'a str,
+}
+impl<'a> FormatCtx<'a> {
+    pub fn text(&self, token_index: u32) -> &'a str {
+        let offset = self.toks.offsets[token_index as usize] as usize;
+        let len = self.toks.lengths[token_index as usize] as usize;
+        &self.text[offset..offset + len]
+    }
 }
 
-fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
+fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer {
+    let ctx = FormatCtx {
+        tree,
+        toks,
+        text,
+    };
+
     let mut buf = FormattedBuffer::new();
     
     let mut has_newline = Vec::with_capacity(tree.len() as usize);
@@ -894,6 +978,11 @@ fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
             }
 
             N::BeginAssign => false,
+            N::InlineBinOpPlus |
+            N::InlineBinOpStar |
+            N::InlinePizza |
+            N::InlineArrow |
+            N::InlineApply => false,
             N::InlineAssign => {
                 assert_eq!(stack.pop(), Some((H::Expr, false)));
                 true
@@ -923,6 +1012,8 @@ fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
             }
 
             N::BeginBlock | N::EndBlock => true,
+            N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza => false,
+            N::BeginLambda | N::EndLambda => false,
             node => todo!("{:?}", node),
         };
 
@@ -941,10 +1032,9 @@ fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
     let mut stack = Vec::new();
 
     for (i, &node) in tree.kinds.iter().enumerate() {
+        let index = tree.paird_group_ends[i];
         match node {
-            N::Ident => {
-                buf.kinds.push_back(T::LowerIdent);
-            }
+            N::Ident => buf.push_sp_str_sp(ctx.text(index)),
             N::BeginTopLevelDecls => {}
             N::EndTopLevelDecls => {}
 
@@ -953,42 +1043,141 @@ fn pretty(tree: &Tree, buf: &TokenenizedBuffer) -> FormattedBuffer {
             }
             N::InlineAssign => {
                 assert_eq!(stack.pop(), Some(St::Assign0));
-                buf.kinds.push_back(T::OpAssign);
+                buf.push_sp_str_sp("=");
                 stack.push(St::Assign1);
             }
             N::EndAssign => {
                 assert_eq!(stack.pop(), Some(St::Assign1));
-                buf.kinds.push_back(T::Newline);
+                buf.push_newline();
             }
             
             N::HintExpr => {}
 
             N::BeginIf => {
-                buf.kinds.push_back(T::KwIf);
+                // buf.kinds.push_back(T::KwIf);
+                buf.push_sp_str_sp("if");
             }
             N::InlineThen => {
-                buf.kinds.push_back(T::KwThen);
-                buf.kinds.push_back(T::Newline);
-                buf.kinds.push_back(T::Indent);
+                buf.push_sp_str_sp("then");
+                buf.push_newline();
+                buf.indent();
             }
             N::InlineElse => {
-                buf.kinds.push_back(T::Dedent);
-                buf.kinds.push_back(T::Newline);
-                buf.kinds.push_back(T::KwElse);
-                buf.kinds.push_back(T::Newline);
-                buf.kinds.push_back(T::Indent);
+                buf.dedent();
+                buf.push_sp_str_sp("else");
+                buf.push_newline();
+                buf.indent();
             }
             N::EndIf => {
-                buf.kinds.push_back(T::Dedent);
-                buf.kinds.push_back(T::Newline);
+                buf.dedent();
+                buf.push_newline();
             }
 
-            N::BeginBlock => {}
-            N::EndBlock => {}
+            N::InlineApply => {},
+            N::InlineBinOpPlus => buf.push_sp_str_sp("+"),
+            N::InlineBinOpStar => buf.push_sp_str_sp("*"),
+            N::InlinePizza => buf.push_sp_str_sp("|>"),
+
+            N::BeginLambda => {
+                buf.push_sp_str("\\");
+                // hack!!!!
+                buf.pretend_space = true;
+            }
+            N::InlineArrow => buf.push_sp_str_sp("->"),
+            N::EndLambda => {},
+
+            N::BeginBlock | N::EndBlock => {}
+            N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza => {},
             _ => todo!("{:?}", node),
         }
     }
     buf
+}
+
+mod canfmt {
+    use super::*;
+    use bumpalo::Bump;
+    use bumpalo::collections::vec::Vec;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Expr<'a> {
+        Ident(&'a str),
+        Apply(&'a Expr<'a>, &'a [Expr<'a>]),
+        BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
+        Pizza(&'a [Expr<'a>]),
+        Lambda(&'a [Expr<'a>], &'a Expr<'a>),
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Item<'a> {
+        Assign(&'a str, &'a Expr<'a>),
+        Expr(&'a Expr<'a>),
+    }
+
+    pub struct TopLevel<'a> {
+        pub items: &'a [Item<'a>],
+    }
+
+    pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: FormatCtx<'b>) -> TopLevel<'a> {
+        let mut stack = std::vec::Vec::new();
+
+        for (i, &node) in ctx.tree.kinds.iter().enumerate() {
+            let index = ctx.tree.paird_group_ends[i];
+            match node {
+                N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
+                N::HintExpr => {}
+                N::Ident => stack.push((i, Item::Expr(bump.alloc(Expr::Ident(ctx.text(index)))))),
+                N::EndApply => {
+                    let mut begin = stack.len();
+                    while begin > 0 && stack[begin - 1].0 >= index as usize {
+                        begin -= 1;
+                    }
+                    let first = must_expr(stack[begin].1);
+                    let args = bump.alloc_slice_fill_iter(stack[begin + 1..].iter().map(|(_, e)| *must_expr(*e)));
+                    stack.truncate(begin);
+                    stack.push((i, Item::Expr(bump.alloc(Expr::Apply(first, args)))));
+                }
+                N::EndPizza => {
+                    let mut begin = stack.len();
+                    while begin > 0 && stack[begin - 1].0 >= index as usize {
+                        begin -= 1;
+                    }
+                    let args = bump.alloc_slice_fill_iter(stack[begin..].iter().map(|(_, e)| *must_expr(*e)));
+                    stack.truncate(begin);
+                    stack.push((i, Item::Expr(bump.alloc(Expr::Pizza(args)))));
+                }
+                N::EndBinOpPlus => {
+                    let a = must_expr(stack[stack.len() - 2].1);
+                    let b = must_expr(stack[stack.len() - 1].1);
+                    stack.truncate(stack.len() - 2);
+                    stack.push((i, Item::Expr(bump.alloc(Expr::BinOp(a, BinOp::Plus, b)))));
+                }
+                N::BeginLambda => {}
+                N::EndLambda => {
+                    let mut begin = stack.len();
+                    while begin > 0 && stack[begin - 1].0 >= index as usize {
+                        begin -= 1;
+                    }
+                    let body = must_expr(stack[stack.len() - 1].1);
+                    let args = bump.alloc_slice_fill_iter(stack[begin..stack.len() - 1].iter().map(|(_, e)| *must_expr(*e)));
+                    stack.truncate(begin);
+                    stack.push((i, Item::Expr(bump.alloc(Expr::Lambda(args, body)))));
+                }
+                N::InlineApply | N::InlinePizza | N::InlineBinOpPlus | N::InlineBinOpStar | N::InlineArrow => {}
+                _ => todo!("{:?}", node),
+            }
+        }
+        TopLevel {
+            items: bump.alloc_slice_fill_iter(stack.iter().map(|(_, e)| *e)),
+        }
+    }
+
+    fn must_expr<'a>(begin: Item<'a>) -> &'a Expr<'a> {
+        match begin {
+            Item::Expr(e) => e,
+            _ => panic!(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1312,7 +1501,24 @@ mod tests {
             state.pump();
             state.assert_end();
             
-            let output = state.to_expect_atom().debug_vis();
+            let tree_output = state.to_expect_atom().debug_vis();
+
+            let canfmt_output = {
+                let bump = bumpalo::Bump::new();
+                let canfmt = canfmt::build(&bump, FormatCtx {
+                    tree: &state.tree,
+                    toks: &state.buf,
+                    text,
+                });
+                canfmt.items.iter().map(|i| format!("{:?}", i)).collect::<Vec<_>>().join("\n")
+            };
+
+            let format_output = pretty(&state.tree, &state.buf, text).text;
+
+            let output = format!("{}\n\n[=== canfmt below ===]\n{}\n\n[=== formatted below ===]\n{}",
+                tree_output,
+                canfmt_output,
+                format_output);
 
             insta::with_settings!({
                 // info => &ctx, // not sure what to put here?
@@ -1325,12 +1531,12 @@ mod tests {
     }
 
     #[test]
-    fn test_snapshot_ident() {
+    fn test_ident() {
         snapshot_test!("abc");
     }
 
     #[test]
-    fn test_snapshot_apply() {
+    fn test_apply() {
         snapshot_test!("abc def");
     }
 

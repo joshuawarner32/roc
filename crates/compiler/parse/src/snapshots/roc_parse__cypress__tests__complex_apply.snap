@@ -4,7 +4,19 @@ description: abc def + ghi
 ---
 (BeginTopLevelDecls
     (*
-        (* HintExpr Ident=>LowerIdent@0 Ident=>LowerIdent@1 EndApply)
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineApply=>LowerIdent@0
+            Ident=>LowerIdent@1
+        EndApply)
+        InlineBinOpPlus=>OpPlus@2
         Ident=>LowerIdent@3
     EndBinOpPlus)
 EndTopLevelDecls)
+
+[=== canfmt below ===]
+Expr(BinOp(Apply(Ident("abc"), [Ident("def")]), Plus, Ident("ghi")))
+
+[=== formatted below ===]
+ abc def + ghi

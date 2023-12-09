@@ -111,6 +111,7 @@ impl Indent {
 pub struct TokenenizedBuffer {
     pub(crate) kinds: Vec<T>,
     pub(crate) offsets: Vec<u32>,
+    pub(crate) lengths: Vec<u32>, // TODO: assess if it's better to just compute this on the fly when accessing later
     pub(crate) indents: Vec<Indent>,
 }
 
@@ -119,13 +120,15 @@ impl TokenenizedBuffer {
         TokenenizedBuffer {
             kinds: Vec::new(),
             offsets: Vec::new(),
+            lengths: Vec::new(),
             indents: Vec::new(),
         }
     }
 
-    fn push_token(&mut self, kind: T, offset: usize) {
+    fn push_token(&mut self, kind: T, offset: usize, length: usize) {
         self.kinds.push(kind);
         self.offsets.push(offset as u32);
+        self.lengths.push(length as u32);
     }
 }
 
@@ -171,13 +174,15 @@ impl<'a> Tokenizer<'a> {
             ($kind:expr) => {{
                 let offset = self.cursor.offset;
                 let tok = $kind;
-                self.output.push_token(tok, offset);
+                let len = self.cursor.offset - offset;
+                self.output.push_token(tok, offset, len);
             }};
         }
         macro_rules! simple_token {
             ($len:expr, $name:ident) => {
                 {
-                    push_token!(T::$name);
+                    let offset = self.cursor.offset;
+                    self.output.push_token(T::$name, offset, $len);
                     self.cursor.offset += $len;
                 }
             };
@@ -188,7 +193,8 @@ impl<'a> Tokenizer<'a> {
             match b {
                 b' ' | b'\t' | b'\n' | b'\r' | b'#' | b'\x00'..=b'\x1f' => {
                     if let Some(indent) = self.cursor.chomp_trivia() {
-                        self.output.push_token(T::Newline, offset);
+                        // TODO: this isn't really the "correct" offset for the newline; but maybe it doesn't matter?
+                        self.output.push_token(T::Newline, offset, 1);
                         self.output.indents.push(indent);
                     }
                 }
@@ -210,7 +216,8 @@ impl<'a> Tokenizer<'a> {
                         Some(b @ b'0'..=b'9') => {
                             self.cursor.offset += 2;
                             let tok = self.cursor.chomp_number(b, true);
-                            self.output.push_token(tok, offset); // we start at the original offset, not the offset after the '-'
+                            // we start at the original offset, not the offset after the '-'
+                            self.output.push_token(tok, offset, self.cursor.offset - offset);
                         },
                         _ => simple_token!(1, OpUnaryMinus),
                     }
@@ -285,7 +292,7 @@ impl<'a> Tokenizer<'a> {
                         None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, CloseRound),
                         _ => {
                             simple_token!(1, CloseRound);
-                            push_token!(T::NoSpace);
+                            self.output.push_token(T::NoSpace, offset, 0);
                         }
                     }
                 }
@@ -295,7 +302,7 @@ impl<'a> Tokenizer<'a> {
                         None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, CloseSquare),
                         _ => {
                             simple_token!(1, CloseSquare);
-                            push_token!(T::NoSpace);
+                            self.output.push_token(T::NoSpace, offset, 0);
                         }
                     }
                 }
@@ -305,7 +312,7 @@ impl<'a> Tokenizer<'a> {
                         None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, CloseCurly),
                         _ => {
                             simple_token!(1, CloseCurly);
-                            push_token!(T::NoSpace);
+                            self.output.push_token(T::NoSpace, offset, 0);
                         }
                     }
                 }
@@ -315,7 +322,7 @@ impl<'a> Tokenizer<'a> {
                         Some(b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9') => {
                             self.cursor.offset += 2;
                             self.cursor.chomp_ident_general();
-                            self.output.push_token(T::NamedUnderscore, offset);
+                            self.output.push_token(T::NamedUnderscore, offset, self.cursor.offset - offset);
                         }
                         // TODO: handle unicode named underscores
                         _ => {
@@ -329,7 +336,7 @@ impl<'a> Tokenizer<'a> {
                         Some(b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9') => {
                             self.cursor.offset += 2;
                             self.cursor.chomp_ident_general();
-                            self.output.push_token(T::OpaqueName, offset);
+                            self.output.push_token(T::OpaqueName, offset, self.cursor.offset - offset);
                         }
                         // TODO: handle unicode opaque names
                         _ => {

@@ -4,5 +4,15 @@ description: "\\abc -> def"
 ---
 (BeginTopLevelDecls
     HintExpr
-    (BeginLambda Ident=>LowerIdent@1 Ident=>LowerIdent@3 EndLambda)
+    (BeginLambda
+        Ident=>LowerIdent@1
+        InlineArrow=>OpArrow@2
+        Ident=>LowerIdent@3
+    EndLambda)
 EndTopLevelDecls)
+
+[=== canfmt below ===]
+Expr(Lambda([Ident("abc")], Ident("def")))
+
+[=== formatted below ===]
+\abc -> def
