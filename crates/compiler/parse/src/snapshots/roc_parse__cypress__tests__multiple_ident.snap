@@ -17,4 +17,4 @@ EndTopLevelDecls)
 Expr(Apply(Ident("abc"), [Ident("def"), Ident("ghi")]))
 
 [=== formatted below ===]
- abc def ghi
+abc def ghi

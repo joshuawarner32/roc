@@ -15,4 +15,4 @@ EndTopLevelDecls)
 Expr(BinOp(Ident("abc"), Plus, Ident("def")))
 
 [=== formatted below ===]
- abc + def
+abc + def

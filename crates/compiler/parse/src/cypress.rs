@@ -879,6 +879,10 @@ impl FormattedBuffer {
     }
 
     fn _flush(&mut self) {
+        // set indent spaces
+        if self.pending_newlines > 0 {
+            self.pending_spaces = self.indent * 4;
+        }
         for _ in 0..self.pending_newlines {
             self.text.push('\n');
         }
@@ -922,7 +926,7 @@ impl FormattedBuffer {
     }
 
     fn dedent(&mut self) {
-        self.indent += 1;
+        self.indent -= 1;
     }
 }
 
@@ -1064,6 +1068,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             }
             N::InlineElse => {
                 buf.dedent();
+                buf.push_newline();
                 buf.push_sp_str_sp("else");
                 buf.push_newline();
                 buf.indent();
@@ -1106,6 +1111,7 @@ mod canfmt {
         BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
         Pizza(&'a [Expr<'a>]),
         Lambda(&'a [Expr<'a>], &'a Expr<'a>),
+        If(&'a Expr<'a>, &'a Expr<'a>, &'a Expr<'a>),
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1163,6 +1169,50 @@ mod canfmt {
                     stack.truncate(begin);
                     stack.push((i, Item::Expr(bump.alloc(Expr::Lambda(args, body)))));
                 }
+                N::BeginAssign => {}
+                N::EndAssign => {
+                    // pop two elements, checking that the first has an index of `index` and the second one has an index > `index``
+                    let (index1, e1) = stack.pop().unwrap();
+                    let (index2, e2) = stack.pop().unwrap();
+
+                    assert_eq!(index2, index as usize);
+                    assert!(index1 > index2);
+                    assert!(index1 < i);
+
+                    let name = must_expr(e2);
+                    let value = must_expr(e1);
+
+                    let name_text = match name {
+                        Expr::Ident(s) => s,
+                        _ => todo!(),
+                    };
+
+                    stack.push((i, Item::Assign(name_text, value)));
+                }
+                N::BeginIf => {}
+                N::InlineThen => {}
+                N::InlineElse => {}
+                N::EndIf => {
+                    // pop three elements, checking as usual
+                    let (index1, e1) = dbg!(stack.pop().unwrap());
+                    let (index2, e2) = dbg!(stack.pop().unwrap());
+                    let (index3, e3) = dbg!(stack.pop().unwrap());
+
+                    assert_eq!(index3 - 1, index as usize);
+                    assert!(index2 > index3);
+                    assert!(index2 < index1);
+                    assert!(index1 < i);
+
+                    let cond = must_expr(e3);
+                    let then = must_expr(e2);
+                    let else_ = must_expr(e1);
+
+                    stack.push((i, Item::Expr(bump.alloc(Expr::If(cond, then, else_)))));
+                }
+                // N::BeginWhen => {}
+                // N::EndWhen => {
+
+                // }
                 N::InlineApply | N::InlinePizza | N::InlineBinOpPlus | N::InlineBinOpStar | N::InlineArrow => {}
                 _ => todo!("{:?}", node),
             }

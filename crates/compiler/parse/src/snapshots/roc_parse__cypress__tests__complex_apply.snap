@@ -19,4 +19,4 @@ EndTopLevelDecls)
 Expr(BinOp(Apply(Ident("abc"), [Ident("def")]), Plus, Ident("ghi")))
 
 [=== formatted below ===]
- abc def + ghi
+abc def + ghi

@@ -19,4 +19,4 @@ EndTopLevelDecls)
 Expr(Pizza([Ident("abc"), Ident("def"), Ident("ghi"), Ident("jkl")]))
 
 [=== formatted below ===]
- abc |> def |> ghi |> jkl
+abc |> def |> ghi |> jkl
