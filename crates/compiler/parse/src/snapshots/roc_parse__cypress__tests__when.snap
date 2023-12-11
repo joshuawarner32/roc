@@ -1,0 +1,20 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: when abc is def -> ghi
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginWhen
+        Ident=>LowerIdent@1
+        InlineIs=>KwIs@2
+        Ident=>LowerIdent@3
+        InlineWhenArrow=>OpArrow@4
+        Ident=>LowerIdent@5
+    EndWhen)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Expr(When(Ident("abc"), [Ident("def"), Ident("ghi")]))
+
+[=== formatted below ===]
+when abc is def -> ghi

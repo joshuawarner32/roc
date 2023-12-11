@@ -6,7 +6,7 @@ description: "\\abc -> def"
     HintExpr
     (BeginLambda
         Ident=>LowerIdent@1
-        InlineArrow=>OpArrow@2
+        InlineLambdaArrow=>OpArrow@2
         Ident=>LowerIdent@3
     EndLambda)
 EndTopLevelDecls)

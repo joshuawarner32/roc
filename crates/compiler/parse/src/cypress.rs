@@ -187,10 +187,10 @@ pub enum N {
     BeginIf, InlineThen, InlineElse, EndIf,
 
     /// A when expression, e.g. `when x is y -> z` (you need a newline after the 'is')
-    BeginWhen, EndWhen,
+    BeginWhen, InlineIs, InlineWhenArrow, EndWhen,
 
     /// A lambda expression, e.g. `\x -> x`
-    BeginLambda, InlineArrow, EndLambda,
+    BeginLambda, InlineLambdaArrow, EndLambda,
 
     EndTopLevelDecls,
     BeginTopLevelDecls,
@@ -225,7 +225,7 @@ impl N {
             N::EndIf | N::EndWhen | N::EndLambda | N::EndTopLevelDecls =>
                 NodeIndexKind::End,
             N::InlineApply | N::InlinePizza | N::InlineAssign | N::InlineBinOpPlus | N::InlineBinOpStar |
-            N::InlineThen | N::InlineElse | N::InlineArrow =>
+            N::InlineThen | N::InlineElse | N::InlineIs | N::InlineLambdaArrow | N::InlineWhenArrow =>
                 NodeIndexKind::Token,
             N::Num | N::Str | N::Ident | N::Tag | N::OpaqueRef | N::Access | N::AccessorFunction =>
                 NodeIndexKind::Token,
@@ -742,7 +742,7 @@ impl State {
 
     fn pump_continue_lambda_args(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::OpArrow) {
-            self.push_node(N::InlineArrow, Some(self.pos as u32 - 1));
+            self.push_node(N::InlineLambdaArrow, Some(self.pos as u32 - 1));
             self.push_next_frame(subtree_start, cfg, Frame::FinishLambda);
             self.start_block_or_expr(cfg);
         } else {
@@ -783,6 +783,7 @@ impl State {
         match next {
             WhenState::Is => {
                 self.expect(T::KwIs);
+                self.push_node(N::InlineIs, Some(self.pos as u32 - 1));
                 self.consume_newline();
                 let indent = self.cur_indent();
                 self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::BranchArrow(indent) });
@@ -801,6 +802,7 @@ impl State {
             }
             WhenState::BranchArrow(indent) => {
                 self.expect(T::OpArrow);
+                self.push_node(N::InlineWhenArrow, Some(self.pos as u32 - 1));
                 self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::BranchPattern(indent) });
                 self.start_block_or_expr(cfg);
             }
@@ -985,7 +987,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             N::InlineBinOpPlus |
             N::InlineBinOpStar |
             N::InlinePizza |
-            N::InlineArrow |
+            N::InlineLambdaArrow |
             N::InlineApply => false,
             N::InlineAssign => {
                 assert_eq!(stack.pop(), Some((H::Expr, false)));
@@ -1014,6 +1016,17 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
                 assert_eq!(stack.pop(), Some((H::Expr, false)));
                 false
             }
+
+            N::BeginWhen => false,
+            N::InlineIs => {
+                assert_eq!(stack.pop(), Some((H::Expr, false)));
+                false
+            }
+            N::InlineWhenArrow => {
+                assert_eq!(stack.pop(), Some((H::Expr, false)));
+                false
+            }
+            N::EndWhen => false,
 
             N::BeginBlock | N::EndBlock => true,
             N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza => false,
@@ -1078,6 +1091,17 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
                 buf.push_newline();
             }
 
+            N::BeginWhen => {
+                buf.push_sp_str_sp("when");
+            }
+            N::InlineIs => {
+                buf.push_sp_str_sp("is");
+            }
+            N::InlineWhenArrow => {
+                buf.push_sp_str_sp("->");
+            }
+            N::EndWhen => {}
+
             N::InlineApply => {},
             N::InlineBinOpPlus => buf.push_sp_str_sp("+"),
             N::InlineBinOpStar => buf.push_sp_str_sp("*"),
@@ -1088,7 +1112,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
                 // hack!!!!
                 buf.pretend_space = true;
             }
-            N::InlineArrow => buf.push_sp_str_sp("->"),
+            N::InlineLambdaArrow => buf.push_sp_str_sp("->"),
             N::EndLambda => {},
 
             N::BeginBlock | N::EndBlock => {}
@@ -1112,6 +1136,7 @@ mod canfmt {
         Pizza(&'a [Expr<'a>]),
         Lambda(&'a [Expr<'a>], &'a Expr<'a>),
         If(&'a Expr<'a>, &'a Expr<'a>, &'a Expr<'a>),
+        When(&'a Expr<'a>, &'a [Expr<'a>]),
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1209,11 +1234,20 @@ mod canfmt {
 
                     stack.push((i, Item::Expr(bump.alloc(Expr::If(cond, then, else_)))));
                 }
-                // N::BeginWhen => {}
-                // N::EndWhen => {
-
-                // }
-                N::InlineApply | N::InlinePizza | N::InlineBinOpPlus | N::InlineBinOpStar | N::InlineArrow => {}
+                N::BeginWhen => {}
+                N::InlineIs => {}
+                N::InlineWhenArrow => {}
+                N::EndWhen => {
+                    let mut begin = stack.len();
+                    while begin > 0 && stack[begin - 1].0 >= index as usize {
+                        begin -= 1;
+                    }
+                    let value = must_expr(stack[begin].1);
+                    let branches = bump.alloc_slice_fill_iter(stack[begin + 1..].iter().map(|(_, e)| *must_expr(*e)));
+                    stack.truncate(begin);
+                    stack.push((i, Item::Expr(bump.alloc(Expr::When(value, branches)))));
+                }
+                N::InlineApply | N::InlinePizza | N::InlineBinOpPlus | N::InlineBinOpStar | N::InlineLambdaArrow => {}
                 _ => todo!("{:?}", node),
             }
         }
