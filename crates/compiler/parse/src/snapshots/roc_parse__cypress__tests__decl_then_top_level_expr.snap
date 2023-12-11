@@ -1,0 +1,21 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "abc =\n    def\nghi\n"
+---
+(BeginTopLevelDecls
+    (BeginAssign
+        Ident=>LowerIdent@0
+        InlineAssign=>OpAssign@1
+        (BeginBlock HintExpr Ident=>LowerIdent@3 EndBlock)
+    EndAssign)
+    HintExpr
+    Ident=>LowerIdent@5
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Assign("abc", Ident("def"))
+Expr(Ident("ghi"))
+
+[=== formatted below ===]
+abc = def
+ghi

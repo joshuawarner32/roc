@@ -1,0 +1,29 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when abc is def ->\n    when ghi is jkl ->\n        mno\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginWhen
+        Ident=>LowerIdent@1
+        InlineIs=>KwIs@2
+        Ident=>LowerIdent@3
+        InlineWhenArrow=>OpArrow@4
+        (BeginBlock
+            HintExpr
+            (BeginWhen
+                Ident=>LowerIdent@7
+                InlineIs=>KwIs@8
+                Ident=>LowerIdent@9
+                InlineWhenArrow=>OpArrow@10
+                (BeginBlock HintExpr Ident=>LowerIdent@12 EndBlock)
+            EndWhen)
+        EndBlock)
+    EndWhen)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Expr(When(Ident("abc"), [Ident("def"), When(Ident("ghi"), [Ident("jkl"), Ident("mno")])]))
+
+[=== formatted below ===]
+when abc is def -> when ghi is jkl -> mno

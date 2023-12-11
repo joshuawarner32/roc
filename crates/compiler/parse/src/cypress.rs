@@ -1200,7 +1200,7 @@ mod canfmt {
                     let (index1, e1) = stack.pop().unwrap();
                     let (index2, e2) = stack.pop().unwrap();
 
-                    assert_eq!(index2, index as usize);
+                    assert_eq!(index2 - 1, index as usize);
                     assert!(index1 > index2);
                     assert!(index1 < i);
 
@@ -1247,7 +1247,9 @@ mod canfmt {
                     stack.truncate(begin);
                     stack.push((i, Item::Expr(bump.alloc(Expr::When(value, branches)))));
                 }
-                N::InlineApply | N::InlinePizza | N::InlineBinOpPlus | N::InlineBinOpStar | N::InlineLambdaArrow => {}
+                N::InlineApply | N::InlineAssign | N::InlinePizza | N::InlineBinOpPlus | N::InlineBinOpStar |
+                N::InlineLambdaArrow => {}
+                N::BeginBlock | N::EndBlock => {}
                 _ => todo!("{:?}", node),
             }
         }
