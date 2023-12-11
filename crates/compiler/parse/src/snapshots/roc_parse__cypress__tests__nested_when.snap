@@ -26,4 +26,6 @@ EndTopLevelDecls)
 Expr(When(Ident("abc"), [Ident("def"), Block([Expr(Block([])), Expr(When(Ident("ghi"), [Ident("jkl"), Block([Expr(Block([])), Expr(Ident("mno"))])]))])]))
 
 [=== formatted below ===]
-when abc is def -> when ghi is jkl -> mno
+when abc is def ->
+    when ghi is jkl ->
+        mno

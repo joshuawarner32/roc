@@ -433,6 +433,7 @@ impl Frame {
 
 #[derive(Debug, Clone, Copy)]
 struct ExprCfg {
+    expr_indent_floor: Option<Indent>, // expression continuations must be indented more than this.
     when_branch_indent_floor: Option<Indent>, // when branches must be indented more than this. None means no restriction.
     allow_multi_backpassing: bool,
 }
@@ -440,6 +441,7 @@ struct ExprCfg {
 impl Default for ExprCfg {
     fn default() -> Self {
         ExprCfg {
+            expr_indent_floor: None,
             when_branch_indent_floor: None,
             allow_multi_backpassing: true,
         }
@@ -816,6 +818,7 @@ impl State {
     }
 
     fn start_top_level_decls(&mut self) {
+        while self.consume_newline() {}
         self.push_next_frame_starting_here(ExprCfg::default(), Frame::ContinueTopLevel { num_found: 1 });
         self.push_node(N::BeginTopLevelDecls, None);
         self.start_top_level_item();
@@ -946,14 +949,33 @@ impl<'a> FormatCtx<'a> {
     }
 }
 
+struct TokenizedBufferFollower<'a> {
+    toks: &'a TokenenizedBuffer,
+    pos: usize,
+}
+impl<'a> TokenizedBufferFollower<'a> {
+    fn check_next_token(&mut self, tok: T) {
+        if tok != T::Newline {
+            // fast forward past newlines in the underlying buffer
+            while self.toks.kind(self.pos) == Some(T::Newline) {
+                self.pos += 1;
+            }
+        }
+        if self.toks.kind(self.pos) != Some(tok) {
+            panic!("programming error: misaligned token stream when formatting.\n\
+                Expected {:?} at position {}, found {:?} instead.",
+                tok, self.pos, self.toks.kind(self.pos));
+        }
+        self.pos += 1;
+    }
+}
+
 fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer {
     let ctx = FormatCtx {
         tree,
         toks,
         text,
     };
-
-    let mut buf = FormattedBuffer::new();
     
     let mut has_newline = Vec::with_capacity(tree.len() as usize);
 
@@ -1037,6 +1059,13 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
         has_newline.push(hn);
     }
 
+    let mut follow = TokenizedBufferFollower {
+        toks,
+        pos: 0,
+    };
+
+    let mut buf = FormattedBuffer::new();
+
     assert_eq!(stack, &[]);
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -1048,10 +1077,15 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
 
     let mut stack = Vec::new();
 
+    dbg!(&ctx.toks.kinds);
+
     for (i, &node) in tree.kinds.iter().enumerate() {
         let index = tree.paird_group_ends[i];
         match node {
-            N::Ident => buf.push_sp_str_sp(ctx.text(index)),
+            N::Ident => {
+                follow.check_next_token(T::LowerIdent);
+                buf.push_sp_str_sp(ctx.text(index))
+            },
             N::BeginTopLevelDecls => {}
             N::EndTopLevelDecls => {}
 
@@ -1060,6 +1094,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             }
             N::InlineAssign => {
                 assert_eq!(stack.pop(), Some(St::Assign0));
+                follow.check_next_token(T::OpAssign);
                 buf.push_sp_str_sp("=");
                 stack.push(St::Assign1);
             }
@@ -1071,15 +1106,17 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             N::HintExpr => {}
 
             N::BeginIf => {
-                // buf.kinds.push_back(T::KwIf);
+                follow.check_next_token(T::KwIf);
                 buf.push_sp_str_sp("if");
             }
             N::InlineThen => {
+                follow.check_next_token(T::KwThen);
                 buf.push_sp_str_sp("then");
                 buf.push_newline();
                 buf.indent();
             }
             N::InlineElse => {
+                follow.check_next_token(T::KwElse);
                 buf.dedent();
                 buf.push_newline();
                 buf.push_sp_str_sp("else");
@@ -1092,30 +1129,54 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             }
 
             N::BeginWhen => {
+                follow.check_next_token(T::KwWhen);
                 buf.push_sp_str_sp("when");
             }
             N::InlineIs => {
+                follow.check_next_token(T::KwIs);
                 buf.push_sp_str_sp("is");
             }
             N::InlineWhenArrow => {
+                follow.check_next_token(T::OpArrow);
                 buf.push_sp_str_sp("->");
             }
             N::EndWhen => {}
 
             N::InlineApply => {},
-            N::InlineBinOpPlus => buf.push_sp_str_sp("+"),
-            N::InlineBinOpStar => buf.push_sp_str_sp("*"),
-            N::InlinePizza => buf.push_sp_str_sp("|>"),
+            N::InlineBinOpPlus => {
+                follow.check_next_token(T::OpPlus);
+                buf.push_sp_str_sp("+")
+            }
+            N::InlineBinOpStar => {
+                follow.check_next_token(T::OpStar);
+                buf.push_sp_str_sp("*")
+            }
+            N::InlinePizza => {
+                follow.check_next_token(T::OpPizza);
+                buf.push_sp_str_sp("|>")
+            }
 
             N::BeginLambda => {
+                follow.check_next_token(T::OpBackslash);
                 buf.push_sp_str("\\");
                 // hack!!!!
                 buf.pretend_space = true;
             }
-            N::InlineLambdaArrow => buf.push_sp_str_sp("->"),
+            N::InlineLambdaArrow => {
+                follow.check_next_token(T::OpArrow);
+                buf.push_sp_str_sp("->")
+            }
             N::EndLambda => {},
 
-            N::BeginBlock | N::EndBlock => {}
+            N::BeginBlock => {
+                follow.check_next_token(T::Newline);
+                buf.push_newline();
+                buf.indent();
+            }
+            N::EndBlock => {
+                buf.dedent();
+                buf.push_newline();
+            }
             N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza => {},
             _ => todo!("{:?}", node),
         }
@@ -1784,6 +1845,14 @@ mod tests {
         snapshot_test!(block_indentify(r#"
         |abc = \def ->
         |    ghi
+        "#))
+    }
+
+    #[test]
+    fn test_leading_comment() {
+        snapshot_test!(block_indentify(r#"
+        |# hello
+        |abc
         "#))
     }
 }

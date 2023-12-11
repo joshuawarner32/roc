@@ -18,4 +18,5 @@ EndTopLevelDecls)
 Assign("abc", Lambda([Ident("def")], Block([Expr(Block([])), Expr(Ident("ghi"))])))
 
 [=== formatted below ===]
-abc = \def -> ghi
+abc = \def ->
+    ghi

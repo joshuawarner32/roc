@@ -22,5 +22,8 @@ EndTopLevelDecls)
 Assign("a", Block([Expr(Block([])), Assign("b", Block([Expr(Block([])), Expr(Ident("c"))])), Expr(Ident("d"))]))
 
 [=== formatted below ===]
-a = b = c
-d
+a =
+    b =
+        c
+
+    d

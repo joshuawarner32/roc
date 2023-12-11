@@ -22,5 +22,6 @@ EndTopLevelDecls)
 Assign("abc", Block([Expr(Block([])), Assign("def", Ident("ghi")), Expr(Ident("jkl"))]))
 
 [=== formatted below ===]
-abc = def = ghi
-jkl
+abc =
+    def = ghi
+    jkl

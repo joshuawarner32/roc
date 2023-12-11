@@ -20,5 +20,8 @@ Assign("abc", Block([Expr(Block([])), Expr(Ident("def"))]))
 Assign("ghi", Block([Expr(Block([])), Expr(Ident("jkl"))]))
 
 [=== formatted below ===]
-abc = def
-ghi = jkl
+abc =
+    def
+
+ghi =
+    jkl

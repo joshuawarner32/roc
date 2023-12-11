@@ -17,5 +17,7 @@ Assign("abc", Block([Expr(Block([])), Expr(Ident("def"))]))
 Expr(Ident("ghi"))
 
 [=== formatted below ===]
-abc = def
+abc =
+    def
+
 ghi

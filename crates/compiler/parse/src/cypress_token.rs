@@ -4,10 +4,6 @@
 pub enum T {
     Newline,
 
-    Indent, // Not produced by the tokenizer. Used in the formatter.
-    Dedent, // Not produced by the tokenizer. Used in the formatter.
-    CommentNewline, // Not produced by the tokenizer. Used in the formatter.
-    
     Float,
     String,
     SingleQuote,
