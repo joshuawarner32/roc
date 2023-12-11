@@ -43,21 +43,21 @@
 //! 
 //! Which is to say, we take a function like the following:
 //! 
-//! ```
+//! ```ignore
 //! fn parse_if() -> Result<If, Error> {
 //!    expect(T::KwIf)?; // start state
 //!    let cond = parse_expr()?;
 //!    expect(T::KwThen)?; // where we'll return to after parsing the condition
 //!    let then = parse_expr()?;
 //!    expect(T::KwElse)?; // where we'll return to after parsing the then branch
-//!    let else = parse_expr()?;
+//!    let else_ = parse_expr()?;
 //!    Ok(If { cond, then, else }) // where we'll return to after parsing the else branch
 //! }
 //! ```
 //! 
 //! And we rewrite it to a series of enum variants that look something like:
 //! 
-//! ```
+//! ```ignore
 //! enum Frame {
 //!     StartIf, // the initial state, at the start of the function
 //!     ContinueAtThenKw, // the return point after parsing the condition
