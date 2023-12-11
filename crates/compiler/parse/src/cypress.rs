@@ -1137,6 +1137,7 @@ mod canfmt {
         Lambda(&'a [Expr<'a>], &'a Expr<'a>),
         If(&'a Expr<'a>, &'a Expr<'a>, &'a Expr<'a>),
         When(&'a Expr<'a>, &'a [Expr<'a>]),
+        Block(&'a [Item<'a>]),
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1152,8 +1153,11 @@ mod canfmt {
     pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: FormatCtx<'b>) -> TopLevel<'a> {
         let mut stack = std::vec::Vec::new();
 
+        dbg!(&ctx.tree.kinds);
+
         for (i, &node) in ctx.tree.kinds.iter().enumerate() {
             let index = ctx.tree.paird_group_ends[i];
+            eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
             match node {
                 N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
                 N::HintExpr => {}
@@ -1249,7 +1253,15 @@ mod canfmt {
                 }
                 N::InlineApply | N::InlineAssign | N::InlinePizza | N::InlineBinOpPlus | N::InlineBinOpStar |
                 N::InlineLambdaArrow => {}
-                N::BeginBlock | N::EndBlock => {}
+                N::BeginBlock | N::EndBlock => {
+                    let mut begin = stack.len();
+                    while begin > 0 && stack[begin - 1].0 >= index as usize {
+                        begin -= 1;
+                    }
+                    let items = bump.alloc_slice_fill_iter(stack[begin..].iter().map(|(_, e)| *e));
+                    stack.truncate(begin);
+                    stack.push((i, Item::Expr(bump.alloc(Expr::Block(items)))));
+                }
                 _ => todo!("{:?}", node),
             }
         }

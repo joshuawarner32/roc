@@ -1,0 +1,26 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "a =\n    b =\n        c\n    d\n"
+---
+(BeginTopLevelDecls
+    (BeginAssign
+        Ident=>LowerIdent@0
+        InlineAssign=>OpAssign@1
+        (BeginBlock
+            (BeginAssign
+                Ident=>LowerIdent@3
+                InlineAssign=>OpAssign@4
+                (BeginBlock HintExpr Ident=>LowerIdent@6 EndBlock)
+            EndAssign)
+            HintExpr
+            Ident=>LowerIdent@8
+        EndBlock)
+    EndAssign)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Assign("a", Block([Expr(Block([])), Assign("b", Block([Expr(Block([])), Expr(Ident("c"))])), Expr(Ident("d"))]))
+
+[=== formatted below ===]
+a = b = c
+d
