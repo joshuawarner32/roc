@@ -97,7 +97,7 @@
 #![allow(unused)] // temporarily during development
 
 use std::collections::{VecDeque, btree_map::Keys};
-use crate::cypress_token::{T, TokenenizedBuffer, Indent};
+use crate::cypress_token::{T, TokenenizedBuffer, Indent, Trivia};
 
 pub struct Tree {
     kinds: Vec<N>,
@@ -950,15 +950,22 @@ impl<'a> FormatCtx<'a> {
 }
 
 struct TokenizedBufferFollower<'a> {
+    text: &'a str,
     toks: &'a TokenenizedBuffer,
     pos: usize,
 }
+
 impl<'a> TokenizedBufferFollower<'a> {
-    fn check_next_token(&mut self, tok: T) {
+    fn _bump(&mut self, trivia: &mut Vec<Trivia>) {
+        self.toks.extract_trivia_before(self.text, self.pos, trivia);
+        self.pos += 1;
+    }
+
+    fn check_next_token(&mut self, tok: T, trivia: &mut Vec<Trivia>) {
         if tok != T::Newline {
             // fast forward past newlines in the underlying buffer
             while self.toks.kind(self.pos) == Some(T::Newline) {
-                self.pos += 1;
+                self._bump(trivia);
             }
         }
         if self.toks.kind(self.pos) != Some(tok) {
@@ -966,7 +973,7 @@ impl<'a> TokenizedBufferFollower<'a> {
                 Expected {:?} at position {}, found {:?} instead.",
                 tok, self.pos, self.toks.kind(self.pos));
         }
-        self.pos += 1;
+        self._bump(trivia);
     }
 }
 
@@ -1060,6 +1067,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
     }
 
     let mut follow = TokenizedBufferFollower {
+        text,
         toks,
         pos: 0,
     };
@@ -1079,11 +1087,13 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
 
     dbg!(&ctx.toks.kinds);
 
+    let mut trivia = Vec::new();
+
     for (i, &node) in tree.kinds.iter().enumerate() {
         let index = tree.paird_group_ends[i];
         match node {
             N::Ident => {
-                follow.check_next_token(T::LowerIdent);
+                follow.check_next_token(T::LowerIdent, &mut trivia);
                 buf.push_sp_str_sp(ctx.text(index))
             },
             N::BeginTopLevelDecls => {}
@@ -1094,7 +1104,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             }
             N::InlineAssign => {
                 assert_eq!(stack.pop(), Some(St::Assign0));
-                follow.check_next_token(T::OpAssign);
+                follow.check_next_token(T::OpAssign, &mut trivia);
                 buf.push_sp_str_sp("=");
                 stack.push(St::Assign1);
             }
@@ -1106,17 +1116,17 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             N::HintExpr => {}
 
             N::BeginIf => {
-                follow.check_next_token(T::KwIf);
+                follow.check_next_token(T::KwIf, &mut trivia);
                 buf.push_sp_str_sp("if");
             }
             N::InlineThen => {
-                follow.check_next_token(T::KwThen);
+                follow.check_next_token(T::KwThen, &mut trivia);
                 buf.push_sp_str_sp("then");
                 buf.push_newline();
                 buf.indent();
             }
             N::InlineElse => {
-                follow.check_next_token(T::KwElse);
+                follow.check_next_token(T::KwElse, &mut trivia);
                 buf.dedent();
                 buf.push_newline();
                 buf.push_sp_str_sp("else");
@@ -1129,47 +1139,47 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             }
 
             N::BeginWhen => {
-                follow.check_next_token(T::KwWhen);
+                follow.check_next_token(T::KwWhen, &mut trivia);
                 buf.push_sp_str_sp("when");
             }
             N::InlineIs => {
-                follow.check_next_token(T::KwIs);
+                follow.check_next_token(T::KwIs, &mut trivia);
                 buf.push_sp_str_sp("is");
             }
             N::InlineWhenArrow => {
-                follow.check_next_token(T::OpArrow);
+                follow.check_next_token(T::OpArrow, &mut trivia);
                 buf.push_sp_str_sp("->");
             }
             N::EndWhen => {}
 
             N::InlineApply => {},
             N::InlineBinOpPlus => {
-                follow.check_next_token(T::OpPlus);
+                follow.check_next_token(T::OpPlus, &mut trivia);
                 buf.push_sp_str_sp("+")
             }
             N::InlineBinOpStar => {
-                follow.check_next_token(T::OpStar);
+                follow.check_next_token(T::OpStar, &mut trivia);
                 buf.push_sp_str_sp("*")
             }
             N::InlinePizza => {
-                follow.check_next_token(T::OpPizza);
+                follow.check_next_token(T::OpPizza, &mut trivia);
                 buf.push_sp_str_sp("|>")
             }
 
             N::BeginLambda => {
-                follow.check_next_token(T::OpBackslash);
+                follow.check_next_token(T::OpBackslash, &mut trivia);
                 buf.push_sp_str("\\");
                 // hack!!!!
                 buf.pretend_space = true;
             }
             N::InlineLambdaArrow => {
-                follow.check_next_token(T::OpArrow);
+                follow.check_next_token(T::OpArrow, &mut trivia);
                 buf.push_sp_str_sp("->")
             }
             N::EndLambda => {},
 
             N::BeginBlock => {
-                follow.check_next_token(T::Newline);
+                follow.check_next_token(T::Newline, &mut trivia);
                 buf.push_newline();
                 buf.indent();
             }

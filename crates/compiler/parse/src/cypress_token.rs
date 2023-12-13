@@ -126,10 +126,38 @@ impl TokenenizedBuffer {
         self.offsets.push(offset as u32);
         self.lengths.push(length as u32);
     }
+
+    pub(crate) fn extract_trivia_before(&self, text: &str, pos: usize, trivia: &mut Vec<Trivia>) {
+        let mut begin = 0;
+        if pos > 0 {
+            begin = self.offsets[pos - 1] as usize + self.lengths[pos - 1] as usize;
+        }
+
+        let end = if pos < self.offsets.len() {
+            self.offsets[pos] as usize
+        } else {
+            text.len()
+        };
+
+        let section = text[begin..end].as_bytes();
+
+        let mut c = Cursor {
+            buf: section,
+            offset: 0,
+            messages: (),
+        };
+
+        c.chomp_trivia(trivia);
+    }
+}
+
+pub struct Trivia {
+    begin: usize,
+    end: usize,
 }
 
 pub struct Tokenizer<'a> {
-    cursor: Cursor<'a>,
+    cursor: Cursor<'a, Vec<Message>>,
 
     output: TokenenizedBuffer,
 }
@@ -188,7 +216,7 @@ impl<'a> Tokenizer<'a> {
             let offset = self.cursor.offset;
             match b {
                 b' ' | b'\t' | b'\n' | b'\r' | b'#' | b'\x00'..=b'\x1f' => {
-                    if let Some(indent) = self.cursor.chomp_trivia() {
+                    if let Some(indent) = self.cursor.chomp_trivia(&mut ()) {
                         // TODO: this isn't really the "correct" offset for the newline; but maybe it doesn't matter?
                         self.output.push_token(T::Newline, offset, 1);
                         self.output.indents.push(indent);
@@ -357,7 +385,7 @@ impl<'a> Tokenizer<'a> {
                 b'\'' => push_token!(self.cursor.chomp_string_like_literal(b'\'')),
 
                 _ => {
-                    // Fall back to skipping the token
+                    // Fall back to skipping a single byte
                     self.cursor.messages.push(Message {
                         kind: MessageKind::UnknownToken,
                         offset: self.cursor.offset as u32,
@@ -374,14 +402,46 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-struct Cursor<'a> {
-    buf: &'a [u8],
-    offset: usize,
-    messages: Vec<Message>,
+trait MessageSink {
+    fn push(&mut self, msg: Message);
 }
 
-impl<'a> Cursor<'a> {
-    fn chomp_trivia(&mut self) -> Option<Indent> {
+impl MessageSink for Vec<Message> {
+    fn push(&mut self, msg: Message) {
+        self.push(msg);
+    }
+}
+
+impl MessageSink for () {
+    fn push(&mut self, _msg: Message) {
+        // do nothing
+    }
+}
+
+struct Cursor<'a, M: MessageSink> {
+    buf: &'a [u8],
+    offset: usize,
+    messages: M,
+}
+
+trait TriviaSink {
+    fn push(&mut self, trivia: Trivia);
+}
+
+impl TriviaSink for Vec<Trivia> {
+    fn push(&mut self, trivia: Trivia) {
+        self.push(trivia);
+    }
+}
+
+impl TriviaSink for () {
+    fn push(&mut self, _trivia: Trivia) {
+        // do nothing
+    }
+}
+
+impl<'a, M: MessageSink> Cursor<'a, M> {
+    fn chomp_trivia(&mut self, sink: &mut impl TriviaSink) -> Option<Indent> {
         let mut saw_newline = false;
         let mut indent = Indent::default();
 

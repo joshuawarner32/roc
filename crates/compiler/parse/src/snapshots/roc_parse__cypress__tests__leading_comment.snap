@@ -1,0 +1,11 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "# hello\nabc\n"
+---
+(BeginTopLevelDecls HintExpr Ident=>LowerIdent@1 EndTopLevelDecls)
+
+[=== canfmt below ===]
+Expr(Ident("abc"))
+
+[=== formatted below ===]
+abc
