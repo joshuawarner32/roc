@@ -480,10 +480,15 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                     }
                 }
                 b'#' => {
+                    let start = self.offset;
                     self.offset += 1;
                     while self.offset < self.buf.len() && self.buf[self.offset] != b'\n' {
                         self.offset += 1;
                     }
+                    sink.push(Trivia {
+                        begin: start,
+                        end: self.offset,
+                    })
                 }
                 b'\x00'..=b'\x1f' => {
                     self.messages.push(Message {

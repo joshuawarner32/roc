@@ -977,104 +977,230 @@ impl<'a> TokenizedBufferFollower<'a> {
     }
 }
 
+trait UpProp {
+    type Out: Copy;
+    type Accum;
+
+    fn leaf(&mut self, node: N, index: u32) -> Self::Out;
+    fn init(&mut self) -> Self::Accum;
+    fn pump(&mut self, accum: Self::Accum, next_sibling: Self::Out) -> Self::Accum;
+    fn finish(&mut self, accum: Self::Accum, parent: N) -> Self::Out;
+}
+
+fn bubble_up<P: UpProp>(prop: &mut P, tree: &Tree) -> Vec<P::Out> {
+    let mut res = Vec::with_capacity(tree.len() as usize);
+    let mut stack: Vec<(u32, P::Out)> = Vec::new();
+    let mut accum = prop.init();
+
+    for (i, &node) in tree.kinds.iter().enumerate() {
+        let index = tree.paird_group_ends[i];
+        
+        let item = match node.index_kind() {
+            NodeIndexKind::Begin |
+            NodeIndexKind::Token |
+            NodeIndexKind::Unused => prop.leaf(node, index),
+            NodeIndexKind::EndOnly |
+            NodeIndexKind::End => {
+                let mut begin = stack.len();
+                while begin > 0 && stack[begin - 1].0 > index {
+                    begin -= 1;
+                }
+
+                let mut accum = prop.init();
+
+                for (_, item) in stack.drain(begin..) {
+                    accum = prop.pump(accum, item);
+                }
+
+                prop.finish(accum, node)
+            }
+        };
+        stack.push((index, item));
+        res.push(item);
+    }
+
+    res
+}
+
+trait DownProp: Copy {
+    fn update_from_parent(&mut self, node: N, index: u32, parent: Self, parent_node: N);
+}
+
+fn bubble_down_mut<P: DownProp>(tree: &Tree, state: &mut Vec<P>) {
+    assert_eq!(tree.len() as usize, state.len());
+    let mut stack = Vec::<(usize, P, N)>::new();
+    for (i, &node) in tree.kinds.iter().enumerate().rev() {
+        let index = tree.paird_group_ends[i];
+        
+        while let Some(&(begin_index, parent_state, parent_node)) = stack.last() {
+            if begin_index > i {
+                stack.pop();
+                continue;
+            }
+
+            state[i].update_from_parent(node, index, parent_state, parent_node);
+            break;
+        }
+
+        match node.index_kind() {
+            NodeIndexKind::Begin |
+            NodeIndexKind::Token |
+            NodeIndexKind::Unused => {}
+            NodeIndexKind::EndOnly |
+            NodeIndexKind::End => {
+                stack.push((index as usize, state[i], node));
+            }
+        }
+    }
+}
+
+#[derive(Default, Copy, Clone)]
+struct FmtInfo {
+    has_newline: bool,
+    has_comment: bool,
+}
+
+struct FmtInfoProp<'a> {
+    text: &'a str,
+    toks: &'a TokenenizedBuffer,
+    pos: usize,
+    trivia: Vec<Trivia>,
+    trivia_indices: Vec<(usize, usize)>,
+}
+
+impl<'a> FmtInfoProp<'a> {
+    fn _bump(&mut self) {
+        self.toks.extract_trivia_before(self.text, self.pos, &mut self.trivia);
+        self.pos += 1;
+    }
+
+    fn check_next_token(&mut self, tok: T) -> FmtInfo {
+        debug_assert!(tok != T::Newline);
+
+        let trivia_start = self.pos;
+        let mut newline = false;
+
+        // fast forward past newlines in the underlying buffer
+        // also capture trivia at this stage
+        while self.toks.kind(self.pos) == Some(T::Newline) {
+            newline = true;
+            self._bump();
+        }
+
+        if self.toks.kind(self.pos) != Some(tok) {
+            panic!("programming error: misaligned token stream when formatting.\n\
+                Expected {:?} at position {}, found {:?} instead.",
+                tok, self.pos, self.toks.kind(self.pos));
+        }
+
+        debug_assert!({
+            let mut trivia = Vec::new();
+            self.toks.extract_trivia_before(self.text, self.pos, &mut trivia);
+            trivia.is_empty()
+        });
+
+        self.pos += 1;
+
+        let trivia_end = self.pos;
+        FmtInfo { has_newline:  newline, has_comment: trivia_start != trivia_end }
+    }
+}
+
+impl<'a> UpProp for FmtInfoProp<'a> {
+    type Out = FmtInfo;
+    type Accum = FmtInfo;
+
+    fn init(&mut self) -> Self::Accum {
+        FmtInfo::default()
+    }
+
+    fn leaf(&mut self, node: N, index: u32) -> Self::Out {
+        let kind = node.index_kind();
+        match node {
+
+            N::BeginAssign |
+            N::BeginTopLevelDecls |
+            N::HintExpr |
+            N::EndIf |
+            N::EndWhen |
+            N::InlineApply |
+            N::EndLambda |
+            N::EndBlock |
+            N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza |
+            N::BeginBlock => FmtInfo::default(),
+
+            N::EndTopLevelDecls |
+            N::EndAssign => {
+                panic!("not expected in ::leaf");
+            }
+
+            N::Ident => self.check_next_token(T::LowerIdent),
+            N::InlineAssign => self.check_next_token(T::OpAssign),
+
+            N::BeginIf => self.check_next_token(T::KwIf),
+            N::InlineThen => self.check_next_token(T::KwThen),
+            N::InlineElse => self.check_next_token(T::KwElse),
+
+            N::BeginWhen => self.check_next_token(T::KwWhen),
+            N::InlineIs => self.check_next_token(T::KwIs),
+            N::InlineWhenArrow => self.check_next_token(T::OpArrow),
+
+            N::InlineBinOpPlus => self.check_next_token(T::OpPlus),
+            N::InlineBinOpStar => self.check_next_token(T::OpStar),
+            N::InlinePizza => self.check_next_token(T::OpPizza),
+
+            N::BeginLambda => self.check_next_token(T::OpBackslash),
+            N::InlineLambdaArrow => self.check_next_token(T::OpArrow),
+
+            _ => todo!("{:?}", node),
+        }
+    }
+
+    fn pump(&mut self, accum: Self::Accum, next_sibling: Self::Out) -> Self::Accum {
+        // or together the fields
+        FmtInfo {
+            has_newline: accum.has_newline || next_sibling.has_newline,
+            has_comment: accum.has_comment || next_sibling.has_comment,
+        }
+    }
+
+    fn finish(&mut self, accum: Self::Accum, _parent: N) -> Self::Out {
+        accum
+    }
+}
+
+impl DownProp for FmtInfo {
+    fn update_from_parent(&mut self, node: N, index: u32, parent: Self, parent_node: N) {
+        match parent_node {
+            N::EndTopLevelDecls |
+            N::EndBlock => return,
+            // TODO: exempt some other nodes from this
+            _ => {}
+        }
+        self.has_newline |= parent.has_newline;
+        self.has_comment |= parent.has_comment;
+    }
+}
+
 fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer {
     let ctx = FormatCtx {
         tree,
         toks,
         text,
     };
-    
-    let mut has_newline = Vec::with_capacity(tree.len() as usize);
 
-    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-    enum H {
-        If,
-        Expr,
-    }
-
-    let mut stack = Vec::new();
-
-    dbg!(&tree.kinds);
-
-    for (i, &node) in tree.kinds.iter().enumerate() {
-        let hn = match node {
-            N::Ident | N::Underscore | N::Float | N::Num | N::Str | N::SingleQuote => {
-                stack.push((H::Expr, false));
-                false
-            }
-
-            N::BeginTopLevelDecls  => false,
-            N::EndTopLevelDecls => {
-                // pop any Expr nodes. Note this is not technically correct, since we shouldn't be allowing expr nodes in top-level decls.
-                while let Some((H::Expr, _)) = stack.last() {
-                    stack.pop();
-                }
-                false
-            }
-
-            N::BeginAssign => false,
-            N::InlineBinOpPlus |
-            N::InlineBinOpStar |
-            N::InlinePizza |
-            N::InlineLambdaArrow |
-            N::InlineApply => false,
-            N::InlineAssign => {
-                assert_eq!(stack.pop(), Some((H::Expr, false)));
-                true
-            }
-            N::EndAssign =>  {
-                let body = stack.pop().unwrap();
-                assert_eq!(body.0, H::Expr);
-                body.1
-            }
-
-            N::HintExpr => false,
-
-            // Wrong: N::BeginIf | N::InlineThen | N::InlineElse | N::EndIf => false,
-            // Then/Else/Endif need to pop the expr nodes
-            N::BeginIf => false,
-            N::InlineThen => {
-                assert_eq!(stack.pop(), Some((H::Expr, false)));
-                false
-            }
-            N::InlineElse => {
-                assert_eq!(stack.pop(), Some((H::Expr, false)));
-                false
-            }
-            N::EndIf => {
-                assert_eq!(stack.pop(), Some((H::Expr, false)));
-                false
-            }
-
-            N::BeginWhen => false,
-            N::InlineIs => {
-                assert_eq!(stack.pop(), Some((H::Expr, false)));
-                false
-            }
-            N::InlineWhenArrow => {
-                assert_eq!(stack.pop(), Some((H::Expr, false)));
-                false
-            }
-            N::EndWhen => false,
-
-            N::BeginBlock | N::EndBlock => true,
-            N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza => false,
-            N::BeginLambda | N::EndLambda => false,
-            node => todo!("{:?}", node),
-        };
-
-        has_newline.push(hn);
-    }
-
-    let mut follow = TokenizedBufferFollower {
+    let mut prop = FmtInfoProp {
         text,
         toks,
         pos: 0,
+        trivia: Vec::new(),
+        trivia_indices: Vec::new(),
     };
 
-    let mut buf = FormattedBuffer::new();
+    let mut info = bubble_up(&mut prop, tree);
+    bubble_down_mut(tree, &mut info);
 
-    assert_eq!(stack, &[]);
+    let mut buf = FormattedBuffer::new();
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     enum St {
@@ -1087,13 +1213,10 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
 
     dbg!(&ctx.toks.kinds);
 
-    let mut trivia = Vec::new();
-
     for (i, &node) in tree.kinds.iter().enumerate() {
         let index = tree.paird_group_ends[i];
         match node {
             N::Ident => {
-                follow.check_next_token(T::LowerIdent, &mut trivia);
                 buf.push_sp_str_sp(ctx.text(index))
             },
             N::BeginTopLevelDecls => {}
@@ -1104,7 +1227,6 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             }
             N::InlineAssign => {
                 assert_eq!(stack.pop(), Some(St::Assign0));
-                follow.check_next_token(T::OpAssign, &mut trivia);
                 buf.push_sp_str_sp("=");
                 stack.push(St::Assign1);
             }
@@ -1116,17 +1238,14 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             N::HintExpr => {}
 
             N::BeginIf => {
-                follow.check_next_token(T::KwIf, &mut trivia);
                 buf.push_sp_str_sp("if");
             }
             N::InlineThen => {
-                follow.check_next_token(T::KwThen, &mut trivia);
                 buf.push_sp_str_sp("then");
                 buf.push_newline();
                 buf.indent();
             }
             N::InlineElse => {
-                follow.check_next_token(T::KwElse, &mut trivia);
                 buf.dedent();
                 buf.push_newline();
                 buf.push_sp_str_sp("else");
@@ -1139,47 +1258,38 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             }
 
             N::BeginWhen => {
-                follow.check_next_token(T::KwWhen, &mut trivia);
                 buf.push_sp_str_sp("when");
             }
             N::InlineIs => {
-                follow.check_next_token(T::KwIs, &mut trivia);
                 buf.push_sp_str_sp("is");
             }
             N::InlineWhenArrow => {
-                follow.check_next_token(T::OpArrow, &mut trivia);
                 buf.push_sp_str_sp("->");
             }
             N::EndWhen => {}
 
             N::InlineApply => {},
             N::InlineBinOpPlus => {
-                follow.check_next_token(T::OpPlus, &mut trivia);
                 buf.push_sp_str_sp("+")
             }
             N::InlineBinOpStar => {
-                follow.check_next_token(T::OpStar, &mut trivia);
                 buf.push_sp_str_sp("*")
             }
             N::InlinePizza => {
-                follow.check_next_token(T::OpPizza, &mut trivia);
                 buf.push_sp_str_sp("|>")
             }
 
             N::BeginLambda => {
-                follow.check_next_token(T::OpBackslash, &mut trivia);
                 buf.push_sp_str("\\");
                 // hack!!!!
                 buf.pretend_space = true;
             }
             N::InlineLambdaArrow => {
-                follow.check_next_token(T::OpArrow, &mut trivia);
                 buf.push_sp_str_sp("->")
             }
             N::EndLambda => {},
 
             N::BeginBlock => {
-                follow.check_next_token(T::Newline, &mut trivia);
                 buf.push_newline();
                 buf.indent();
             }
