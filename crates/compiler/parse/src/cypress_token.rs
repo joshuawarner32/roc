@@ -1,4 +1,3 @@
-
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum T {
@@ -24,7 +23,7 @@ pub enum T {
     OpPizza,
     OpAssign,
     OpBinaryMinus, // trailing whitespace
-    OpUnaryMinus, // no trailing whitespace
+    OpUnaryMinus,  // no trailing whitespace
     OpNotEquals,
     OpBang,
     OpAnd,
@@ -53,7 +52,6 @@ pub enum T {
     OpArrow,
     OpBackarrow,
     OpBackslash,
-
 
     // Keywords
     KwIf,
@@ -203,13 +201,11 @@ impl<'a> Tokenizer<'a> {
             }};
         }
         macro_rules! simple_token {
-            ($len:expr, $name:ident) => {
-                {
-                    let offset = self.cursor.offset;
-                    self.output.push_token(T::$name, offset, $len);
-                    self.cursor.offset += $len;
-                }
-            };
+            ($len:expr, $name:ident) => {{
+                let offset = self.cursor.offset;
+                self.output.push_token(T::$name, offset, $len);
+                self.cursor.offset += $len;
+            }};
         }
 
         while let Some(b) = self.cursor.peek() {
@@ -236,13 +232,16 @@ impl<'a> Tokenizer<'a> {
                 b'-' => {
                     match self.cursor.peek_at(1) {
                         Some(b'>') => simple_token!(2, OpArrow),
-                        Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, OpBinaryMinus),
+                        Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => {
+                            simple_token!(1, OpBinaryMinus)
+                        }
                         Some(b @ b'0'..=b'9') => {
                             self.cursor.offset += 2;
                             let tok = self.cursor.chomp_number(b, true);
                             // we start at the original offset, not the offset after the '-'
-                            self.output.push_token(tok, offset, self.cursor.offset - offset);
-                        },
+                            self.output
+                                .push_token(tok, offset, self.cursor.offset - offset);
+                        }
                         _ => simple_token!(1, OpUnaryMinus),
                     }
                 }
@@ -262,13 +261,11 @@ impl<'a> Tokenizer<'a> {
                 }
                 b',' => simple_token!(1, OpComma),
                 b'?' => simple_token!(1, OpQuestion),
-                b'|' => {
-                    match self.cursor.peek_at(1) {
-                        Some(b'|') => simple_token!(2, OpOr),
-                        Some(b'>') => simple_token!(2, OpPizza),
-                        _ => simple_token!(1, OpBar),
-                    }
-                }
+                b'|' => match self.cursor.peek_at(1) {
+                    Some(b'|') => simple_token!(2, OpOr),
+                    Some(b'>') => simple_token!(2, OpPizza),
+                    _ => simple_token!(1, OpBar),
+                },
                 b'+' => simple_token!(1, OpPlus),
                 b'*' => simple_token!(1, OpStar),
                 b'/' => {
@@ -288,13 +285,11 @@ impl<'a> Tokenizer<'a> {
                         simple_token!(1, OpGreaterThan)
                     }
                 }
-                b'<' => {
-                    match self.cursor.peek_at(1) {
-                        Some(b'=') => simple_token!(2, OpLessThanOrEq),
-                        Some(b'-') => simple_token!(2, OpBackArrow),
-                        _ => simple_token!(1, OpLessThan),
-                    }
-                }
+                b'<' => match self.cursor.peek_at(1) {
+                    Some(b'=') => simple_token!(2, OpLessThanOrEq),
+                    Some(b'-') => simple_token!(2, OpBackArrow),
+                    _ => simple_token!(1, OpLessThan),
+                },
                 b'=' => {
                     if self.cursor.peek_at(1) == Some(b'=') {
                         simple_token!(2, OpEquals)
@@ -311,42 +306,46 @@ impl<'a> Tokenizer<'a> {
                 }
 
                 b'(' => simple_token!(1, OpenRound),
-                b')' => {
-                    match self.cursor.peek_at(1) {
-                        None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, CloseRound),
-                        _ => {
-                            simple_token!(1, CloseRound);
-                            self.output.push_token(T::NoSpace, offset, 0);
-                        }
+                b')' => match self.cursor.peek_at(1) {
+                    None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => {
+                        simple_token!(1, CloseRound)
                     }
-                }
+                    _ => {
+                        simple_token!(1, CloseRound);
+                        self.output.push_token(T::NoSpace, offset, 0);
+                    }
+                },
                 b'[' => simple_token!(1, OpenSquare),
-                b']' => {
-                    match self.cursor.peek_at(1) {
-                        None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, CloseSquare),
-                        _ => {
-                            simple_token!(1, CloseSquare);
-                            self.output.push_token(T::NoSpace, offset, 0);
-                        }
+                b']' => match self.cursor.peek_at(1) {
+                    None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => {
+                        simple_token!(1, CloseSquare)
                     }
-                }
+                    _ => {
+                        simple_token!(1, CloseSquare);
+                        self.output.push_token(T::NoSpace, offset, 0);
+                    }
+                },
                 b'{' => simple_token!(1, OpenCurly),
-                b'}' => {
-                    match self.cursor.peek_at(1) {
-                        None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => simple_token!(1, CloseCurly),
-                        _ => {
-                            simple_token!(1, CloseCurly);
-                            self.output.push_token(T::NoSpace, offset, 0);
-                        }
+                b'}' => match self.cursor.peek_at(1) {
+                    None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => {
+                        simple_token!(1, CloseCurly)
                     }
-                }
+                    _ => {
+                        simple_token!(1, CloseCurly);
+                        self.output.push_token(T::NoSpace, offset, 0);
+                    }
+                },
 
                 b'_' => {
                     match self.cursor.peek_at(1) {
                         Some(b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9') => {
                             self.cursor.offset += 2;
                             self.cursor.chomp_ident_general();
-                            self.output.push_token(T::NamedUnderscore, offset, self.cursor.offset - offset);
+                            self.output.push_token(
+                                T::NamedUnderscore,
+                                offset,
+                                self.cursor.offset - offset,
+                            );
                         }
                         // TODO: handle unicode named underscores
                         _ => {
@@ -360,7 +359,11 @@ impl<'a> Tokenizer<'a> {
                         Some(b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9') => {
                             self.cursor.offset += 2;
                             self.cursor.chomp_ident_general();
-                            self.output.push_token(T::OpaqueName, offset, self.cursor.offset - offset);
+                            self.output.push_token(
+                                T::OpaqueName,
+                                offset,
+                                self.cursor.offset - offset,
+                            );
                         }
                         // TODO: handle unicode opaque names
                         _ => {
@@ -380,7 +383,6 @@ impl<'a> Tokenizer<'a> {
                 b'A'..=b'Z' => push_token!(self.cursor.chomp_ident_upper()),
 
                 // TODO: handle unicode idents
-
                 b'"' => push_token!(self.cursor.chomp_string_like_literal(b'"')),
                 b'\'' => push_token!(self.cursor.chomp_string_like_literal(b'\'')),
 
@@ -452,7 +454,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                     if saw_newline {
                         indent.num_spaces += 1;
                     }
-                },
+                }
                 b'\t' => {
                     self.offset += 1;
                     if saw_newline {
@@ -500,7 +502,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                 _ => break,
             }
         }
-        
+
         if saw_newline {
             Some(indent)
         } else {
@@ -606,7 +608,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         let start = self.offset;
 
         let mut kw_check = true;
-    
+
         while let Some(b) = self.peek() {
             match b {
                 b'a'..=b'z' => self.offset += 1,
@@ -756,7 +758,11 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                         if !multiline && b == term {
                             self.offset += 1;
                             return T::String;
-                        } else if multiline && b == term && self.peek_at(1) == Some(term) && self.peek_at(2) == Some(term) {
+                        } else if multiline
+                            && b == term
+                            && self.peek_at(1) == Some(term)
+                            && self.peek_at(2) == Some(term)
+                        {
                             self.offset += 3;
                             return T::String;
                         }
@@ -768,7 +774,11 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
 
         // We got to the end of the file without finding a closing quote.
         self.messages.push(Message {
-            kind: if term == b'"' { MessageKind::UnclosedString } else { MessageKind::UnclosedSingleQuote },
+            kind: if term == b'"' {
+                MessageKind::UnclosedString
+            } else {
+                MessageKind::UnclosedSingleQuote
+            },
             offset: self.offset as u32,
         });
 
@@ -817,14 +827,20 @@ mod tests {
     fn test_tokenize_plus() {
         let mut tokenizer = Tokenizer::new("1 + 2");
         tokenizer.tokenize();
-        assert_eq!(tokenizer.output.kinds, vec![T::IntBase10, T::OpPlus, T::IntBase10]);
+        assert_eq!(
+            tokenizer.output.kinds,
+            vec![T::IntBase10, T::OpPlus, T::IntBase10]
+        );
     }
 
     #[test]
     fn test_tokenize_unary_minus_x() {
         let mut tokenizer = Tokenizer::new("1 -x");
         tokenizer.tokenize();
-        assert_eq!(tokenizer.output.kinds, vec![T::IntBase10, T::OpUnaryMinus, T::LowerIdent]);
+        assert_eq!(
+            tokenizer.output.kinds,
+            vec![T::IntBase10, T::OpUnaryMinus, T::LowerIdent]
+        );
     }
 
     #[test]
@@ -838,14 +854,26 @@ mod tests {
     fn test_tokenize_binary_minus() {
         let mut tokenizer = Tokenizer::new("1 - 2");
         tokenizer.tokenize();
-        assert_eq!(tokenizer.output.kinds, vec![T::IntBase10, T::OpBinaryMinus, T::IntBase10]);
+        assert_eq!(
+            tokenizer.output.kinds,
+            vec![T::IntBase10, T::OpBinaryMinus, T::IntBase10]
+        );
     }
 
     #[test]
     fn test_tokenize_newline() {
         let mut tokenizer = Tokenizer::new("1\n  \t2");
         tokenizer.tokenize();
-        assert_eq!(tokenizer.output.kinds, vec![T::IntBase10, T::Newline, T::IntBase10]);
-        assert_eq!(tokenizer.output.indents, vec![Indent { num_spaces: 2, num_tabs: 1 }]);
+        assert_eq!(
+            tokenizer.output.kinds,
+            vec![T::IntBase10, T::Newline, T::IntBase10]
+        );
+        assert_eq!(
+            tokenizer.output.indents,
+            vec![Indent {
+                num_spaces: 2,
+                num_tabs: 1
+            }]
+        );
     }
 }

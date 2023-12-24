@@ -1,10 +1,10 @@
 //! Cypress: an experimental (and very incomplete) parser for the Roc language.
 //! Inspired by the Carbon language parser, described here: https://docs.google.com/document/d/1RRYMm42osyqhI2LyjrjockYCutQ5dOf8Abu50kTrkX0/edit?resourcekey=0-kHyqOESbOHmzZphUbtLrTw
 //! Cypress is more-or-less a recursive descent parser, but written in a very unusual style, and outputting an unusual AST.
-//! 
+//!
 //! Notably, the tree we produce is made of two vecs: one vec of N (node) enums - just u8's basically - and one vec of some arbitrary index data, the interpretation of which varies by node type.
 //! Here's an example of what the tree looks like:
-//! 
+//!
 //! Original text: `f = \x -> x + 1`
 //! Tokens:            LowerIdent,   OpAssign,   OpBackslash, LowerIdent,  OpArrow,   LowerIdent,    OpPlus,   Num
 //!  Tree:                  ^            ^                         ^           ^            ^           ^       ^
@@ -12,37 +12,37 @@
 //!            /            |            |            _____________|___________|____________|___________|_______|_______          \
 //!           v             |            |           V             |           |            |           |       |       V          V
 //! Nodes: BeginAssign, LowerIdent, InlineAssign, BeginLambda, LowerIdent, InlineArrow, LowerIdent, InlinePlus, Num, EndLambda, EndAssign
-//! 
+//!
 //! The nodes are a flat list of nodes, and the arrows represent what each index is referring to.
 //! The indices associated with BeginAssign/EndAssign and BeginLambda/EndLambda point to each other, because they're paired groups.
 //! The indicies for most of the remaining nodes refer back to the token buffer - and specifically to the token they come from.
-//! 
+//!
 //! This is a very unusual way to represent a tree, but it has some nice properties:
 //! * It's very compact. The tree is just two vecs - five bytes per node.
 //!     (note however that in order to make the tree easy to traverse, we add some redundant nodes - so it's harder to directly compare to other tree encodings)
 //! * It's very fast to traverse. We can traverse the tree without any indirection - usually by walking in a straight line through the vecs.
 //! * We still have enough information to skip around the tree if we want - for example, in order to collect a hash map of the identifiers defined at the top level.
 //! * It's very fast to build. The current parser doesn't take great advantage of this - but you could imagine a future where we fast-path the common case of a sequence of lower idents and use SIMD ops to splat the nodes and indices into the tree.
-//! 
+//!
 //! Note that this tree isn't really designed to work well with the later stages of compiling.
 //! We'll be able to do some simple things like:
 //! * name resolution
 //! * syntax desugaring
 //! * canonicalization
-//! 
+//!
 //! ... but we won't be able to do more complex things like type inference/checking, code generation, etc.
-//! 
+//!
 //! To facilitate this, we'll do name resolution / desugaring / canonicalization in a single pass over the tree,
 //! and then convert it to a more traditional IR representation for the later parts of the compiler.
-//! 
+//!
 //! Notably however, interactive operations like formatting can be done without converting to a different representation.
-//! 
+//!
 //! ------------------------------------------------------------------
-//! 
+//!
 //! The other unusual aspect of the parser is that it's written in a style where we reify the parser state as a stack of frames, instead of using recursion.
-//! 
+//!
 //! Which is to say, we take a function like the following:
-//! 
+//!
 //! ```ignore
 //! fn parse_if() -> Result<If, Error> {
 //!    expect(T::KwIf)?; // start state
@@ -54,34 +54,34 @@
 //!    Ok(If { cond, then, else }) // where we'll return to after parsing the else branch
 //! }
 //! ```
-//! 
+//!
 //! And we rewrite it to a series of enum variants that look something like:
-//! 
+//!
 //! ```ignore
 //! enum Frame {
 //!     StartIf, // the initial state, at the start of the function
 //!     ContinueAtThenKw, // the return point after parsing the condition
 //!     ContinueAtElseKw, // the return point after parsing the then branch
 //!     FinishIf, // the return point after parsing the else branch
-//! 
+//!
 //!     // ... other frames for other constructs
 //!     StartExpr,
 //! }
 //! ```
 //! (this is a lie in several ways; but it's close enough for now)
-//! 
+//!
 //! The parser is then just a loop:
 //! * pop the top frame off the stack
 //! * call the corresponding `pump` function
-//! 
+//!
 //! In the `pump_*` functions, each time we want to call a parsing "function" recursively (e.g. `parse_expr()`), we:
 //! * push the state for the return pos onto the stack, e.g. `ContinueAtThenKw`
 //! * push the state for the start of the function onto the stack, e.g. `StartExpr`
-//! 
+//!
 //! In practice however, we can short-circuit the enum variant + loop iteration in a few cases. e.g. We don't technically need a `StartIf` frame,
 //! since we can immediately (1) check there's a `KwIf` token, (2) parse the condition, (3) push the `ContinueAtThenKw` frame, and (4) push the `StartExpr` frame.
 //!
-//! 
+//!
 //! Overall this design has some advantages:
 //! * When an error occurs, we can simply copy the enums representing stack frames and directly use those for generating error messages. We don't need any other mechanism for tracking the context around an error.
 //! * (minor) This allows us to handle much deeper trees, since we don't have to worry about blowing the stack.
@@ -89,15 +89,15 @@
 //! * (in the future...) We can use the fact that the stack is reified to do some interesting things, like:
 //!     * Store the stack at the location of the user's cursor in the editor, and use that to incrementally re-parse the tree as the user types.
 //!     * Build debugging visualizations of the parser state, without having to resort to a debugger.
-//! 
+//!
 //! That said, I haven't benchmarked this, and I don't really have a good intuition for how it compares to a normal recursive descent parser.
 //! On the one hand, we can in principle reduce overall memory traffic associated with stack frame setup, and on the other hand, we're not able to take advantage of the return address branch prediction in the CPU.
 
 #![allow(dead_code)] // temporarily during development
 #![allow(unused)] // temporarily during development
 
-use std::collections::{VecDeque, btree_map::Keys};
-use crate::cypress_token::{T, TokenenizedBuffer, Indent, Trivia};
+use crate::cypress_token::{Indent, TokenenizedBuffer, Trivia, T};
+use std::collections::{btree_map::Keys, VecDeque};
 
 pub struct Tree {
     kinds: Vec<N>,
@@ -150,60 +150,81 @@ pub enum N {
     AccessorFunction,
 
     /// List literals, e.g. `[1, 2, 3]`
-    BeginList, EndList,
+    BeginList,
+    EndList,
 
     /// Record literals, e.g. `{ x: 1, y: 2 }`
-    BeginRecord, EndRecord,
+    BeginRecord,
+    EndRecord,
 
     /// Record updates (e.g. `{ x & y: 3 }`)
-    BeginRecordUpdate, EndRecordUpdate,
+    BeginRecordUpdate,
+    EndRecordUpdate,
 
     /// Parentheses, e.g. `(1 + 2)`
-    BeginParens, EndParens,
+    BeginParens,
+    EndParens,
 
     /// Tuple literals, e.g. `(1, 2)`
-    BeginTuple, EndTuple,
+    BeginTuple,
+    EndTuple,
 
     /// Indented block of statements and expressions
-    BeginBlock, EndBlock,
+    BeginBlock,
+    EndBlock,
 
     /// Function application, e.g. `f x`
-    InlineApply, EndApply,
+    InlineApply,
+    EndApply,
 
     /// Pizza operator, e.g. `x |> f`
-    InlinePizza, EndPizza,
+    InlinePizza,
+    EndPizza,
 
     /// Assignment declaration, e.g. `x = 1`
-    BeginAssign, InlineAssign, EndAssign,
+    BeginAssign,
+    InlineAssign,
+    EndAssign,
 
     /// Binary operators, e.g. `x + y`
-    InlineBinOpPlus, EndBinOpPlus,
-    InlineBinOpStar, EndBinOpStar,
+    InlineBinOpPlus,
+    EndBinOpPlus,
+    InlineBinOpStar,
+    EndBinOpStar,
 
     /// Unary operator, e.g. `-x`
-    BeginUnaryOp, EndUnaryOp,
+    BeginUnaryOp,
+    EndUnaryOp,
 
     /// If expression, e.g. `if x then y else z`
-    BeginIf, InlineThen, InlineElse, EndIf,
+    BeginIf,
+    InlineThen,
+    InlineElse,
+    EndIf,
 
     /// A when expression, e.g. `when x is y -> z` (you need a newline after the 'is')
-    BeginWhen, InlineIs, InlineWhenArrow, EndWhen,
+    BeginWhen,
+    InlineIs,
+    InlineWhenArrow,
+    EndWhen,
 
     /// A lambda expression, e.g. `\x -> x`
-    BeginLambda, InlineLambdaArrow, EndLambda,
+    BeginLambda,
+    InlineLambdaArrow,
+    EndLambda,
 
     EndTopLevelDecls,
     BeginTopLevelDecls,
     Dummy,
-    
+
     HintExpr,
 }
 
 enum NodeIndexKind {
-    Begin, // this is a begin node; the index points one past the corresponding end node
-    End, // this is an end node; the index points to the corresponding begin node
+    Begin,   // this is a begin node; the index points one past the corresponding end node
+    End,     // this is an end node; the index points to the corresponding begin node
     EndOnly, // this is an end node; the index points to the first child and there is no corresponding begin node
-    Token, // the index points to a token
+    Token,   // the index points to a token
 
     Unused, // we don't use the index for this node
 }
@@ -218,32 +239,60 @@ impl N {
 
     fn index_kind(self) -> NodeIndexKind {
         match self {
-            N::BeginList | N::BeginRecord | N::BeginRecordUpdate | N::BeginParens | N::BeginTuple | N::BeginBlock |
-            N::BeginAssign | N::BeginIf | N::BeginWhen | N::BeginLambda | N::BeginUnaryOp | N::BeginTopLevelDecls =>
-                NodeIndexKind::Begin,
-            N::EndList | N::EndRecord | N::EndRecordUpdate | N::EndParens | N::EndTuple | N::EndBlock | N::EndAssign |
-            N::EndIf | N::EndWhen | N::EndLambda | N::EndTopLevelDecls =>
-                NodeIndexKind::End,
-            N::InlineApply | N::InlinePizza | N::InlineAssign | N::InlineBinOpPlus | N::InlineBinOpStar |
-            N::InlineThen | N::InlineElse | N::InlineIs | N::InlineLambdaArrow | N::InlineWhenArrow =>
-                NodeIndexKind::Token,
-            N::Num | N::Str | N::Ident | N::Tag | N::OpaqueRef | N::Access | N::AccessorFunction =>
-                NodeIndexKind::Token,
+            N::BeginList
+            | N::BeginRecord
+            | N::BeginRecordUpdate
+            | N::BeginParens
+            | N::BeginTuple
+            | N::BeginBlock
+            | N::BeginAssign
+            | N::BeginIf
+            | N::BeginWhen
+            | N::BeginLambda
+            | N::BeginUnaryOp
+            | N::BeginTopLevelDecls => NodeIndexKind::Begin,
+            N::EndList
+            | N::EndRecord
+            | N::EndRecordUpdate
+            | N::EndParens
+            | N::EndTuple
+            | N::EndBlock
+            | N::EndAssign
+            | N::EndIf
+            | N::EndWhen
+            | N::EndLambda
+            | N::EndTopLevelDecls => NodeIndexKind::End,
+            N::InlineApply
+            | N::InlinePizza
+            | N::InlineAssign
+            | N::InlineBinOpPlus
+            | N::InlineBinOpStar
+            | N::InlineThen
+            | N::InlineElse
+            | N::InlineIs
+            | N::InlineLambdaArrow
+            | N::InlineWhenArrow => NodeIndexKind::Token,
+            N::Num
+            | N::Str
+            | N::Ident
+            | N::Tag
+            | N::OpaqueRef
+            | N::Access
+            | N::AccessorFunction => NodeIndexKind::Token,
             N::Dummy | N::HintExpr => NodeIndexKind::Unused,
-            N::EndApply | N::EndPizza | N::EndBinOpPlus | N::EndBinOpStar | N::EndUnaryOp => NodeIndexKind::EndOnly,
+            N::EndApply | N::EndPizza | N::EndBinOpPlus | N::EndBinOpStar | N::EndUnaryOp => {
+                NodeIndexKind::EndOnly
+            }
             N::Float | N::SingleQuote | N::Underscore | N::Crash | N::Dbg => NodeIndexKind::Token,
         }
     }
 }
-
-
 
 impl TokenenizedBuffer {
     fn kind(&self, pos: usize) -> Option<T> {
         self.kinds.get(pos).copied()
     }
 }
-
 
 impl Tree {
     fn new() -> Tree {
@@ -261,12 +310,12 @@ impl Tree {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
     Outer,
-    DeclSeq, // BinOp::DeclSeq,
-    Decl, // BinOp::Assign, BinOp::Backpassing,
-    Pizza, // BinOp::Pizza,
-    AndOr, // BinOp::And, BinOp::Or,
+    DeclSeq,  // BinOp::DeclSeq,
+    Decl,     // BinOp::Assign, BinOp::Backpassing,
+    Pizza,    // BinOp::Pizza,
+    AndOr,    // BinOp::And, BinOp::Or,
     Compare, // BinOp::Equals, BinOp::NotEquals, BinOp::LessThan, BinOp::GreaterThan, BinOp::LessThanOrEq, BinOp::GreaterThanOrEq,
-    Add, // BinOp::Plus, BinOp::Minus,
+    Add,     // BinOp::Plus, BinOp::Minus,
     Multiply, // BinOp::Star, BinOp::Slash, BinOp::DoubleSlash, BinOp::Percent,
     Exponent, // BinOp::Caret
     Apply,
@@ -274,7 +323,8 @@ enum Prec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BinOp { // shouldn't be pub. only pub because of canfmt. should just use a different enum.
+pub enum BinOp {
+    // shouldn't be pub. only pub because of canfmt. should just use a different enum.
     AssignBlock,
     DeclSeq,
     Assign,
@@ -333,7 +383,12 @@ impl BinOp {
             BinOp::Caret => Prec::Exponent,
             BinOp::Star | BinOp::Slash | BinOp::DoubleSlash | BinOp::Percent => Prec::Multiply,
             BinOp::Plus | BinOp::Minus => Prec::Add,
-            BinOp::Equals | BinOp::NotEquals | BinOp::LessThan | BinOp::GreaterThan | BinOp::LessThanOrEq | BinOp::GreaterThanOrEq => Prec::Compare,
+            BinOp::Equals
+            | BinOp::NotEquals
+            | BinOp::LessThan
+            | BinOp::GreaterThan
+            | BinOp::LessThanOrEq
+            | BinOp::GreaterThanOrEq => Prec::Compare,
             BinOp::And | BinOp::Or => Prec::AndOr,
             BinOp::Pizza => Prec::Pizza,
         }
@@ -348,7 +403,12 @@ impl BinOp {
             BinOp::Caret => Assoc::Right,
             BinOp::Star | BinOp::Slash | BinOp::DoubleSlash | BinOp::Percent => Assoc::Left,
             BinOp::Plus | BinOp::Minus => Assoc::Left,
-            BinOp::Equals | BinOp::NotEquals | BinOp::LessThan | BinOp::GreaterThan | BinOp::LessThanOrEq | BinOp::GreaterThanOrEq => Assoc::NonAssociative,
+            BinOp::Equals
+            | BinOp::NotEquals
+            | BinOp::LessThan
+            | BinOp::GreaterThan
+            | BinOp::LessThanOrEq
+            | BinOp::GreaterThanOrEq => Assoc::NonAssociative,
             BinOp::And | BinOp::Or => Assoc::Left,
             BinOp::Pizza => Assoc::Left,
         }
@@ -412,22 +472,36 @@ impl From<BinOp> for N {
 
 #[derive(Debug)]
 enum Frame {
-    StartExpr { min_prec: Prec },
-    ContinueExpr { min_prec: Prec, cur_op: Option<BinOp>, num_found: usize },
+    StartExpr {
+        min_prec: Prec,
+    },
+    ContinueExpr {
+        min_prec: Prec,
+        cur_op: Option<BinOp>,
+        num_found: usize,
+    },
     ContinueBlock,
     FinishParen,
     FinishAssign,
-    ContinueTopLevel { num_found: i32 },
+    ContinueTopLevel {
+        num_found: i32,
+    },
     ContinueLambdaArgs,
-    ContinueIf { next: IfState },
-    ContinueWhen { next: WhenState },
+    ContinueIf {
+        next: IfState,
+    },
+    ContinueWhen {
+        next: WhenState,
+    },
     FinishLambda,
     FinishBlockItem,
 }
 
 impl Frame {
     fn start_expr() -> Frame {
-        Frame::StartExpr { min_prec: Prec::DeclSeq }
+        Frame::StartExpr {
+            min_prec: Prec::DeclSeq,
+        }
     }
 }
 
@@ -491,11 +565,18 @@ impl State {
     }
 
     fn cur_indent(&self) -> Indent {
-        self.buf.indents.get(self.line).copied().unwrap_or(Indent::default())
+        self.buf
+            .indents
+            .get(self.line)
+            .copied()
+            .unwrap_or(Indent::default())
     }
 
     fn at_terminator(&self) -> bool {
-        matches!(self.cur(), None | Some(T::CloseRound) | Some(T::CloseSquare) | Some(T::CloseCurly))
+        matches!(
+            self.cur(),
+            None | Some(T::CloseRound) | Some(T::CloseSquare) | Some(T::CloseCurly)
+        )
     }
 
     fn bump(&mut self) {
@@ -538,13 +619,28 @@ impl State {
     }
 
     fn update_end(&mut self, kind: N, subtree_start: u32) {
-        eprintln!("{:indent$}@{} updating end {} -> {}", "", self.pos, subtree_start, self.tree.len(), indent = 2 * self.frames.len() + 2);
+        eprintln!(
+            "{:indent$}@{} updating end {} -> {}",
+            "",
+            self.pos,
+            subtree_start,
+            self.tree.len(),
+            indent = 2 * self.frames.len() + 2
+        );
         assert_eq!(self.tree.kinds[subtree_start as usize], kind);
         self.tree.paird_group_ends[subtree_start as usize] = self.tree.len() as u32;
     }
 
     fn push_node(&mut self, kind: N, subtree_start: Option<u32>) {
-        eprintln!("{:indent$}@{} pushing kind {}:{:?} starting at {:?}", "", self.pos, self.tree.kinds.len(), kind, subtree_start, indent = 2 * self.frames.len() + 2);
+        eprintln!(
+            "{:indent$}@{} pushing kind {}:{:?} starting at {:?}",
+            "",
+            self.pos,
+            self.tree.kinds.len(),
+            kind,
+            subtree_start,
+            indent = 2 * self.frames.len() + 2
+        );
         self.tree.kinds.push(kind);
         let pos = subtree_start.unwrap_or(self.tree.paird_group_ends.len() as u32);
         self.tree.paird_group_ends.push(pos);
@@ -552,7 +648,13 @@ impl State {
     }
 
     fn push_next_frame(&mut self, subtree_start: u32, cfg: ExprCfg, frame: Frame) {
-        eprintln!("{:indent$}@{} pushing frame {:?}", "", self.pos, frame, indent = 2 * self.frames.len() + 2);
+        eprintln!(
+            "{:indent$}@{} pushing frame {:?}",
+            "",
+            self.pos,
+            frame,
+            indent = 2 * self.frames.len() + 2
+        );
         self.frames.push((subtree_start, cfg, frame));
     }
 
@@ -563,16 +665,29 @@ impl State {
 
     fn pump(&mut self) {
         while let Some((subtree_start, cfg, frame)) = self.frames.pop() {
-            eprintln!("{:indent$}@{} pumping frame {:?} starting at {}", "", self.pos, frame, subtree_start, indent = 2 * self.frames.len());
+            eprintln!(
+                "{:indent$}@{} pumping frame {:?} starting at {}",
+                "",
+                self.pos,
+                frame,
+                subtree_start,
+                indent = 2 * self.frames.len()
+            );
             match frame {
                 Frame::StartExpr { min_prec } => self.pump_start_expr(subtree_start, cfg, min_prec),
                 Frame::FinishParen => self.pump_finish_paren(),
                 Frame::FinishLambda => self.pump_finish_lambda(subtree_start),
                 Frame::FinishBlockItem => self.pump_finish_block_item(subtree_start),
-                Frame::ContinueExpr { min_prec, cur_op, num_found } => self.pump_continue_expr(subtree_start, cfg, min_prec, cur_op, num_found),
+                Frame::ContinueExpr {
+                    min_prec,
+                    cur_op,
+                    num_found,
+                } => self.pump_continue_expr(subtree_start, cfg, min_prec, cur_op, num_found),
                 Frame::ContinueBlock => self.pump_continue_block(subtree_start, cfg),
                 Frame::FinishAssign => self.pump_finish_assign(subtree_start, cfg),
-                Frame::ContinueTopLevel { num_found } => self.pump_continue_top_level(subtree_start, cfg, num_found),
+                Frame::ContinueTopLevel { num_found } => {
+                    self.pump_continue_top_level(subtree_start, cfg, num_found)
+                }
                 Frame::ContinueLambdaArgs => self.pump_continue_lambda_args(subtree_start, cfg),
                 Frame::ContinueIf { next } => self.pump_continue_if(subtree_start, cfg, next),
                 Frame::ContinueWhen { next } => self.pump_continue_when(subtree_start, cfg, next),
@@ -585,7 +700,15 @@ impl State {
             match self.cur() {
                 Some(T::OpenRound) => {
                     self.bump();
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr { min_prec, cur_op: None, num_found: 1 });
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueExpr {
+                            min_prec,
+                            cur_op: None,
+                            num_found: 1,
+                        },
+                    );
                     self.push_next_frame(subtree_start, cfg, Frame::FinishParen);
                     min_prec = Prec::Outer;
                     continue;
@@ -599,7 +722,15 @@ impl State {
                         _ => {}
                     }
 
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr { min_prec, cur_op: None, num_found: 1 });
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueExpr {
+                            min_prec,
+                            cur_op: None,
+                            num_found: 1,
+                        },
+                    );
                     return;
                 }
                 Some(T::OpBackslash) => {
@@ -610,14 +741,24 @@ impl State {
                 }
                 Some(T::KwIf) => {
                     self.bump();
-                    self.push_next_frame_starting_here(cfg, Frame::ContinueIf { next: IfState::Then });
+                    self.push_next_frame_starting_here(
+                        cfg,
+                        Frame::ContinueIf {
+                            next: IfState::Then,
+                        },
+                    );
                     self.push_node(N::BeginIf, None);
                     self.start_expr(cfg);
                     return;
                 }
                 Some(T::KwWhen) => {
                     self.bump();
-                    self.push_next_frame_starting_here(cfg, Frame::ContinueWhen { next: WhenState::Is });
+                    self.push_next_frame_starting_here(
+                        cfg,
+                        Frame::ContinueWhen {
+                            next: WhenState::Is,
+                        },
+                    );
                     self.push_node(N::BeginWhen, None);
                     self.start_expr(cfg);
                     return;
@@ -627,7 +768,14 @@ impl State {
         }
     }
 
-    fn pump_continue_expr(&mut self, subtree_start: u32, cfg: ExprCfg, min_prec: Prec, cur_op: Option<BinOp>, mut num_found: usize) {
+    fn pump_continue_expr(
+        &mut self,
+        subtree_start: u32,
+        cfg: ExprCfg,
+        min_prec: Prec,
+        cur_op: Option<BinOp>,
+        mut num_found: usize,
+    ) {
         if let Some(op) = self.next_op(min_prec, cur_op) {
             if let Some(cur_op) = cur_op {
                 if op != cur_op || !op.n_arity() {
@@ -644,9 +792,13 @@ impl State {
                     return;
                 }
             }
-            
 
-            eprintln!("{:indent$}next op {:?}", "", op, indent = 2 * self.frames.len() + 2);
+            eprintln!(
+                "{:indent$}next op {:?}",
+                "",
+                op,
+                indent = 2 * self.frames.len() + 2
+            );
 
             let op_prec = op.prec();
             let assoc = op.matching_assoc();
@@ -657,13 +809,25 @@ impl State {
                 op_prec.next()
             };
 
-            self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr { min_prec, cur_op: Some(op), num_found });
-            self.push_next_frame_starting_here(cfg, Frame::StartExpr { min_prec: next_min_prec });
+            self.push_next_frame(
+                subtree_start,
+                cfg,
+                Frame::ContinueExpr {
+                    min_prec,
+                    cur_op: Some(op),
+                    num_found,
+                },
+            );
+            self.push_next_frame_starting_here(
+                cfg,
+                Frame::StartExpr {
+                    min_prec: next_min_prec,
+                },
+            );
             return;
         } else if let Some(cur_op) = cur_op {
             self.push_node(cur_op.into(), Some(subtree_start));
         }
-
     }
 
     fn next_op(&mut self, min_prec: Prec, cur_op: Option<BinOp>) -> Option<BinOp> {
@@ -699,12 +863,18 @@ impl State {
     fn pump_finish_block_item(&mut self, subtree_start: u32) {
         let k = self.tree.kinds.last().copied().unwrap(); // Find out what we just parsed
         match k {
-            N::EndAssign =>{
+            N::EndAssign => {
                 self.update_end(N::Dummy, subtree_start);
                 self.tree.kinds[subtree_start as usize] = N::BeginAssign;
             }
-            N::Ident | N::EndWhen | N::EndIf | N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza |
-            N::EndLambda => {
+            N::Ident
+            | N::EndWhen
+            | N::EndIf
+            | N::EndApply
+            | N::EndBinOpPlus
+            | N::EndBinOpStar
+            | N::EndPizza
+            | N::EndLambda => {
                 self.tree.kinds[subtree_start as usize] = N::HintExpr;
             }
             k => todo!("{:?}", k),
@@ -734,7 +904,13 @@ impl State {
         while self.consume_newline() {}
 
         if self.pos < self.buf.kinds.len() {
-            self.push_next_frame(subtree_start, cfg, Frame::ContinueTopLevel { num_found: num_found + 1 });
+            self.push_next_frame(
+                subtree_start,
+                cfg,
+                Frame::ContinueTopLevel {
+                    num_found: num_found + 1,
+                },
+            );
             self.start_top_level_item();
         } else {
             self.push_node(N::EndTopLevelDecls, Some(subtree_start as u32));
@@ -758,7 +934,13 @@ impl State {
             IfState::Then => {
                 self.expect(T::KwThen);
                 self.push_node(N::InlineThen, Some(self.pos as u32 - 1));
-                self.push_next_frame(subtree_start, cfg, Frame::ContinueIf { next: IfState::Else });
+                self.push_next_frame(
+                    subtree_start,
+                    cfg,
+                    Frame::ContinueIf {
+                        next: IfState::Else,
+                    },
+                );
                 self.start_block_or_expr(cfg);
             }
             IfState::Else => {
@@ -788,13 +970,30 @@ impl State {
                 self.push_node(N::InlineIs, Some(self.pos as u32 - 1));
                 self.consume_newline();
                 let indent = self.cur_indent();
-                self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::BranchArrow(indent) });
+                self.push_next_frame(
+                    subtree_start,
+                    cfg,
+                    Frame::ContinueWhen {
+                        next: WhenState::BranchArrow(indent),
+                    },
+                );
                 self.start_expr(cfg);
-            },
+            }
             WhenState::BranchPattern(indent) => {
                 if let Some(min_indent) = cfg.when_branch_indent_floor {
-                    if self.check(self.cur_indent().is_indented_more_than(min_indent).ok_or(Error::InconsistentIndent)) && !self.at_terminator() {
-                        self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::BranchArrow(indent) });
+                    if self.check(
+                        self.cur_indent()
+                            .is_indented_more_than(min_indent)
+                            .ok_or(Error::InconsistentIndent),
+                    ) && !self.at_terminator()
+                    {
+                        self.push_next_frame(
+                            subtree_start,
+                            cfg,
+                            Frame::ContinueWhen {
+                                next: WhenState::BranchArrow(indent),
+                            },
+                        );
                         self.start_expr(cfg);
                         return;
                     }
@@ -805,7 +1004,13 @@ impl State {
             WhenState::BranchArrow(indent) => {
                 self.expect(T::OpArrow);
                 self.push_node(N::InlineWhenArrow, Some(self.pos as u32 - 1));
-                self.push_next_frame(subtree_start, cfg, Frame::ContinueWhen { next: WhenState::BranchPattern(indent) });
+                self.push_next_frame(
+                    subtree_start,
+                    cfg,
+                    Frame::ContinueWhen {
+                        next: WhenState::BranchPattern(indent),
+                    },
+                );
                 self.start_block_or_expr(cfg);
             }
         }
@@ -819,7 +1024,10 @@ impl State {
 
     fn start_top_level_decls(&mut self) {
         while self.consume_newline() {}
-        self.push_next_frame_starting_here(ExprCfg::default(), Frame::ContinueTopLevel { num_found: 1 });
+        self.push_next_frame_starting_here(
+            ExprCfg::default(),
+            Frame::ContinueTopLevel { num_found: 1 },
+        );
         self.push_node(N::BeginTopLevelDecls, None);
         self.start_top_level_item();
     }
@@ -849,9 +1057,12 @@ impl State {
     }
 
     fn assert_end(&self) {
-        assert_eq!(self.pos, self.buf.kinds.len(),
+        assert_eq!(
+            self.pos,
+            self.buf.kinds.len(),
             "Expected to be at the end, but these tokens remain: {:?}",
-            &self.buf.kinds[self.pos..]);
+            &self.buf.kinds[self.pos..]
+        );
     }
 
     fn check<T>(&self, v: Result<T, Error>) -> T {
@@ -921,7 +1132,11 @@ impl FormattedBuffer {
     }
 
     fn space(&mut self) {
-        if !self.pretend_space && self.pending_spaces == 0 && self.pending_newlines == 0 && self.text.len() > 0 {
+        if !self.pretend_space
+            && self.pending_spaces == 0
+            && self.pending_newlines == 0
+            && self.text.len() > 0
+        {
             self.pending_spaces = 1;
         }
     }
@@ -969,9 +1184,13 @@ impl<'a> TokenizedBufferFollower<'a> {
             }
         }
         if self.toks.kind(self.pos) != Some(tok) {
-            panic!("programming error: misaligned token stream when formatting.\n\
+            panic!(
+                "programming error: misaligned token stream when formatting.\n\
                 Expected {:?} at position {}, found {:?} instead.",
-                tok, self.pos, self.toks.kind(self.pos));
+                tok,
+                self.pos,
+                self.toks.kind(self.pos)
+            );
         }
         self._bump(trivia);
     }
@@ -994,13 +1213,12 @@ fn bubble_up<P: UpProp>(prop: &mut P, tree: &Tree) -> Vec<P::Out> {
 
     for (i, &node) in tree.kinds.iter().enumerate() {
         let index = tree.paird_group_ends[i];
-        
+
         let item = match node.index_kind() {
-            NodeIndexKind::Begin |
-            NodeIndexKind::Token |
-            NodeIndexKind::Unused => prop.leaf(node, index),
-            NodeIndexKind::EndOnly |
-            NodeIndexKind::End => {
+            NodeIndexKind::Begin | NodeIndexKind::Token | NodeIndexKind::Unused => {
+                prop.leaf(node, index)
+            }
+            NodeIndexKind::EndOnly | NodeIndexKind::End => {
                 let mut begin = stack.len();
                 while begin > 0 && stack[begin - 1].0 > index {
                     begin -= 1;
@@ -1031,7 +1249,7 @@ fn bubble_down_mut<P: DownProp>(tree: &Tree, state: &mut Vec<P>) {
     let mut stack = Vec::<(usize, P, N)>::new();
     for (i, &node) in tree.kinds.iter().enumerate().rev() {
         let index = tree.paird_group_ends[i];
-        
+
         while let Some(&(begin_index, parent_state, parent_node)) = stack.last() {
             if begin_index > i {
                 stack.pop();
@@ -1043,11 +1261,8 @@ fn bubble_down_mut<P: DownProp>(tree: &Tree, state: &mut Vec<P>) {
         }
 
         match node.index_kind() {
-            NodeIndexKind::Begin |
-            NodeIndexKind::Token |
-            NodeIndexKind::Unused => {}
-            NodeIndexKind::EndOnly |
-            NodeIndexKind::End => {
+            NodeIndexKind::Begin | NodeIndexKind::Token | NodeIndexKind::Unused => {}
+            NodeIndexKind::EndOnly | NodeIndexKind::End => {
                 stack.push((index as usize, state[i], node));
             }
         }
@@ -1070,7 +1285,8 @@ struct FmtInfoProp<'a> {
 
 impl<'a> FmtInfoProp<'a> {
     fn _bump(&mut self) {
-        self.toks.extract_trivia_before(self.text, self.pos, &mut self.trivia);
+        self.toks
+            .extract_trivia_before(self.text, self.pos, &mut self.trivia);
         self.pos += 1;
     }
 
@@ -1088,21 +1304,29 @@ impl<'a> FmtInfoProp<'a> {
         }
 
         if self.toks.kind(self.pos) != Some(tok) {
-            panic!("programming error: misaligned token stream when formatting.\n\
+            panic!(
+                "programming error: misaligned token stream when formatting.\n\
                 Expected {:?} at position {}, found {:?} instead.",
-                tok, self.pos, self.toks.kind(self.pos));
+                tok,
+                self.pos,
+                self.toks.kind(self.pos)
+            );
         }
 
         debug_assert!({
             let mut trivia = Vec::new();
-            self.toks.extract_trivia_before(self.text, self.pos, &mut trivia);
+            self.toks
+                .extract_trivia_before(self.text, self.pos, &mut trivia);
             trivia.is_empty()
         });
 
         self.pos += 1;
 
         let trivia_end = self.pos;
-        FmtInfo { has_newline:  newline, has_comment: trivia_start != trivia_end }
+        FmtInfo {
+            has_newline: newline,
+            has_comment: trivia_start != trivia_end,
+        }
     }
 }
 
@@ -1117,20 +1341,21 @@ impl<'a> UpProp for FmtInfoProp<'a> {
     fn leaf(&mut self, node: N, index: u32) -> Self::Out {
         let kind = node.index_kind();
         match node {
+            N::BeginAssign
+            | N::BeginTopLevelDecls
+            | N::HintExpr
+            | N::EndIf
+            | N::EndWhen
+            | N::InlineApply
+            | N::EndLambda
+            | N::EndBlock
+            | N::EndApply
+            | N::EndBinOpPlus
+            | N::EndBinOpStar
+            | N::EndPizza
+            | N::BeginBlock => FmtInfo::default(),
 
-            N::BeginAssign |
-            N::BeginTopLevelDecls |
-            N::HintExpr |
-            N::EndIf |
-            N::EndWhen |
-            N::InlineApply |
-            N::EndLambda |
-            N::EndBlock |
-            N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza |
-            N::BeginBlock => FmtInfo::default(),
-
-            N::EndTopLevelDecls |
-            N::EndAssign => {
+            N::EndTopLevelDecls | N::EndAssign => {
                 panic!("not expected in ::leaf");
             }
 
@@ -1172,8 +1397,7 @@ impl<'a> UpProp for FmtInfoProp<'a> {
 impl DownProp for FmtInfo {
     fn update_from_parent(&mut self, node: N, index: u32, parent: Self, parent_node: N) {
         match parent_node {
-            N::EndTopLevelDecls |
-            N::EndBlock => return,
+            N::EndTopLevelDecls | N::EndBlock => return,
             // TODO: exempt some other nodes from this
             _ => {}
         }
@@ -1183,11 +1407,7 @@ impl DownProp for FmtInfo {
 }
 
 fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer {
-    let ctx = FormatCtx {
-        tree,
-        toks,
-        text,
-    };
+    let ctx = FormatCtx { tree, toks, text };
 
     let mut prop = FmtInfoProp {
         text,
@@ -1216,9 +1436,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
     for (i, &node) in tree.kinds.iter().enumerate() {
         let index = tree.paird_group_ends[i];
         match node {
-            N::Ident => {
-                buf.push_sp_str_sp(ctx.text(index))
-            },
+            N::Ident => buf.push_sp_str_sp(ctx.text(index)),
             N::BeginTopLevelDecls => {}
             N::EndTopLevelDecls => {}
 
@@ -1234,7 +1452,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
                 assert_eq!(stack.pop(), Some(St::Assign1));
                 buf.push_newline();
             }
-            
+
             N::HintExpr => {}
 
             N::BeginIf => {
@@ -1268,26 +1486,18 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             }
             N::EndWhen => {}
 
-            N::InlineApply => {},
-            N::InlineBinOpPlus => {
-                buf.push_sp_str_sp("+")
-            }
-            N::InlineBinOpStar => {
-                buf.push_sp_str_sp("*")
-            }
-            N::InlinePizza => {
-                buf.push_sp_str_sp("|>")
-            }
+            N::InlineApply => {}
+            N::InlineBinOpPlus => buf.push_sp_str_sp("+"),
+            N::InlineBinOpStar => buf.push_sp_str_sp("*"),
+            N::InlinePizza => buf.push_sp_str_sp("|>"),
 
             N::BeginLambda => {
                 buf.push_sp_str("\\");
                 // hack!!!!
                 buf.pretend_space = true;
             }
-            N::InlineLambdaArrow => {
-                buf.push_sp_str_sp("->")
-            }
-            N::EndLambda => {},
+            N::InlineLambdaArrow => buf.push_sp_str_sp("->"),
+            N::EndLambda => {}
 
             N::BeginBlock => {
                 buf.push_newline();
@@ -1297,7 +1507,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
                 buf.dedent();
                 buf.push_newline();
             }
-            N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza => {},
+            N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza => {}
             _ => todo!("{:?}", node),
         }
     }
@@ -1306,8 +1516,8 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
 
 mod canfmt {
     use super::*;
-    use bumpalo::Bump;
     use bumpalo::collections::vec::Vec;
+    use bumpalo::Bump;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Expr<'a> {
@@ -1349,7 +1559,9 @@ mod canfmt {
                         begin -= 1;
                     }
                     let first = must_expr(stack[begin].1);
-                    let args = bump.alloc_slice_fill_iter(stack[begin + 1..].iter().map(|(_, e)| *must_expr(*e)));
+                    let args = bump.alloc_slice_fill_iter(
+                        stack[begin + 1..].iter().map(|(_, e)| *must_expr(*e)),
+                    );
                     stack.truncate(begin);
                     stack.push((i, Item::Expr(bump.alloc(Expr::Apply(first, args)))));
                 }
@@ -1358,7 +1570,8 @@ mod canfmt {
                     while begin > 0 && stack[begin - 1].0 >= index as usize {
                         begin -= 1;
                     }
-                    let args = bump.alloc_slice_fill_iter(stack[begin..].iter().map(|(_, e)| *must_expr(*e)));
+                    let args = bump
+                        .alloc_slice_fill_iter(stack[begin..].iter().map(|(_, e)| *must_expr(*e)));
                     stack.truncate(begin);
                     stack.push((i, Item::Expr(bump.alloc(Expr::Pizza(args)))));
                 }
@@ -1375,7 +1588,11 @@ mod canfmt {
                         begin -= 1;
                     }
                     let body = must_expr(stack[stack.len() - 1].1);
-                    let args = bump.alloc_slice_fill_iter(stack[begin..stack.len() - 1].iter().map(|(_, e)| *must_expr(*e)));
+                    let args = bump.alloc_slice_fill_iter(
+                        stack[begin..stack.len() - 1]
+                            .iter()
+                            .map(|(_, e)| *must_expr(*e)),
+                    );
                     stack.truncate(begin);
                     stack.push((i, Item::Expr(bump.alloc(Expr::Lambda(args, body)))));
                 }
@@ -1428,12 +1645,18 @@ mod canfmt {
                         begin -= 1;
                     }
                     let value = must_expr(stack[begin].1);
-                    let branches = bump.alloc_slice_fill_iter(stack[begin + 1..].iter().map(|(_, e)| *must_expr(*e)));
+                    let branches = bump.alloc_slice_fill_iter(
+                        stack[begin + 1..].iter().map(|(_, e)| *must_expr(*e)),
+                    );
                     stack.truncate(begin);
                     stack.push((i, Item::Expr(bump.alloc(Expr::When(value, branches)))));
                 }
-                N::InlineApply | N::InlineAssign | N::InlinePizza | N::InlineBinOpPlus | N::InlineBinOpStar |
-                N::InlineLambdaArrow => {}
+                N::InlineApply
+                | N::InlineAssign
+                | N::InlinePizza
+                | N::InlineBinOpPlus
+                | N::InlineBinOpStar
+                | N::InlineLambdaArrow => {}
                 N::BeginBlock | N::EndBlock => {
                     let mut begin = stack.len();
                     while begin > 0 && stack[begin - 1].0 >= index as usize {
@@ -1474,7 +1697,7 @@ mod tests {
     //     state.start_top_level_decls();
     //     state.pump();
     //     state.assert_end();
-        
+
     //     let res = pretty(&state.tree, &state.buf);
 
     //     assert_eq!(res.kinds, kinds);
@@ -1489,7 +1712,7 @@ mod tests {
     //     state.start_top_level_decls();
     //     state.pump();
     //     state.assert_end();
-        
+
     //     let res = pretty(&state.tree, &state.buf);
 
     //     assert_eq!(res.kinds, expected_kinds);
@@ -1540,7 +1763,7 @@ mod tests {
             assert_eq!(i, 0);
             atom
         }
-        
+
         fn expect_atom(&self, end: usize, buf: &TokenenizedBuffer) -> (usize, ExpectAtom) {
             let node = self.kinds[end - 1];
             let index = self.paird_group_ends[end - 1];
@@ -1548,7 +1771,7 @@ mod tests {
             let has_begin = match node.index_kind() {
                 NodeIndexKind::Begin => {
                     return (end - 1, ExpectAtom::Unit(node));
-                },
+                }
 
                 NodeIndexKind::Token => {
                     if let Some(token) = buf.kind(index as usize) {
@@ -1608,10 +1831,16 @@ mod tests {
                     // format!("({})", items.iter().map(|i| i.debug_vis()).collect::<Vec<_>>().join(" "))
 
                     // first let's build up a list of items that have been formatted:
-                    let formatted_items = items.iter().map(|i| i.debug_vis_indent(indent + 4)).collect::<Vec<_>>();
+                    let formatted_items = items
+                        .iter()
+                        .map(|i| i.debug_vis_indent(indent + 4))
+                        .collect::<Vec<_>>();
 
                     // now, if the total length of the formatted items is less than 80, we can just return them as a list
-                    let total_len = formatted_items.iter().map(|s| s.len()).sum::<usize>() + formatted_items.len() - 1 + 2;
+                    let total_len = formatted_items.iter().map(|s| s.len()).sum::<usize>()
+                        + formatted_items.len()
+                        - 1
+                        + 2;
                     if total_len < 80 {
                         return format!("({})", formatted_items.join(" "));
                     }
@@ -1628,13 +1857,22 @@ mod tests {
                     for item in &formatted_items[1..formatted_items.len() - 1] {
                         res.push_str(&format!("\n{:indent$}{}", "", item, indent = indent + 4));
                     }
-                    res.push_str(&format!("\n{:indent$}{})", "", formatted_items[formatted_items.len() - 1], indent = indent));
+                    res.push_str(&format!(
+                        "\n{:indent$}{})",
+                        "",
+                        formatted_items[formatted_items.len() - 1],
+                        indent = indent
+                    ));
 
                     res
                 }
                 ExpectAtom::Unit(kind) => format!("{:?}", kind),
-                ExpectAtom::Token(kind, token, token_index) => format!("{:?}=>{:?}@{}", kind, token, token_index),
-                ExpectAtom::BrokenToken(kind, token_index) => format!("{:?}=>?broken?@{}", kind, token_index),
+                ExpectAtom::Token(kind, token, token_index) => {
+                    format!("{:?}=>{:?}@{}", kind, token, token_index)
+                }
+                ExpectAtom::BrokenToken(kind, token_index) => {
+                    format!("{:?}=>?broken?@{}", kind, token_index)
+                }
                 ExpectAtom::Empty => format!("*"),
             }
         }
@@ -1693,7 +1931,7 @@ mod tests {
 
     // fn build_expect(items: Vec<ExpectAtom>) -> Tree {
     //     let mut b = ExpectBuilder::new();
-        
+
     //     b.consume_items(&items);
 
     //     let t = b.finish();
@@ -1751,7 +1989,7 @@ mod tests {
 
     //     (output, indents)
     // }
-    
+
     // #[track_caller]
     // fn decl_test(kinds: &[T], expected: Tree) {
     //     let (kinds, indents) = unindentify(kinds);
@@ -1779,7 +2017,7 @@ mod tests {
             state.start_top_level_decls();
             state.pump();
             state.assert_end();
-            
+
             let tree_output = state.to_expect_atom().debug_vis();
 
             let canfmt_output = {
@@ -1891,88 +2129,111 @@ mod tests {
 
     #[test]
     fn test_block_indentify() {
-        assert_eq!(block_indentify(r#"
+        assert_eq!(
+            block_indentify(
+                r#"
         |abc
         |def
         |ghi
-        "#), "abc\ndef\nghi\n");
+        "#
+            ),
+            "abc\ndef\nghi\n"
+        );
     }
 
     #[test]
     fn test_nested_when() {
-        snapshot_test!(block_indentify(r#"
+        snapshot_test!(block_indentify(
+            r#"
         |when abc is def ->
         |    when ghi is jkl ->
         |        mno
-        "#));
+        "#
+        ));
     }
 
     #[test]
     fn test_simple_assign_decl() {
-        snapshot_test!(block_indentify(r#"
+        snapshot_test!(block_indentify(
+            r#"
         |abc = def
-        "#))
+        "#
+        ))
     }
 
     #[test]
     fn test_double_assign_decl() {
-        snapshot_test!(block_indentify(r#"
+        snapshot_test!(block_indentify(
+            r#"
         |abc = def
         |ghi = jkl
-        "#))
+        "#
+        ))
     }
 
     #[test]
     fn test_simple_nested_assign_decl() {
-        snapshot_test!(block_indentify(r#"
+        snapshot_test!(block_indentify(
+            r#"
         |abc =
         |    def = ghi
         |    jkl
-        "#))
+        "#
+        ))
     }
 
     #[test]
     fn test_decl_then_top_level_expr() {
-        snapshot_test!(block_indentify(r#"
+        snapshot_test!(block_indentify(
+            r#"
         |abc =
         |    def
         |ghi
-        "#))
+        "#
+        ))
     }
 
     #[test]
     fn test_double_nested_decl() {
-        snapshot_test!(block_indentify(r#"
+        snapshot_test!(block_indentify(
+            r#"
         |a =
         |    b =
         |        c
         |    d
-        "#))
+        "#
+        ))
     }
 
     #[test]
     fn test_double_assign_block_decl() {
-        snapshot_test!(block_indentify(r#"
+        snapshot_test!(block_indentify(
+            r#"
         |abc =
         |    def
         |ghi =
         |    jkl
-        "#))
+        "#
+        ))
     }
 
     #[test]
     fn test_lambda_decl() {
-        snapshot_test!(block_indentify(r#"
+        snapshot_test!(block_indentify(
+            r#"
         |abc = \def ->
         |    ghi
-        "#))
+        "#
+        ))
     }
 
     #[test]
     fn test_leading_comment() {
-        snapshot_test!(block_indentify(r#"
+        snapshot_test!(block_indentify(
+            r#"
         |# hello
         |abc
-        "#))
+        "#
+        ))
     }
 }
