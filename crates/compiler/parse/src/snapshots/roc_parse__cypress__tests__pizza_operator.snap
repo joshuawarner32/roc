@@ -16,7 +16,7 @@ description: abc |> def |> ghi |> jkl
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Expr(Pizza([Ident("abc"), Ident("def"), Ident("ghi"), Ident("jkl")]))
+Pizza([Ident("abc"), Ident("def"), Ident("ghi"), Ident("jkl")])
 
 [=== formatted below ===]
 abc |> def |> ghi |> jkl

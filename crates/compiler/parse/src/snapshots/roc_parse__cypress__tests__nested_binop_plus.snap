@@ -16,7 +16,7 @@ description: abc + def + ghi
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Expr(BinOp(BinOp(Ident("abc"), Plus, Ident("def")), Plus, Ident("ghi")))
+BinOp(BinOp(Ident("abc"), Plus, Ident("def")), Plus, Ident("ghi"))
 
 [=== formatted below ===]
 abc + def + ghi

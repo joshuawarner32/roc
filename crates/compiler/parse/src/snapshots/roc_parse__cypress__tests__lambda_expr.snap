@@ -12,7 +12,7 @@ description: "\\abc -> def"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Expr(Lambda([Ident("abc")], Ident("def")))
+Lambda([Ident("abc")], Ident("def"))
 
 [=== formatted below ===]
 \abc -> def

@@ -96,7 +96,7 @@
 #![allow(dead_code)] // temporarily during development
 #![allow(unused)] // temporarily during development
 
-use crate::cypress_token::{Indent, TokenenizedBuffer, Trivia, T};
+use crate::cypress_token::{Comment, Indent, TokenenizedBuffer, T};
 use std::collections::{btree_map::Keys, VecDeque};
 
 pub struct Tree {
@@ -1171,12 +1171,13 @@ struct TokenizedBufferFollower<'a> {
 }
 
 impl<'a> TokenizedBufferFollower<'a> {
-    fn _bump(&mut self, trivia: &mut Vec<Trivia>) {
-        self.toks.extract_trivia_before(self.text, self.pos, trivia);
+    fn _bump(&mut self, trivia: &mut Vec<Comment>) {
+        self.toks
+            .extract_comments_before(self.text, self.pos, trivia);
         self.pos += 1;
     }
 
-    fn check_next_token(&mut self, tok: T, trivia: &mut Vec<Trivia>) {
+    fn check_next_token(&mut self, tok: T, trivia: &mut Vec<Comment>) {
         if tok != T::Newline {
             // fast forward past newlines in the underlying buffer
             while self.toks.kind(self.pos) == Some(T::Newline) {
@@ -1279,21 +1280,21 @@ struct FmtInfoProp<'a> {
     text: &'a str,
     toks: &'a TokenenizedBuffer,
     pos: usize,
-    trivia: Vec<Trivia>,
-    trivia_indices: Vec<(usize, usize)>,
+    trivia: Vec<Comment>,
+    comment_indices: Vec<(usize, usize)>,
 }
 
 impl<'a> FmtInfoProp<'a> {
     fn _bump(&mut self) {
         self.toks
-            .extract_trivia_before(self.text, self.pos, &mut self.trivia);
+            .extract_comments_before(self.text, self.pos, &mut self.trivia);
         self.pos += 1;
     }
 
     fn check_next_token(&mut self, tok: T) -> FmtInfo {
         debug_assert!(tok != T::Newline);
 
-        let trivia_start = self.pos;
+        let comment_start = self.pos;
         let mut newline = false;
 
         // fast forward past newlines in the underlying buffer
@@ -1316,16 +1317,16 @@ impl<'a> FmtInfoProp<'a> {
         debug_assert!({
             let mut trivia = Vec::new();
             self.toks
-                .extract_trivia_before(self.text, self.pos, &mut trivia);
+                .extract_comments_before(self.text, self.pos, &mut trivia);
             trivia.is_empty()
         });
 
         self.pos += 1;
 
-        let trivia_end = self.pos;
+        let comment_end = self.pos;
         FmtInfo {
             has_newline: newline,
-            has_comment: trivia_start != trivia_end,
+            has_comment: comment_start != comment_end,
         }
     }
 }
@@ -1414,7 +1415,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
         toks,
         pos: 0,
         trivia: Vec::new(),
-        trivia_indices: Vec::new(),
+        comment_indices: Vec::new(),
     };
 
     let mut info = bubble_up(&mut prop, tree);
@@ -1514,6 +1515,113 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
     buf
 }
 
+struct CommentExtractor<'a> {
+    text: &'a str,
+    toks: &'a TokenenizedBuffer,
+    pos: usize,
+    comments: Vec<Comment>,
+    comment_indices: Vec<(usize, usize)>,
+}
+
+impl<'a> CommentExtractor<'a> {
+    fn new(text: &'a str, toks: &'a TokenenizedBuffer) -> Self {
+        Self {
+            text,
+            toks,
+            pos: 0,
+            comments: Vec::new(),
+            comment_indices: Vec::new(),
+        }
+    }
+
+    fn _bump(&mut self) {
+        self.toks
+            .extract_comments_before(self.text, self.pos, &mut self.comments);
+        self.pos += 1;
+    }
+
+    fn check_next_token(&mut self, tok: T) {
+        debug_assert!(tok != T::Newline);
+
+        let comment_start = self.pos;
+        let mut newline = false;
+
+        // fast forward past newlines in the underlying buffer
+        // also capture trivia at this stage
+        while self.toks.kind(self.pos) == Some(T::Newline) {
+            newline = true;
+            self._bump();
+        }
+
+        if self.toks.kind(self.pos) != Some(tok) {
+            panic!(
+                "programming error: misaligned token stream when formatting.\n\
+                Expected {:?} at position {}, found {:?} instead.",
+                tok,
+                self.pos,
+                self.toks.kind(self.pos)
+            );
+        }
+
+        debug_assert!({
+            let mut trivia = Vec::new();
+            self.toks
+                .extract_comments_before(self.text, self.pos, &mut trivia);
+            trivia.is_empty()
+        });
+
+        self.pos += 1;
+
+        let comment_end = self.pos;
+    }
+}
+
+impl<'a> CommentExtractor<'a> {
+    fn consume(&mut self, node: N) -> &[Comment] {
+        let begin = self.comments.len();
+        let kind = node.index_kind();
+        match node {
+            N::BeginAssign
+            | N::BeginTopLevelDecls
+            | N::HintExpr
+            | N::EndIf
+            | N::EndWhen
+            | N::InlineApply
+            | N::EndLambda
+            | N::EndBlock
+            | N::EndApply
+            | N::EndBinOpPlus
+            | N::EndBinOpStar
+            | N::EndPizza
+            | N::BeginBlock
+            | N::EndTopLevelDecls
+            | N::EndAssign => {}
+
+            N::Ident => self.check_next_token(T::LowerIdent),
+            N::InlineAssign => self.check_next_token(T::OpAssign),
+
+            N::BeginIf => self.check_next_token(T::KwIf),
+            N::InlineThen => self.check_next_token(T::KwThen),
+            N::InlineElse => self.check_next_token(T::KwElse),
+
+            N::BeginWhen => self.check_next_token(T::KwWhen),
+            N::InlineIs => self.check_next_token(T::KwIs),
+            N::InlineWhenArrow => self.check_next_token(T::OpArrow),
+
+            N::InlineBinOpPlus => self.check_next_token(T::OpPlus),
+            N::InlineBinOpStar => self.check_next_token(T::OpStar),
+            N::InlinePizza => self.check_next_token(T::OpPizza),
+
+            N::BeginLambda => self.check_next_token(T::OpBackslash),
+            N::InlineLambdaArrow => self.check_next_token(T::OpArrow),
+
+            _ => todo!("{:?}", node),
+        }
+
+        &self.comments[begin..]
+    }
+}
+
 mod canfmt {
     use super::*;
     use bumpalo::collections::vec::Vec;
@@ -1528,58 +1636,57 @@ mod canfmt {
         Lambda(&'a [Expr<'a>], &'a Expr<'a>),
         If(&'a Expr<'a>, &'a Expr<'a>, &'a Expr<'a>),
         When(&'a Expr<'a>, &'a [Expr<'a>]),
-        Block(&'a [Item<'a>]),
-    }
+        Block(&'a [Expr<'a>]),
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub enum Item<'a> {
+        // Not really expressions, but considering them as such to make the formatter as error tolerant as possible
         Assign(&'a str, &'a Expr<'a>),
         Expr(&'a Expr<'a>),
+        Comments(&'a [Comment]),
     }
 
-    pub struct TopLevel<'a> {
-        pub items: &'a [Item<'a>],
-    }
+    pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: FormatCtx<'b>) -> &'a [Expr<'a>] {
+        let mut ce = CommentExtractor::new(ctx.text, ctx.toks);
 
-    pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: FormatCtx<'b>) -> TopLevel<'a> {
         let mut stack = std::vec::Vec::new();
 
         dbg!(&ctx.tree.kinds);
 
         for (i, &node) in ctx.tree.kinds.iter().enumerate() {
+            let comments = ce.consume(node);
+            if comments.len() > 0 {
+                stack.push((i, Expr::Comments(bump.alloc_slice_copy(comments))));
+            }
             let index = ctx.tree.paird_group_ends[i];
             eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
             match node {
                 N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
                 N::HintExpr => {}
-                N::Ident => stack.push((i, Item::Expr(bump.alloc(Expr::Ident(ctx.text(index)))))),
+                N::Ident => stack.push((i, Expr::Ident(ctx.text(index)))),
                 N::EndApply => {
                     let mut begin = stack.len();
                     while begin > 0 && stack[begin - 1].0 >= index as usize {
                         begin -= 1;
                     }
-                    let first = must_expr(stack[begin].1);
-                    let args = bump.alloc_slice_fill_iter(
-                        stack[begin + 1..].iter().map(|(_, e)| *must_expr(*e)),
-                    );
+                    let first = bump.alloc(stack[begin].1);
+                    let args =
+                        bump.alloc_slice_fill_iter(stack[begin + 1..].iter().map(|(_, e)| *e));
                     stack.truncate(begin);
-                    stack.push((i, Item::Expr(bump.alloc(Expr::Apply(first, args)))));
+                    stack.push((i, Expr::Apply(first, args)));
                 }
                 N::EndPizza => {
                     let mut begin = stack.len();
                     while begin > 0 && stack[begin - 1].0 >= index as usize {
                         begin -= 1;
                     }
-                    let args = bump
-                        .alloc_slice_fill_iter(stack[begin..].iter().map(|(_, e)| *must_expr(*e)));
+                    let args = bump.alloc_slice_fill_iter(stack[begin..].iter().map(|(_, e)| *e));
                     stack.truncate(begin);
-                    stack.push((i, Item::Expr(bump.alloc(Expr::Pizza(args)))));
+                    stack.push((i, Expr::Pizza(args)));
                 }
                 N::EndBinOpPlus => {
-                    let a = must_expr(stack[stack.len() - 2].1);
-                    let b = must_expr(stack[stack.len() - 1].1);
+                    let a = bump.alloc(stack[stack.len() - 2].1);
+                    let b = bump.alloc(stack[stack.len() - 1].1);
                     stack.truncate(stack.len() - 2);
-                    stack.push((i, Item::Expr(bump.alloc(Expr::BinOp(a, BinOp::Plus, b)))));
+                    stack.push((i, Expr::BinOp(a, BinOp::Plus, b)));
                 }
                 N::BeginLambda => {}
                 N::EndLambda => {
@@ -1587,14 +1694,12 @@ mod canfmt {
                     while begin > 0 && stack[begin - 1].0 >= index as usize {
                         begin -= 1;
                     }
-                    let body = must_expr(stack[stack.len() - 1].1);
+                    let body = bump.alloc(stack[stack.len() - 1].1);
                     let args = bump.alloc_slice_fill_iter(
-                        stack[begin..stack.len() - 1]
-                            .iter()
-                            .map(|(_, e)| *must_expr(*e)),
+                        stack[begin..stack.len() - 1].iter().map(|(_, e)| *e),
                     );
                     stack.truncate(begin);
-                    stack.push((i, Item::Expr(bump.alloc(Expr::Lambda(args, body)))));
+                    stack.push((i, Expr::Lambda(args, body)));
                 }
                 N::BeginAssign => {}
                 N::EndAssign => {
@@ -1606,15 +1711,15 @@ mod canfmt {
                     assert!(index1 > index2);
                     assert!(index1 < i);
 
-                    let name = must_expr(e2);
-                    let value = must_expr(e1);
+                    let name = bump.alloc(e2);
+                    let value = bump.alloc(e1);
 
                     let name_text = match name {
                         Expr::Ident(s) => s,
                         _ => todo!(),
                     };
 
-                    stack.push((i, Item::Assign(name_text, value)));
+                    stack.push((i, Expr::Assign(name_text, value)));
                 }
                 N::BeginIf => {}
                 N::InlineThen => {}
@@ -1630,11 +1735,11 @@ mod canfmt {
                     assert!(index2 < index1);
                     assert!(index1 < i);
 
-                    let cond = must_expr(e3);
-                    let then = must_expr(e2);
-                    let else_ = must_expr(e1);
+                    let cond = bump.alloc(e3);
+                    let then = bump.alloc(e2);
+                    let else_ = bump.alloc(e1);
 
-                    stack.push((i, Item::Expr(bump.alloc(Expr::If(cond, then, else_)))));
+                    stack.push((i, Expr::If(cond, then, else_)));
                 }
                 N::BeginWhen => {}
                 N::InlineIs => {}
@@ -1644,12 +1749,11 @@ mod canfmt {
                     while begin > 0 && stack[begin - 1].0 >= index as usize {
                         begin -= 1;
                     }
-                    let value = must_expr(stack[begin].1);
-                    let branches = bump.alloc_slice_fill_iter(
-                        stack[begin + 1..].iter().map(|(_, e)| *must_expr(*e)),
-                    );
+                    let value = bump.alloc(stack[begin].1);
+                    let branches =
+                        bump.alloc_slice_fill_iter(stack[begin + 1..].iter().map(|(_, e)| *e));
                     stack.truncate(begin);
-                    stack.push((i, Item::Expr(bump.alloc(Expr::When(value, branches)))));
+                    stack.push((i, Expr::When(value, branches)));
                 }
                 N::InlineApply
                 | N::InlineAssign
@@ -1664,21 +1768,19 @@ mod canfmt {
                     }
                     let items = bump.alloc_slice_fill_iter(stack[begin..].iter().map(|(_, e)| *e));
                     stack.truncate(begin);
-                    stack.push((i, Item::Expr(bump.alloc(Expr::Block(items)))));
+                    stack.push((i, Expr::Block(items)));
                 }
                 _ => todo!("{:?}", node),
             }
         }
-        TopLevel {
-            items: bump.alloc_slice_fill_iter(stack.iter().map(|(_, e)| *e)),
-        }
+        bump.alloc_slice_fill_iter(stack.iter().map(|(_, e)| *e))
     }
 
-    fn must_expr<'a>(begin: Item<'a>) -> &'a Expr<'a> {
-        match begin {
-            Item::Expr(e) => e,
-            _ => panic!(),
-        }
+    enum Doc<'a> {
+        Empty,
+        Text(&'a str, &'a Doc<'a>),
+        Line(usize, &'a Doc<'a>),
+        Union(&'a Doc<'a>, &'a Doc<'a>),
     }
 }
 
@@ -2027,7 +2129,7 @@ mod tests {
                     toks: &state.buf,
                     text,
                 });
-                canfmt.items.iter().map(|i| format!("{:?}", i)).collect::<Vec<_>>().join("\n")
+                canfmt.iter().map(|i| format!("{:?}", i)).collect::<Vec<_>>().join("\n")
             };
 
             let format_output = pretty(&state.tree, &state.buf, text).text;

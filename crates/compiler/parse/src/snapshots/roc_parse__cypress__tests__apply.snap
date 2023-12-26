@@ -12,7 +12,7 @@ description: abc def
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Expr(Apply(Ident("abc"), [Ident("def")]))
+Apply(Ident("abc"), [Ident("def")])
 
 [=== formatted below ===]
 abc def

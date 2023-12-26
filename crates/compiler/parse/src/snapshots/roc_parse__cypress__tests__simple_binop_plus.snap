@@ -12,7 +12,7 @@ description: abc + def
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Expr(BinOp(Ident("abc"), Plus, Ident("def")))
+BinOp(Ident("abc"), Plus, Ident("def"))
 
 [=== formatted below ===]
 abc + def

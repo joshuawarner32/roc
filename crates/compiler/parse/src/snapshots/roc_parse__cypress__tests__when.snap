@@ -14,7 +14,7 @@ description: when abc is def -> ghi
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Expr(When(Ident("abc"), [Ident("def"), Ident("ghi")]))
+When(Ident("abc"), [Ident("def"), Ident("ghi")])
 
 [=== formatted below ===]
 when abc is def -> ghi

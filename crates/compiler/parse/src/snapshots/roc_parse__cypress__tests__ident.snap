@@ -5,7 +5,7 @@ description: abc
 (BeginTopLevelDecls HintExpr Ident=>LowerIdent@0 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Expr(Ident("abc"))
+Ident("abc")
 
 [=== formatted below ===]
 abc

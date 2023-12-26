@@ -105,7 +105,7 @@ impl Indent {
 pub struct TokenenizedBuffer {
     pub(crate) kinds: Vec<T>,
     pub(crate) offsets: Vec<u32>,
-    pub(crate) lengths: Vec<u32>, // TODO: assess if it's better to just compute this on the fly when accessing later
+    pub(crate) lengths: Vec<u32>, // TODO: assess if it's better to just (re)compute this on the fly when accessing later
     pub(crate) indents: Vec<Indent>,
 }
 
@@ -125,7 +125,12 @@ impl TokenenizedBuffer {
         self.lengths.push(length as u32);
     }
 
-    pub(crate) fn extract_trivia_before(&self, text: &str, pos: usize, trivia: &mut Vec<Trivia>) {
+    pub(crate) fn extract_comments_before(
+        &self,
+        text: &str,
+        pos: usize,
+        comments: &mut Vec<Comment>,
+    ) {
         let mut begin = 0;
         if pos > 0 {
             begin = self.offsets[pos - 1] as usize + self.lengths[pos - 1] as usize;
@@ -145,11 +150,12 @@ impl TokenenizedBuffer {
             messages: (),
         };
 
-        c.chomp_trivia(trivia);
+        c.chomp_trivia(comments);
     }
 }
 
-pub struct Trivia {
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Comment {
     begin: usize,
     end: usize,
 }
@@ -427,17 +433,17 @@ struct Cursor<'a, M: MessageSink> {
 }
 
 trait TriviaSink {
-    fn push(&mut self, trivia: Trivia);
+    fn push(&mut self, comment: Comment);
 }
 
-impl TriviaSink for Vec<Trivia> {
-    fn push(&mut self, trivia: Trivia) {
-        self.push(trivia);
+impl TriviaSink for Vec<Comment> {
+    fn push(&mut self, comment: Comment) {
+        self.push(comment);
     }
 }
 
 impl TriviaSink for () {
-    fn push(&mut self, _trivia: Trivia) {
+    fn push(&mut self, _trivia: Comment) {
         // do nothing
     }
 }
@@ -487,7 +493,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                     while self.offset < self.buf.len() && self.buf[self.offset] != b'\n' {
                         self.offset += 1;
                     }
-                    sink.push(Trivia {
+                    sink.push(Comment {
                         begin: start,
                         end: self.offset,
                     })

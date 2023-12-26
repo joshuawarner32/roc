@@ -14,7 +14,7 @@ description: abc def ghi
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Expr(Apply(Ident("abc"), [Ident("def"), Ident("ghi")]))
+Apply(Ident("abc"), [Ident("def"), Ident("ghi")])
 
 [=== formatted below ===]
 abc def ghi

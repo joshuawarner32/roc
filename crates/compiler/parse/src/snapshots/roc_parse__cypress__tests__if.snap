@@ -14,7 +14,7 @@ description: if abc then def else ghi
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Expr(If(Ident("abc"), Ident("def"), Ident("ghi")))
+If(Ident("abc"), Ident("def"), Ident("ghi"))
 
 [=== formatted below ===]
 if abc then
