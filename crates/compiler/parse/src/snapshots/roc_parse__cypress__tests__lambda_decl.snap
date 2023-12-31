@@ -15,7 +15,7 @@ description: "abc = \\def ->\n    ghi\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Assign("abc", Lambda([Ident("def")], Block([Block([]), Ident("ghi")])))
+Assign("abc", Lambda([Ident("def")], Block([Ident("ghi")])))
 
 [=== formatted below ===]
 abc = \def ->

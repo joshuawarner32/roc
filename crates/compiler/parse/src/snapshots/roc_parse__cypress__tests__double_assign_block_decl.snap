@@ -16,8 +16,8 @@ description: "abc =\n    def\nghi =\n    jkl\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Assign("abc", Block([Block([]), Ident("def")]))
-Assign("ghi", Block([Block([]), Ident("jkl")]))
+Assign("abc", Block([Ident("def")]))
+Assign("ghi", Block([Ident("jkl")]))
 
 [=== formatted below ===]
 abc =

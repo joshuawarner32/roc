@@ -23,7 +23,7 @@ description: "when abc is def ->\n    when ghi is jkl ->\n        mno\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-When(Ident("abc"), [Ident("def"), Block([Block([]), When(Ident("ghi"), [Ident("jkl"), Block([Block([]), Ident("mno")])])])])
+When(Ident("abc"), [Ident("def"), Block([When(Ident("ghi"), [Ident("jkl"), Block([Ident("mno")])])])])
 
 [=== formatted below ===]
 when abc is def ->

@@ -19,7 +19,7 @@ description: "a =\n    b =\n        c\n    d\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Assign("a", Block([Block([]), Assign("b", Block([Block([]), Ident("c")])), Ident("d")]))
+Assign("a", Block([Assign("b", Block([Ident("c")])), Ident("d")]))
 
 [=== formatted below ===]
 a =

@@ -1644,116 +1644,119 @@ mod canfmt {
         Comments(&'a [Comment]),
     }
 
+    struct ExprStack<'a> {
+        stack: std::vec::Vec<(usize, Expr<'a>)>,
+    }
+
+    impl<'a> std::fmt::Debug for ExprStack<'a> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            self.stack.fmt(f)
+        }
+    }
+
+    impl<'a> ExprStack<'a> {
+        fn new() -> Self {
+            Self {
+                stack: std::vec::Vec::new(),
+            }
+        }
+
+        fn push(&mut self, index: usize, expr: Expr<'a>) {
+            self.stack.push((index, expr));
+        }
+
+        fn drain_to_index(&mut self, index: u32) -> impl ExactSizeIterator<Item = Expr<'a>> + '_ {
+            let mut begin = self.stack.len();
+            while begin > 0 && self.stack[begin - 1].0 >= index as usize {
+                begin -= 1;
+            }
+            self.stack.drain(begin..).map(|(_, e)| e)
+        }
+    }
+
     pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: FormatCtx<'b>) -> &'a [Expr<'a>] {
         let mut ce = CommentExtractor::new(ctx.text, ctx.toks);
 
-        let mut stack = std::vec::Vec::new();
+        let mut stack = ExprStack::new();
 
         dbg!(&ctx.tree.kinds);
 
         for (i, &node) in ctx.tree.kinds.iter().enumerate() {
             let comments = ce.consume(node);
             if comments.len() > 0 {
-                stack.push((i, Expr::Comments(bump.alloc_slice_copy(comments))));
+                stack.push(i, Expr::Comments(bump.alloc_slice_copy(comments)));
             }
             let index = ctx.tree.paird_group_ends[i];
             eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
             match node {
                 N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
                 N::HintExpr => {}
-                N::Ident => stack.push((i, Expr::Ident(ctx.text(index)))),
+                N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
                 N::EndApply => {
-                    let mut begin = stack.len();
-                    while begin > 0 && stack[begin - 1].0 >= index as usize {
-                        begin -= 1;
-                    }
-                    let first = bump.alloc(stack[begin].1);
-                    let args =
-                        bump.alloc_slice_fill_iter(stack[begin + 1..].iter().map(|(_, e)| *e));
-                    stack.truncate(begin);
-                    stack.push((i, Expr::Apply(first, args)));
+                    let mut values = stack.drain_to_index(index);
+                    let first = bump.alloc(values.next().unwrap());
+                    let args = bump.alloc_slice_fill_iter(values);
+                    stack.push(i, Expr::Apply(first, args));
                 }
                 N::EndPizza => {
-                    let mut begin = stack.len();
-                    while begin > 0 && stack[begin - 1].0 >= index as usize {
-                        begin -= 1;
-                    }
-                    let args = bump.alloc_slice_fill_iter(stack[begin..].iter().map(|(_, e)| *e));
-                    stack.truncate(begin);
-                    stack.push((i, Expr::Pizza(args)));
+                    let values = stack.drain_to_index(index);
+                    let args = bump.alloc_slice_fill_iter(values);
+                    stack.push(i, Expr::Pizza(args));
                 }
                 N::EndBinOpPlus => {
-                    let a = bump.alloc(stack[stack.len() - 2].1);
-                    let b = bump.alloc(stack[stack.len() - 1].1);
-                    stack.truncate(stack.len() - 2);
-                    stack.push((i, Expr::BinOp(a, BinOp::Plus, b)));
+                    let mut values = stack.drain_to_index(index);
+                    assert_eq!(values.len(), 2);
+                    let a = values.next().unwrap();
+                    let b = values.next().unwrap();
+                    drop(values);
+                    stack.push(i, Expr::BinOp(bump.alloc(a), BinOp::Plus, bump.alloc(b)));
                 }
                 N::BeginLambda => {}
                 N::EndLambda => {
-                    let mut begin = stack.len();
-                    while begin > 0 && stack[begin - 1].0 >= index as usize {
-                        begin -= 1;
-                    }
-                    let body = bump.alloc(stack[stack.len() - 1].1);
-                    let args = bump.alloc_slice_fill_iter(
-                        stack[begin..stack.len() - 1].iter().map(|(_, e)| *e),
-                    );
-                    stack.truncate(begin);
-                    stack.push((i, Expr::Lambda(args, body)));
+                    let mut values = stack.drain_to_index(index);
+                    let count = values.len() - 1;
+                    let args = bump.alloc_slice_fill_iter(values.by_ref().take(count));
+                    let body = values.next().unwrap();
+                    drop(values);
+                    stack.push(i, Expr::Lambda(args, bump.alloc(body)));
                 }
                 N::BeginAssign => {}
                 N::EndAssign => {
-                    // pop two elements, checking that the first has an index of `index` and the second one has an index > `index``
-                    let (index1, e1) = stack.pop().unwrap();
-                    let (index2, e2) = stack.pop().unwrap();
-
-                    assert_eq!(index2 - 1, index as usize);
-                    assert!(index1 > index2);
-                    assert!(index1 < i);
-
-                    let name = bump.alloc(e2);
-                    let value = bump.alloc(e1);
-
+                    let mut values = stack.drain_to_index(index);
+                    assert_eq!(values.len(), 2);
+                    let name = values.next().unwrap();
                     let name_text = match name {
-                        Expr::Ident(s) => s,
-                        _ => todo!(),
+                        Expr::Ident(name) => name,
+                        _ => panic!("Expected ident"),
                     };
-
-                    stack.push((i, Expr::Assign(name_text, value)));
+                    let value = values.next().unwrap();
+                    drop(values);
+                    stack.push(i, Expr::Assign(name_text, bump.alloc(value)));
                 }
                 N::BeginIf => {}
                 N::InlineThen => {}
                 N::InlineElse => {}
                 N::EndIf => {
-                    // pop three elements, checking as usual
-                    let (index1, e1) = dbg!(stack.pop().unwrap());
-                    let (index2, e2) = dbg!(stack.pop().unwrap());
-                    let (index3, e3) = dbg!(stack.pop().unwrap());
-
-                    assert_eq!(index3 - 1, index as usize);
-                    assert!(index2 > index3);
-                    assert!(index2 < index1);
-                    assert!(index1 < i);
-
-                    let cond = bump.alloc(e3);
-                    let then = bump.alloc(e2);
-                    let else_ = bump.alloc(e1);
-
-                    stack.push((i, Expr::If(cond, then, else_)));
+                    // pop three elements (cond, then, else)
+                    let mut values = stack.drain_to_index(index);
+                    assert_eq!(values.len(), 3);
+                    let cond = values.next().unwrap();
+                    let then = values.next().unwrap();
+                    let els = values.next().unwrap();
+                    drop(values);
+                    stack.push(
+                        i,
+                        Expr::If(bump.alloc(cond), bump.alloc(then), bump.alloc(els)),
+                    );
                 }
                 N::BeginWhen => {}
                 N::InlineIs => {}
                 N::InlineWhenArrow => {}
                 N::EndWhen => {
-                    let mut begin = stack.len();
-                    while begin > 0 && stack[begin - 1].0 >= index as usize {
-                        begin -= 1;
-                    }
-                    let value = bump.alloc(stack[begin].1);
-                    let branches =
-                        bump.alloc_slice_fill_iter(stack[begin + 1..].iter().map(|(_, e)| *e));
-                    stack.truncate(begin);
-                    stack.push((i, Expr::When(value, branches)));
+                    let mut values = stack.drain_to_index(index);
+                    let cond = values.next().unwrap();
+                    let arms = bump.alloc_slice_fill_iter(values);
+                    stack.push(i, Expr::When(bump.alloc(cond), arms));
                 }
                 N::InlineApply
                 | N::InlineAssign
@@ -1761,19 +1764,15 @@ mod canfmt {
                 | N::InlineBinOpPlus
                 | N::InlineBinOpStar
                 | N::InlineLambdaArrow => {}
-                N::BeginBlock | N::EndBlock => {
-                    let mut begin = stack.len();
-                    while begin > 0 && stack[begin - 1].0 >= index as usize {
-                        begin -= 1;
-                    }
-                    let items = bump.alloc_slice_fill_iter(stack[begin..].iter().map(|(_, e)| *e));
-                    stack.truncate(begin);
-                    stack.push((i, Expr::Block(items)));
+                N::BeginBlock => {}
+                N::EndBlock => {
+                    let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));
+                    stack.push(i, Expr::Block(values));
                 }
                 _ => todo!("{:?}", node),
             }
         }
-        bump.alloc_slice_fill_iter(stack.iter().map(|(_, e)| *e))
+        bump.alloc_slice_fill_iter(stack.drain_to_index(0))
     }
 
     enum Doc<'a> {
@@ -2146,6 +2145,42 @@ mod tests {
             }, {
                 insta::assert_display_snapshot!(output);
             });
+
+            // Now let's verify that we can replace all the newlines in the original text with comments
+            // and everything still works.
+
+            // Iterate thru text and replace newlines with "# <line number>\n"
+            let mut new_text = String::with_capacity(text.len());
+            let mut line_num = 0;
+            for (i, c) in text.chars().enumerate() {
+                if c == '\n' {
+                    line_num += 1;
+                    new_text.push_str(&format!("# {}\n", line_num));
+                } else {
+                    new_text.push(c);
+                }
+            }
+            let text = new_text;
+            eprintln!("commentified text {:?}", text);
+
+            let mut tokenizer = Tokenizer::new(&text);
+            tokenizer.tokenize();
+            let tb = tokenizer.finish();
+
+            let mut state = State::from_buf(tb);
+            state.start_top_level_decls();
+            state.pump();
+            state.assert_end();
+
+            let tree_output = state.to_expect_atom().debug_vis();
+
+            let bump = bumpalo::Bump::new();
+            let canfmt = canfmt::build(&bump, FormatCtx {
+                tree: &state.tree,
+                toks: &state.buf,
+                text: &text,
+            });
+
         }};
     }
 
