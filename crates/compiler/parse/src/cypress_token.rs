@@ -125,24 +125,18 @@ impl TokenenizedBuffer {
         self.lengths.push(length as u32);
     }
 
-    pub(crate) fn extract_comments_before(
+    pub(crate) fn extract_comments_at(
         &self,
         text: &str,
         pos: usize,
         comments: &mut Vec<Comment>,
     ) {
-        let mut begin = 0;
-        if pos > 0 {
-            begin = self.offsets[pos - 1] as usize + self.lengths[pos - 1] as usize;
-        }
+        debug_assert!(self.kinds[pos] == T::Newline);
 
-        let end = if pos < self.offsets.len() {
-            self.offsets[pos] as usize
-        } else {
-            text.len()
-        };
+        let begin = self.offsets[pos] as usize;
+        let end = begin + self.lengths[pos] as usize;
 
-        let section = text[begin..end].as_bytes();
+        let section = dbg!(&text[begin..end]).as_bytes();
 
         let mut c = Cursor {
             buf: section,
@@ -156,8 +150,8 @@ impl TokenenizedBuffer {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Comment {
-    begin: usize,
-    end: usize,
+    pub begin: usize,
+    pub end: usize,
 }
 
 pub struct Tokenizer<'a> {
@@ -219,8 +213,7 @@ impl<'a> Tokenizer<'a> {
             match b {
                 b' ' | b'\t' | b'\n' | b'\r' | b'#' | b'\x00'..=b'\x1f' => {
                     if let Some(indent) = self.cursor.chomp_trivia(&mut ()) {
-                        // TODO: this isn't really the "correct" offset for the newline; but maybe it doesn't matter?
-                        self.output.push_token(T::Newline, offset, 1);
+                        self.output.push_token(T::Newline, offset, self.cursor.offset - offset);
                         self.output.indents.push(indent);
                     }
                 }

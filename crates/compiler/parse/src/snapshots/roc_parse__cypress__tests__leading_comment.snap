@@ -5,6 +5,7 @@ description: "# hello\nabc\n"
 (BeginTopLevelDecls HintExpr Ident=>LowerIdent@1 EndTopLevelDecls)
 
 [=== canfmt below ===]
+Comment("# hello")
 Ident("abc")
 
 [=== formatted below ===]

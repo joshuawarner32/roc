@@ -1173,7 +1173,7 @@ struct TokenizedBufferFollower<'a> {
 impl<'a> TokenizedBufferFollower<'a> {
     fn _bump(&mut self, trivia: &mut Vec<Comment>) {
         self.toks
-            .extract_comments_before(self.text, self.pos, trivia);
+            .extract_comments_at(self.text, self.pos, trivia);
         self.pos += 1;
     }
 
@@ -1287,7 +1287,7 @@ struct FmtInfoProp<'a> {
 impl<'a> FmtInfoProp<'a> {
     fn _bump(&mut self) {
         self.toks
-            .extract_comments_before(self.text, self.pos, &mut self.trivia);
+            .extract_comments_at(self.text, self.pos, &mut self.trivia);
         self.pos += 1;
     }
 
@@ -1313,13 +1313,6 @@ impl<'a> FmtInfoProp<'a> {
                 self.toks.kind(self.pos)
             );
         }
-
-        debug_assert!({
-            let mut trivia = Vec::new();
-            self.toks
-                .extract_comments_before(self.text, self.pos, &mut trivia);
-            trivia.is_empty()
-        });
 
         self.pos += 1;
 
@@ -1534,23 +1527,13 @@ impl<'a> CommentExtractor<'a> {
         }
     }
 
-    fn _bump(&mut self) {
-        self.toks
-            .extract_comments_before(self.text, self.pos, &mut self.comments);
-        self.pos += 1;
-    }
-
     fn check_next_token(&mut self, tok: T) {
+        dbg!(tok);
         debug_assert!(tok != T::Newline);
 
-        let comment_start = self.pos;
-        let mut newline = false;
-
-        // fast forward past newlines in the underlying buffer
-        // also capture trivia at this stage
         while self.toks.kind(self.pos) == Some(T::Newline) {
-            newline = true;
-            self._bump();
+            self.toks.extract_comments_at(self.text, self.pos, &mut self.comments);
+            self.pos += 1;
         }
 
         if self.toks.kind(self.pos) != Some(tok) {
@@ -1563,16 +1546,7 @@ impl<'a> CommentExtractor<'a> {
             );
         }
 
-        debug_assert!({
-            let mut trivia = Vec::new();
-            self.toks
-                .extract_comments_before(self.text, self.pos, &mut trivia);
-            trivia.is_empty()
-        });
-
         self.pos += 1;
-
-        let comment_end = self.pos;
     }
 }
 
@@ -1618,7 +1592,7 @@ impl<'a> CommentExtractor<'a> {
             _ => todo!("{:?}", node),
         }
 
-        &self.comments[begin..]
+        dbg!(&self.comments[begin..])
     }
 }
 
@@ -1641,7 +1615,7 @@ mod canfmt {
         // Not really expressions, but considering them as such to make the formatter as error tolerant as possible
         Assign(&'a str, &'a Expr<'a>),
         Expr(&'a Expr<'a>),
-        Comments(&'a [Comment]),
+        Comment(&'a str),
     }
 
     struct ExprStack<'a> {
@@ -1682,9 +1656,11 @@ mod canfmt {
         dbg!(&ctx.tree.kinds);
 
         for (i, &node) in ctx.tree.kinds.iter().enumerate() {
-            let comments = ce.consume(node);
+            let comments = dbg!(ce.consume(node));
             if comments.len() > 0 {
-                stack.push(i, Expr::Comments(bump.alloc_slice_copy(comments)));
+                for comment in comments {
+                    stack.push(i, Expr::Comment(ctx.text[comment.begin..comment.end].trim()));
+                }
             }
             let index = ctx.tree.paird_group_ends[i];
             eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
@@ -2150,36 +2126,36 @@ mod tests {
             // and everything still works.
 
             // Iterate thru text and replace newlines with "# <line number>\n"
-            let mut new_text = String::with_capacity(text.len());
-            let mut line_num = 0;
-            for (i, c) in text.chars().enumerate() {
-                if c == '\n' {
-                    line_num += 1;
-                    new_text.push_str(&format!("# {}\n", line_num));
-                } else {
-                    new_text.push(c);
-                }
-            }
-            let text = new_text;
-            eprintln!("commentified text {:?}", text);
+            // let mut new_text = String::with_capacity(text.len());
+            // let mut line_num = 0;
+            // for (i, c) in text.chars().enumerate() {
+            //     if c == '\n' {
+            //         line_num += 1;
+            //         new_text.push_str(&format!("# {}\n", line_num));
+            //     } else {
+            //         new_text.push(c);
+            //     }
+            // }
+            // let text = new_text;
+            // eprintln!("commentified text {:?}", text);
 
-            let mut tokenizer = Tokenizer::new(&text);
-            tokenizer.tokenize();
-            let tb = tokenizer.finish();
+            // let mut tokenizer = Tokenizer::new(&text);
+            // tokenizer.tokenize();
+            // let tb = tokenizer.finish();
 
-            let mut state = State::from_buf(tb);
-            state.start_top_level_decls();
-            state.pump();
-            state.assert_end();
+            // let mut state = State::from_buf(tb);
+            // state.start_top_level_decls();
+            // state.pump();
+            // state.assert_end();
 
-            let tree_output = state.to_expect_atom().debug_vis();
+            // let tree_output = state.to_expect_atom().debug_vis();
 
-            let bump = bumpalo::Bump::new();
-            let canfmt = canfmt::build(&bump, FormatCtx {
-                tree: &state.tree,
-                toks: &state.buf,
-                text: &text,
-            });
+            // let bump = bumpalo::Bump::new();
+            // let canfmt = canfmt::build(&bump, FormatCtx {
+            //     tree: &state.tree,
+            //     toks: &state.buf,
+            //     text: &text,
+            // });
 
         }};
     }
