@@ -10,6 +10,8 @@ pub enum T {
     UpperIdent,
     LowerIdent,
     Underscore,
+    DotIdent,
+    DotNumber,
 
     OpenRound,
     CloseRound,
@@ -160,6 +162,7 @@ pub struct Tokenizer<'a> {
     output: TokenenizedBuffer,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Message {
     pub kind: MessageKind,
     pub offset: u32,
@@ -218,14 +221,35 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
                 b'.' => {
-                    if self.cursor.peek_at(1) == Some(b'.') {
-                        if self.cursor.peek_at(2) == Some(b'.') {
-                            simple_token!(3, TripleDot)
-                        } else {
-                            simple_token!(2, DoubleDot)
+                    match self.cursor.peek_at(1) {
+                        Some(b'.') => {
+                            if self.cursor.peek_at(2) == Some(b'.') {
+                                simple_token!(3, TripleDot)
+                            } else {
+                                simple_token!(2, DoubleDot)
+                            }
                         }
-                    } else {
-                        todo!("handle .<ident> and .<num> syntax");
+                        Some(b'0'..=b'9') => {
+                            self.cursor.offset += 1;
+                            self.cursor.chomp_integer();
+                            self.output
+                                .push_token(T::DotNumber, offset, self.cursor.offset - offset);
+                        }
+                        Some(b'a'..=b'z') | Some(b'A'..=b'Z') => {
+                            self.cursor.offset += 1;
+                            self.cursor.chomp_ident_general();
+                            self.output
+                                .push_token(T::DotIdent, offset, self.cursor.offset - offset);
+                        }
+                        Some(b'{') => {
+                            self.cursor.offset += 1;
+                            self.output
+                                .push_token(T::Dot, offset, self.cursor.offset - offset);
+                        }
+                        Some(b) => todo!("handle: {:?}", b as char),
+                        None => {
+                            simple_token!(1, Dot);
+                        }
                     }
                 }
                 b'-' => {
@@ -664,6 +688,15 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         T::UpperIdent
     }
 
+    fn chomp_integer(&mut self) {
+        while let Some(b) = self.buf.get(self.offset) {
+            match b {
+                b'0'..=b'9' => self.offset += 1,
+                _ => break,
+            }
+        }
+    }
+
     fn chomp_ident_general(&mut self) {
         while let Some(b) = self.buf.get(self.offset) {
             match b {
@@ -874,5 +907,29 @@ mod tests {
                 num_tabs: 1
             }]
         );
+    }
+
+    #[test]
+    fn test_all_files() {
+        // list all .roc files under ../test_syntax/tests/snapshots/pass
+        let files = std::fs::read_dir("../test_syntax/tests/snapshots/pass")
+            .unwrap()
+            .map(|res| res.map(|e| e.path()))
+            .collect::<Result<Vec<_>, std::io::Error>>()
+            .unwrap();
+
+        for file in files {
+            if !file.ends_with(".roc") {
+                continue;
+            }
+
+            eprintln!("tokenizing {:?}", file);
+            let text = std::fs::read_to_string(&file).unwrap();
+            let mut tokenizer = Tokenizer::new(&text);
+            tokenizer.tokenize(); // make sure we don't panic!
+
+            // check that we don't have any messages
+            assert_eq!(tokenizer.cursor.messages, vec![]);
+        }
     }
 }
