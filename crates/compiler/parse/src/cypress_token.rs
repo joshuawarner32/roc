@@ -50,7 +50,7 @@ pub enum T {
     Dot,
     DoubleDot,
     TripleDot,
-    Colon,
+    OpColon,
     OpArrow,
     OpBackarrow,
     OpBackslash,
@@ -66,6 +66,8 @@ pub enum T {
     KwExpect,
     KwCrash,
     KwHas,
+    KwWhere,
+    KwImplements,
     KwExposes,
     KwImports,
     KwWith,
@@ -79,6 +81,8 @@ pub enum T {
     KwApp,
     KwPlatform,
     KwHosted,
+
+    
     NoSpace,
     NamedUnderscore,
     OpaqueName,
@@ -324,7 +328,7 @@ impl<'a> Tokenizer<'a> {
                     if self.cursor.peek_at(1) == Some(b'=') {
                         simple_token!(2, OpColonEqual)
                     } else {
-                        simple_token!(1, Colon)
+                        simple_token!(1, OpColon)
                     }
                 }
 
@@ -643,9 +647,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
             }
         }
 
-        // check for keywords
-        // (if then else when as is dbg expect crash has exposes imports with generates package packages requires provides to)
-        if kw_check && self.offset - start <= 9 {
+        if kw_check && self.offset - start <= 10 {
             match &self.buf[start..self.offset] {
                 b"if" => T::KwIf,
                 b"then" => T::KwThen,
@@ -657,6 +659,8 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                 b"expect" => T::KwExpect,
                 b"crash" => T::KwCrash,
                 b"has" => T::KwHas,
+                b"where" => T::KwWhere,
+                b"implements" => T::KwImplements,
                 b"exposes" => T::KwExposes,
                 b"imports" => T::KwImports,
                 b"with" => T::KwWith,
@@ -910,7 +914,7 @@ mod tests {
     }
 
     #[test]
-    fn test_all_files() {
+    fn test_tokenize_all_files() {
         // list all .roc files under ../test_syntax/tests/snapshots/pass
         let files = std::fs::read_dir("../test_syntax/tests/snapshots/pass")
             .unwrap()
@@ -918,8 +922,10 @@ mod tests {
             .collect::<Result<Vec<_>, std::io::Error>>()
             .unwrap();
 
+        assert!(files.len() > 0, "no files found in ../test_syntax/tests/snapshots/pass");
+
         for file in files {
-            if !file.ends_with(".roc") {
+            if file.extension().map(|e| e != "roc").unwrap_or(true) {
                 continue;
             }
 
