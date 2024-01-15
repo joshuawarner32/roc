@@ -86,6 +86,8 @@ pub enum T {
     OpaqueName,
     IntBase10,
     IntNonBase10,
+    NoSpaceDotNumber,
+    NoSpaceDotIdent,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
@@ -223,14 +225,19 @@ impl<'a> Tokenizer<'a> {
             }};
         }
 
+        let mut saw_whitespace = true;
+
         while let Some(b) = self.cursor.peek() {
             let offset = self.cursor.offset;
+            let sp = saw_whitespace;
+            saw_whitespace = false;
             match b {
                 b' ' | b'\t' | b'\n' | b'\r' | b'#' | b'\x00'..=b'\x1f' => {
                     if let Some(indent) = self.cursor.chomp_trivia(&mut ()) {
                         self.output.push_token(T::Newline, offset, self.cursor.offset - offset);
                         self.output.indents.push(indent);
                     }
+                    saw_whitespace = true;
                 }
                 b'.' => {
                     match self.cursor.peek_at(1) {
@@ -245,13 +252,13 @@ impl<'a> Tokenizer<'a> {
                             self.cursor.offset += 1;
                             self.cursor.chomp_integer();
                             self.output
-                                .push_token(T::DotNumber, offset, self.cursor.offset - offset);
+                                .push_token(if sp { T::DotNumber } else { T::NoSpaceDotNumber }, offset, self.cursor.offset - offset);
                         }
                         Some(b'a'..=b'z') | Some(b'A'..=b'Z') => {
                             self.cursor.offset += 1;
                             self.cursor.chomp_ident_general();
                             self.output
-                                .push_token(T::DotIdent, offset, self.cursor.offset - offset);
+                                .push_token(if sp { T::DotIdent } else { T::NoSpaceDotIdent }, offset, self.cursor.offset - offset);
                         }
                         Some(b'{') => {
                             self.cursor.offset += 1;

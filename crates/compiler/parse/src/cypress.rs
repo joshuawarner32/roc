@@ -245,6 +245,8 @@ pub enum N {
     EndTypeAdendum,
     InlineMultiBackpassingComma,
     EndMultiBackpassingArgs,
+    EndFieldAccess,
+    EndIndexAccess,
 }
 
 enum NodeIndexKind {
@@ -335,6 +337,8 @@ impl N {
             | N::EndBinOpGreaterThanOrEq
             | N::EndTypeAdendum
             | N::EndMultiBackpassingArgs
+            | N::EndFieldAccess
+            | N::EndIndexAccess
             => {
                 NodeIndexKind::EndOnly
             }
@@ -574,6 +578,7 @@ enum Frame {
     ContinueRecord { start: bool },
     Finish(N),
     ContinueTypeTupleOrParen,
+    ContinueList,
 }
 
 impl Frame {
@@ -837,12 +842,42 @@ impl State {
                 Frame::ContinueWhereClause => self.pump_continue_where_clause(subtree_start, cfg),
                 Frame::FinishTypeOrTypeAlias => self.pump_finish_type_or_type_alias(subtree_start, cfg),
                 Frame::ContinueRecord { start } => self.pump_continue_record(subtree_start, cfg, start),
+                Frame::ContinueList => self.pump_continue_list(subtree_start, cfg),
                 Frame::ContinueTypeTupleOrParen => self.pump_continue_type_tuple_or_paren(subtree_start, cfg),
             }
         }
     }
 
     fn pump_start_expr(&mut self, subtree_start: u32, mut cfg: ExprCfg, mut min_prec: Prec) {
+        macro_rules! maybe_return {
+            () => {
+                match self.cur() {
+                    None | Some(T::OpArrow) => return,
+                    _ => {}
+                }
+
+                self.push_next_frame(
+                    subtree_start,
+                    cfg,
+                    Frame::ContinueExpr {
+                        min_prec,
+                        cur_op: None,
+                        num_found: 1,
+                    },
+                );
+                return;
+            }
+        }
+
+        macro_rules! atom {
+            ($n:expr) => {{
+                self.bump();
+                self.push_node($n, Some(self.pos as u32 - 1));
+                self.handle_field_access_suffix();
+                maybe_return!();
+            }};
+        }
+
         loop {
             match self.cur() {
                 Some(T::OpenRound) => {
@@ -872,106 +907,20 @@ impl State {
                     self.push_node(N::BeginRecord, None); // index will be updated later
                     return;
                 }
-                Some(T::LowerIdent) => {
+                Some(T::OpenSquare) => {
                     self.bump();
-                    self.push_node(N::Ident, Some(self.pos as u32 - 1));
-
-                    match self.cur() {
-                        None | Some(T::OpArrow) => return,
-                        _ => {}
-                    }
-
-                    self.push_next_frame(
-                        subtree_start,
+                    self.push_next_frame_starting_here(
                         cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
+                        Frame::ContinueList,
                     );
+                    self.push_node(N::BeginList, None); // index will be updated later
                     return;
                 }
-                Some(T::Underscore) => {
-                    self.bump();
-                    self.push_node(N::Underscore, Some(self.pos as u32 - 1));
-
-                    match self.cur() {
-                        None | Some(T::OpArrow) => return,
-                        _ => {}
-                    }
-
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
-                    );
-                    return;
-                }
-                Some(T::UpperIdent) => {
-                    self.bump();
-                    self.push_node(N::UpperIdent, Some(self.pos as u32 - 1));
-
-                    match self.cur() {
-                        None | Some(T::OpArrow) => return,
-                        _ => {}
-                    }
-
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
-                    );
-                    return;
-                }
-                Some(T::IntBase10) => {
-                    self.bump();
-                    self.push_node(N::Num, Some(self.pos as u32 - 1));
-
-                    match self.cur() {
-                        None | Some(T::OpArrow) => return,
-                        _ => {}
-                    }
-
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
-                    );
-                    return;
-                }
-                Some(T::String) => {
-                    self.bump();
-                    self.push_node(N::String, Some(self.pos as u32 - 1));
-
-                    match self.cur() {
-                        None | Some(T::OpArrow) => return,
-                        _ => {}
-                    }
-
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
-                    );
-                    return;
-                }
+                Some(T::LowerIdent) => atom!(N::Ident),
+                Some(T::Underscore) => atom!(N::Underscore),
+                Some(T::UpperIdent) => atom!(N::UpperIdent),
+                Some(T::IntBase10) => atom!(N::Num),
+                Some(T::String) => atom!(N::String),
                 Some(T::OpBackslash) => {
                     self.bump();
                     self.push_next_frame_starting_here(cfg, Frame::ContinueLambdaArgs);
@@ -1026,6 +975,22 @@ impl State {
                 }
                 Some(T::OpArrow) => return, // when arrow; handled in outer scope
                 k => todo!("{:?}", k),
+            }
+        }
+    }
+
+    fn handle_field_access_suffix(&mut self) {
+        loop {
+            match self.cur() {
+                Some(T::NoSpaceDotIdent) => {
+                    self.bump();
+                    self.push_node(N::EndFieldAccess, Some(self.pos as u32 - 1));
+                }
+                Some(T::NoSpaceDotNumber) => {
+                    self.bump();
+                    self.push_node(N::EndIndexAccess, Some(self.pos as u32 - 1));
+                }
+                _ => return,
             }
         }
     }
@@ -1298,6 +1263,7 @@ impl State {
             | N::EndUnaryMinus
             | N::EndPizza
             | N::EndParens
+            | N::EndList
             | N::EndLambda => {
                 self.tree.kinds[subtree_start as usize] = N::HintExpr;
             }
@@ -1584,6 +1550,26 @@ impl State {
                 self.start_type(cfg);
             }
         }
+    }
+
+    fn pump_continue_list(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        if self.consume(T::CloseSquare) {
+            self.push_node(N::EndList, Some(self.pos as u32 - 1));
+            self.update_end(N::BeginList, subtree_start);
+            return;
+        }
+
+        self.expect(T::Comma);
+        self.consume_newline();
+
+        if self.consume(T::CloseSquare) {
+            self.push_node(N::EndRecord, Some(self.pos as u32 - 1));
+            self.update_end(N::BeginRecord, subtree_start);
+            return;
+        }
+        
+        self.push_next_frame(subtree_start, cfg, Frame::ContinueList);
+        self.start_expr(cfg.disable_multi_backpassing());
     }
 }
 
