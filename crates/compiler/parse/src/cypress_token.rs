@@ -30,7 +30,6 @@ pub enum T {
     OpBang,
     OpAnd,
     OpAmpersand,
-    OpComma,
     OpQuestion,
     OpOr,
     OpBar,
@@ -52,7 +51,6 @@ pub enum T {
     TripleDot,
     OpColon,
     OpArrow,
-    OpBackarrow,
     OpBackslash,
 
     // Keywords
@@ -97,13 +95,18 @@ pub struct Indent {
 }
 
 impl Indent {
-    pub fn is_indented_more_than(&self, indent: Indent) -> Option<bool> {
-        if self.num_spaces == indent.num_spaces {
-            Some(self.num_tabs > indent.num_tabs)
-        } else if self.num_tabs == indent.num_tabs {
-            Some(self.num_spaces > indent.num_spaces)
+    pub fn is_indented_more_than(&self, indent: Option<Indent>) -> Option<bool> {
+        if let Some(indent) = indent {
+            if self.num_spaces == indent.num_spaces {
+                Some(self.num_tabs > indent.num_tabs)
+            } else if self.num_tabs == indent.num_tabs {
+                Some(self.num_spaces > indent.num_spaces)
+            } else {
+                None
+            }
         } else {
-            None
+            // There's no min indent, so we're always indented more than that
+            Some(true)
         }
     }
 }
@@ -188,14 +191,19 @@ pub enum MessageKind {
 
 impl<'a> Tokenizer<'a> {
     pub fn new(text: &'a str) -> Tokenizer<'a> {
-        Tokenizer {
+        let mut t = Tokenizer {
             cursor: Cursor {
                 buf: text.as_bytes(),
                 offset: 0,
                 messages: Vec::new(),
             },
             output: TokenenizedBuffer::new(),
-        }
+        };
+
+        // TODO: consume initial indent, push it onto the stack instead of just assuming 0
+        t.output.indents.push(Indent::default());
+
+        t
     }
 
     pub fn tokenize(&mut self) {
@@ -286,7 +294,7 @@ impl<'a> Tokenizer<'a> {
                         simple_token!(1, OpAmpersand)
                     }
                 }
-                b',' => simple_token!(1, OpComma),
+                b',' => simple_token!(1, Comma),
                 b'?' => simple_token!(1, OpQuestion),
                 b'|' => match self.cursor.peek_at(1) {
                     Some(b'|') => simple_token!(2, OpOr),

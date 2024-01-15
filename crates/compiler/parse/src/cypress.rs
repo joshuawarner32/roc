@@ -98,6 +98,7 @@
 
 use crate::cypress_token::{Comment, Indent, TokenenizedBuffer, T};
 use std::{collections::{btree_map::Keys, VecDeque}, f32::consts::E};
+use std::fmt;
 
 pub struct Tree {
     kinds: Vec<N>,
@@ -120,7 +121,7 @@ pub enum N {
     Num,
 
     /// String Literals, e.g. `"foo"`
-    Str,
+    String,
 
     /// eg 'b'
     SingleQuote,
@@ -192,9 +193,11 @@ pub enum N {
     InlineBinOpStar,
     EndBinOpStar,
 
-    /// Unary operator, e.g. `-x`
-    BeginUnaryOp,
-    EndUnaryOp,
+    /// Unary not, e.g. `!x`
+    EndUnaryNot,
+
+    /// Unary minus, e.g. `-x`
+    EndUnaryMinus,
 
     /// If expression, e.g. `if x then y else z`
     BeginIf,
@@ -226,6 +229,22 @@ pub enum N {
     InlineKwImplements,
     EndTypeOrTypeAlias,
     BeginTypeOrTypeAlias,
+    InlineBackArrow,
+    EndBackpassing,
+    BeginBackpassing,
+    UpperIdent,
+    InlineBinOpLessThan,
+    InlineBinOpGreaterThan,
+    InlineBinOpLessThanOrEq,
+    InlineBinOpGreaterThanOrEq,
+    EndBinOpMinus,
+    EndBinOpLessThan,
+    EndBinOpGreaterThan,
+    EndBinOpLessThanOrEq,
+    EndBinOpGreaterThanOrEq,
+    EndTypeAdendum,
+    InlineMultiBackpassingComma,
+    EndMultiBackpassingArgs,
 }
 
 enum NodeIndexKind {
@@ -258,8 +277,8 @@ impl N {
             | N::BeginIf
             | N::BeginWhen
             | N::BeginLambda
-            | N::BeginUnaryOp
-            | N::BeginTopLevelDecls => NodeIndexKind::Begin,
+            | N::BeginTopLevelDecls
+            | N::BeginBackpassing => NodeIndexKind::Begin,
             N::EndList
             | N::EndRecord
             | N::EndRecordUpdate
@@ -271,7 +290,8 @@ impl N {
             | N::EndIf
             | N::EndWhen
             | N::EndLambda
-            | N::EndTopLevelDecls => NodeIndexKind::End,
+            | N::EndTopLevelDecls
+            | N::EndBackpassing => NodeIndexKind::End,
             N::InlineApply
             | N::InlinePizza
             | N::InlineAssign
@@ -283,10 +303,17 @@ impl N {
             | N::InlineKwIs
             | N::InlineLambdaArrow
             | N::InlineColon
-            | N::InlineWhenArrow => NodeIndexKind::Token,
+            | N::InlineBackArrow
+            | N::InlineWhenArrow
+            | N::InlineBinOpLessThan
+            | N::InlineBinOpGreaterThan
+            | N::InlineBinOpLessThanOrEq
+            | N::InlineBinOpGreaterThanOrEq
+            | N::InlineMultiBackpassingComma => NodeIndexKind::Token,
             N::Num
-            | N::Str
+            | N::String
             | N::Ident
+            | N::UpperIdent
             | N::TypeName
             | N::AbilityName
             | N::Tag
@@ -294,8 +321,21 @@ impl N {
             | N::Access
             | N::AccessorFunction => NodeIndexKind::Token,
             N::Dummy | N::HintExpr => NodeIndexKind::Unused,
-            N::EndApply | N::EndPizza | N::EndBinOpPlus | N::EndBinOpStar | N::EndUnaryOp
-            | N::EndTypeLambda => {
+            N::EndApply
+            | N::EndPizza
+            | N::EndBinOpPlus
+            | N::EndBinOpMinus
+            | N::EndBinOpStar
+            | N::EndUnaryNot
+            | N::EndUnaryMinus
+            | N::EndTypeLambda
+            | N::EndBinOpLessThan
+            | N::EndBinOpGreaterThan
+            | N::EndBinOpLessThanOrEq
+            | N::EndBinOpGreaterThanOrEq
+            | N::EndTypeAdendum
+            | N::EndMultiBackpassingArgs
+            => {
                 NodeIndexKind::EndOnly
             }
             N::Float | N::SingleQuote | N::Underscore | N::Crash | N::Dbg => NodeIndexKind::Token,
@@ -327,6 +367,7 @@ enum Prec {
     Outer,
     DeclSeq,  // BinOp::DeclSeq,
     Decl,     // BinOp::Assign, BinOp::Backpassing,
+    MultiBackpassingComma, // BinOp::MultiBackpassingComma. Used for parsing the comma in `x, y, z <- foo`
     Pizza,    // BinOp::Pizza,
     AndOr,    // BinOp::And, BinOp::Or,
     Compare, // BinOp::Equals, BinOp::NotEquals, BinOp::LessThan, BinOp::GreaterThan, BinOp::LessThanOrEq, BinOp::GreaterThanOrEq,
@@ -362,13 +403,15 @@ pub enum BinOp {
     Caret,
     Apply,
     DefineTypeOrTypeAlias,
+    MultiBackpassingComma,
 }
 
 impl Prec {
     fn next(self) -> Prec {
         match self {
             Prec::Outer => Prec::DeclSeq,
-            Prec::DeclSeq => Prec::Decl,
+            Prec::DeclSeq => Prec::MultiBackpassingComma,
+            Prec::MultiBackpassingComma => Prec::Pizza,
             Prec::Decl => Prec::Pizza,
             Prec::Pizza => Prec::AndOr,
             Prec::AndOr => Prec::Compare,
@@ -395,6 +438,7 @@ impl BinOp {
             // BinOp::AssignBlock => Prec::Outer,
             BinOp::DeclSeq => Prec::DeclSeq,
             BinOp::AssignBlock | BinOp::Assign | BinOp::DefineTypeOrTypeAlias | BinOp::Backpassing => Prec::Decl,
+            BinOp::MultiBackpassingComma => Prec::MultiBackpassingComma,
             BinOp::Apply => Prec::Apply,
             BinOp::Caret => Prec::Exponent,
             BinOp::Star | BinOp::Slash | BinOp::DoubleSlash | BinOp::Percent => Prec::Multiply,
@@ -414,7 +458,7 @@ impl BinOp {
         match self {
             BinOp::AssignBlock => Assoc::Right,
             BinOp::DeclSeq => Assoc::Right,
-            BinOp::Assign | BinOp::Backpassing | BinOp::DefineTypeOrTypeAlias => Assoc::Right,
+            BinOp::Assign | BinOp::Backpassing | BinOp::DefineTypeOrTypeAlias | BinOp::MultiBackpassingComma => Assoc::Right,
             BinOp::Apply => Assoc::Left,
             BinOp::Caret => Assoc::Right,
             BinOp::Star | BinOp::Slash | BinOp::DoubleSlash | BinOp::Percent => Assoc::Left,
@@ -451,16 +495,17 @@ impl BinOp {
             BinOp::DeclSeq => todo!(),
             BinOp::Assign => N::InlineAssign,
             BinOp::DefineTypeOrTypeAlias => N::InlineColon,
-            BinOp::Backpassing => todo!(),
+            BinOp::Backpassing => N::InlineBackArrow,
+            BinOp::MultiBackpassingComma => N::InlineMultiBackpassingComma,
             BinOp::Pizza => N::InlinePizza,
             BinOp::And => todo!(),
             BinOp::Or => todo!(),
             BinOp::Equals => todo!(),
             BinOp::NotEquals => todo!(),
-            BinOp::LessThan => todo!(),
-            BinOp::GreaterThan => todo!(),
-            BinOp::LessThanOrEq => todo!(),
-            BinOp::GreaterThanOrEq => todo!(),
+            BinOp::LessThan => N::InlineBinOpLessThan,
+            BinOp::GreaterThan => N::InlineBinOpGreaterThan,
+            BinOp::LessThanOrEq => N::InlineBinOpLessThanOrEq,
+            BinOp::GreaterThanOrEq => N::InlineBinOpGreaterThanOrEq,
             BinOp::Plus => N::InlineBinOpPlus,
             BinOp::Minus => todo!(),
             BinOp::Star => N::InlineBinOpStar,
@@ -479,9 +524,17 @@ impl From<BinOp> for N {
             BinOp::Pizza => N::EndPizza,
             BinOp::Apply => N::EndApply,
             BinOp::Plus => N::EndBinOpPlus,
-            BinOp::Minus => N::EndBinOpStar,
+            BinOp::Minus => N::EndBinOpMinus,
+            BinOp::Star => N::EndBinOpStar,
+
+            BinOp::LessThan => N::EndBinOpLessThan,
+            BinOp::GreaterThan => N::EndBinOpGreaterThan,
+            BinOp::LessThanOrEq => N::EndBinOpLessThanOrEq,
+            BinOp::GreaterThanOrEq => N::EndBinOpGreaterThanOrEq,
             BinOp::Assign => N::EndAssign,
             BinOp::AssignBlock => N::EndAssign,
+            BinOp::Backpassing => N::EndBackpassing,
+            BinOp::MultiBackpassingComma => N::EndMultiBackpassingArgs,
             _ => todo!("binop to node {:?}", op),
         }
     }
@@ -498,7 +551,7 @@ enum Frame {
         num_found: usize,
     },
     ContinueBlock,
-    FinishParen,
+    ContinueTupleOrParen,
     FinishAssign,
     ContinueTopLevel {
         num_found: i32,
@@ -518,6 +571,9 @@ enum Frame {
     FinishTypeFunction,
     ContinueWhereClause,
     FinishTypeOrTypeAlias,
+    ContinueRecord { start: bool },
+    Finish(N),
+    ContinueTypeTupleOrParen,
 }
 
 impl Frame {
@@ -528,11 +584,40 @@ impl Frame {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 struct ExprCfg {
     expr_indent_floor: Option<Indent>, // expression continuations must be indented more than this.
     when_branch_indent_floor: Option<Indent>, // when branches must be indented more than this. None means no restriction.
     allow_multi_backpassing: bool,
+}
+
+impl fmt::Debug for ExprCfg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // shorthand for debugging
+        
+        write!(f, "{}", if self.allow_multi_backpassing { "mb" } else { "/" })?;
+
+        if let Some(i) = self.expr_indent_floor {
+            write!(f, "e")?;
+            write!(f, "{}.{}", i.num_spaces, i.num_tabs)?;
+        }
+
+        if let Some(i) = self.when_branch_indent_floor {
+            write!(f, "w")?;
+            write!(f, "{}.{}", i.num_spaces, i.num_tabs)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl ExprCfg {
+    fn disable_multi_backpassing(mut self) -> ExprCfg {
+        ExprCfg {
+            allow_multi_backpassing: false,
+            ..self
+        }
+    }
 }
 
 impl Default for ExprCfg {
@@ -700,9 +785,10 @@ impl State {
 
     fn push_next_frame(&mut self, subtree_start: u32, cfg: ExprCfg, frame: Frame) {
         eprintln!(
-            "{:indent$}@{} pushing frame {:?}",
+            "{:indent$}@{} *{:?} pushing frame {:?}",
             "",
             self.pos,
+            cfg,
             frame,
             indent = 2 * self.frames.len() + 2
         );
@@ -717,18 +803,20 @@ impl State {
     fn pump(&mut self) {
         while let Some((subtree_start, cfg, frame)) = self.frames.pop() {
             eprintln!(
-                "{:indent$}@{} pumping frame {:?} starting at {}",
+                "{:indent$}@{} *{:?} pumping frame {:?} starting at {}",
                 "",
                 self.pos,
+                cfg,
                 frame,
                 subtree_start,
                 indent = 2 * self.frames.len()
             );
             match frame {
                 Frame::StartExpr { min_prec } => self.pump_start_expr(subtree_start, cfg, min_prec),
-                Frame::FinishParen => self.pump_finish_paren(),
+                Frame::ContinueTupleOrParen => self.pump_continue_tuple_or_paren(subtree_start, cfg),
                 Frame::FinishLambda => self.pump_finish_lambda(subtree_start),
                 Frame::FinishBlockItem => self.pump_finish_block_item(subtree_start),
+                Frame::Finish(end) => self.pump_finish(subtree_start, end),
                 Frame::ContinueExpr {
                     min_prec,
                     cur_op,
@@ -748,15 +836,18 @@ impl State {
                 Frame::FinishTypeFunction => self.pump_finish_type_function(subtree_start, cfg),
                 Frame::ContinueWhereClause => self.pump_continue_where_clause(subtree_start, cfg),
                 Frame::FinishTypeOrTypeAlias => self.pump_finish_type_or_type_alias(subtree_start, cfg),
+                Frame::ContinueRecord { start } => self.pump_continue_record(subtree_start, cfg, start),
+                Frame::ContinueTypeTupleOrParen => self.pump_continue_type_tuple_or_paren(subtree_start, cfg),
             }
         }
     }
 
-    fn pump_start_expr(&mut self, subtree_start: u32, cfg: ExprCfg, mut min_prec: Prec) {
+    fn pump_start_expr(&mut self, subtree_start: u32, mut cfg: ExprCfg, mut min_prec: Prec) {
         loop {
             match self.cur() {
                 Some(T::OpenRound) => {
                     self.bump();
+                    while self.consume_newline() {}
                     self.push_next_frame(
                         subtree_start,
                         cfg,
@@ -766,9 +857,20 @@ impl State {
                             num_found: 1,
                         },
                     );
-                    self.push_next_frame(subtree_start, cfg, Frame::FinishParen);
+                    self.push_next_frame_starting_here(cfg, Frame::ContinueTupleOrParen);
+                    self.push_node(N::BeginParens, None);
                     min_prec = Prec::Outer;
+                    cfg = cfg.disable_multi_backpassing();
                     continue;
+                }
+                Some(T::OpenCurly) => {
+                    self.bump();
+                    self.push_next_frame_starting_here(
+                        cfg,
+                        Frame::ContinueRecord { start: true, },
+                    );
+                    self.push_node(N::BeginRecord, None); // index will be updated later
+                    return;
                 }
                 Some(T::LowerIdent) => {
                     self.bump();
@@ -790,9 +892,69 @@ impl State {
                     );
                     return;
                 }
+                Some(T::Underscore) => {
+                    self.bump();
+                    self.push_node(N::Underscore, Some(self.pos as u32 - 1));
+
+                    match self.cur() {
+                        None | Some(T::OpArrow) => return,
+                        _ => {}
+                    }
+
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueExpr {
+                            min_prec,
+                            cur_op: None,
+                            num_found: 1,
+                        },
+                    );
+                    return;
+                }
+                Some(T::UpperIdent) => {
+                    self.bump();
+                    self.push_node(N::UpperIdent, Some(self.pos as u32 - 1));
+
+                    match self.cur() {
+                        None | Some(T::OpArrow) => return,
+                        _ => {}
+                    }
+
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueExpr {
+                            min_prec,
+                            cur_op: None,
+                            num_found: 1,
+                        },
+                    );
+                    return;
+                }
                 Some(T::IntBase10) => {
                     self.bump();
                     self.push_node(N::Num, Some(self.pos as u32 - 1));
+
+                    match self.cur() {
+                        None | Some(T::OpArrow) => return,
+                        _ => {}
+                    }
+
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueExpr {
+                            min_prec,
+                            cur_op: None,
+                            num_found: 1,
+                        },
+                    );
+                    return;
+                }
+                Some(T::String) => {
+                    self.bump();
+                    self.push_node(N::String, Some(self.pos as u32 - 1));
 
                     match self.cur() {
                         None | Some(T::OpArrow) => return,
@@ -840,6 +1002,29 @@ impl State {
                     self.start_expr(cfg);
                     return;
                 }
+                Some(T::OpBang) => {
+                    self.bump();
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr {
+                        min_prec,
+                        cur_op: None,
+                        num_found: 1,
+                    });
+                    self.push_next_frame_starting_here(cfg, Frame::Finish(N::EndUnaryNot));
+                    self.start_expr(cfg);
+                    return;
+                }
+                Some(T::OpUnaryMinus) => {
+                    self.bump();
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr {
+                        min_prec,
+                        cur_op: None,
+                        num_found: 1,
+                    });
+                    self.push_next_frame_starting_here(cfg, Frame::Finish(N::EndUnaryMinus));
+                    self.start_expr(cfg);
+                    return;
+                }
+                Some(T::OpArrow) => return, // when arrow; handled in outer scope
                 k => todo!("{:?}", k),
             }
         }
@@ -853,7 +1038,7 @@ impl State {
         cur_op: Option<BinOp>,
         mut num_found: usize,
     ) {
-        if let Some(op) = self.next_op(min_prec, cur_op) {
+        if let Some(op) = self.next_op(min_prec, cfg) {
             if let Some(cur_op) = cur_op {
                 if op != cur_op || !op.n_arity() {
                     self.push_node(cur_op.into(), Some(subtree_start));
@@ -915,16 +1100,36 @@ impl State {
         }
     }
 
-    fn next_op(&mut self, min_prec: Prec, cur_op: Option<BinOp>) -> Option<BinOp> {
-        let k = self.buf.kind(self.pos);
+    fn next_op(&mut self, min_prec: Prec, cfg: ExprCfg) -> Option<BinOp> {
+        dbg!(cfg);
+        let k = if self.cur() == Some(T::Newline) {
+            let k = self.buf.kind(self.pos + 1);
+            if matches!(k, Some(T::LowerIdent | T::OpenCurly | T::IntBase10 | T::IntNonBase10)) { // TODO: check for other things that can start an expr
+                if self.buf.indents[self.line + 1].is_indented_more_than(cfg.expr_indent_floor).expect("TODO: error handling") {
+                    k
+                } else {
+                    return None;
+                }
+            } else {
+                dbg!(k)
+            }
+        } else {
+            self.cur()
+        };
 
         let (op, width) = match k {
-            Some(T::LowerIdent) => (BinOp::Apply, 0),
+            Some(T::LowerIdent | T::OpenCurly | T::IntBase10 | T::IntNonBase10) => (BinOp::Apply, 0), // TODO: check for other things that can start an expr
             Some(T::OpPlus) => (BinOp::Plus, 1),
             Some(T::OpStar) => (BinOp::Star, 1),
             Some(T::OpPizza) => (BinOp::Pizza, 1),
             Some(T::OpAssign) => (BinOp::Assign, 1),
             Some(T::OpColon) => (BinOp::DefineTypeOrTypeAlias, 1),
+            Some(T::OpBackArrow) => (BinOp::Backpassing, 1),
+            Some(T::OpLessThan) => (BinOp::LessThan, 1),
+            Some(T::OpLessThanOrEq) => (BinOp::LessThanOrEq, 1),
+            Some(T::OpGreaterThan) => (BinOp::GreaterThan, 1),
+            Some(T::OpGreaterThanOrEq) => (BinOp::GreaterThanOrEq, 1),
+            Some(T::Comma) if cfg.allow_multi_backpassing => (BinOp::MultiBackpassingComma, 1),
             _ => return None,
         };
 
@@ -932,7 +1137,11 @@ impl State {
             return None;
         }
 
+        self.consume_newline();
+
         self.pos += width;
+
+        self.consume_newline();
 
         Some(op)
     }
@@ -947,7 +1156,8 @@ impl State {
                         cfg,
                         Frame::ContinueType,
                     );
-                    self.push_next_frame(subtree_start, cfg, Frame::FinishParen);
+                    self.push_node(N::BeginParens, None);
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
                     continue;
                 }
                 Some(T::LowerIdent) => {
@@ -1040,8 +1250,19 @@ impl State {
         self.push_node(N::EndTypeLambda, Some(subtree_start));
     }
 
-    fn pump_finish_paren(&mut self) {
-        self.expect(T::CloseRound);
+    fn pump_continue_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        if self.consume_newline_agnostic(T::Comma).is_some() {
+            self.push_next_frame(
+                subtree_start,
+                cfg,
+                Frame::ContinueTupleOrParen,
+            );
+            self.start_expr(cfg.disable_multi_backpassing());
+        } else {
+            self.expect(T::CloseRound);
+            self.push_node(N::EndParens, Some(self.pos as u32 - 1));
+            self.update_end(N::BeginParens, subtree_start);
+        }
     }
 
     fn pump_finish_lambda(&mut self, subtree_start: u32) {
@@ -1056,17 +1277,27 @@ impl State {
                 self.update_end(N::Dummy, subtree_start);
                 self.tree.kinds[subtree_start as usize] = N::BeginAssign;
             }
+            N::EndBackpassing => {
+                self.update_end(N::Dummy, subtree_start);
+                self.tree.kinds[subtree_start as usize] = N::BeginBackpassing;
+            }
             N::EndTypeOrTypeAlias => {
                 self.update_end(N::Dummy, subtree_start);
                 self.tree.kinds[subtree_start as usize] = N::BeginTypeOrTypeAlias;
             }
             N::Ident
+            | N::UpperIdent
+            | N::Num
             | N::EndWhen
             | N::EndIf
             | N::EndApply
             | N::EndBinOpPlus
+            | N::EndBinOpMinus
             | N::EndBinOpStar
+            | N::EndUnaryNot
+            | N::EndUnaryMinus
             | N::EndPizza
+            | N::EndParens
             | N::EndLambda => {
                 self.tree.kinds[subtree_start as usize] = N::HintExpr;
             }
@@ -1177,23 +1408,21 @@ impl State {
                 self.start_expr(cfg);
             }
             WhenState::BranchPattern(indent) => {
-                if let Some(min_indent) = cfg.when_branch_indent_floor {
-                    if self.check(
-                        self.cur_indent()
-                            .is_indented_more_than(min_indent)
-                            .ok_or(Error::InconsistentIndent),
-                    ) && !self.at_terminator()
-                    {
-                        self.push_next_frame(
-                            subtree_start,
-                            cfg,
-                            Frame::ContinueWhen {
-                                next: WhenState::BranchArrow(indent),
-                            },
-                        );
-                        self.start_expr(cfg);
-                        return;
-                    }
+                if self.check(
+                    self.cur_indent()
+                        .is_indented_more_than(cfg.when_branch_indent_floor)
+                        .ok_or(Error::InconsistentIndent),
+                ) && !self.at_terminator()
+                {
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueWhen {
+                            next: WhenState::BranchArrow(indent),
+                        },
+                    );
+                    self.start_expr(cfg);
+                    return;
                 }
                 self.push_node(N::EndWhen, Some(subtree_start));
                 self.update_end(N::BeginWhen, subtree_start);
@@ -1221,12 +1450,39 @@ impl State {
 
     fn start_top_level_decls(&mut self) {
         while self.consume_newline() {}
-        self.push_next_frame_starting_here(
-            ExprCfg::default(),
-            Frame::ContinueTopLevel { num_found: 1 },
-        );
-        self.push_node(N::BeginTopLevelDecls, None);
-        self.start_top_level_item();
+
+        if self.pos == self.buf.kinds.len() {
+            let subtree_start = self.tree.len();
+            self.push_node(N::BeginTopLevelDecls, None);
+            self.push_node(N::EndTopLevelDecls, Some(subtree_start as u32));
+            self.update_end(N::BeginTopLevelDecls, subtree_start);
+        } else {
+            self.push_next_frame_starting_here(
+                ExprCfg::default(),
+                Frame::ContinueTopLevel { num_found: 1 },
+            );
+            self.push_node(N::BeginTopLevelDecls, None);
+            self.start_top_level_item();
+        }
+    }
+
+    fn start_file(&mut self) {
+        while self.consume_newline() {}
+        match self.cur() {
+            Some(T::KwApp) => {
+                self.bump();
+                self.expect(T::String);
+                self.expect(T::KwProvides);
+                self.expect(T::OpenSquare);
+                self.expect(T::CloseSquare);
+                self.expect(T::KwTo);
+                self.expect(T::String);
+                self.consume_newline();
+            }
+            _ => {},
+        }
+
+        self.start_top_level_decls();
     }
 
     fn start_block_or_expr(&mut self, cfg: ExprCfg) {
@@ -1270,6 +1526,63 @@ impl State {
         match v {
             Ok(v) => v,
             Err(e) => todo!(),
+        }
+    }
+
+    fn pump_continue_record(&mut self, subtree_start: u32, cfg: ExprCfg, start: bool) {
+        // TODO: allow { existingRecord & foo: bar } syntax
+
+        if start {
+            self.consume_newline();
+        } else {
+            if self.consume(T::CloseCurly) {
+                self.push_node(N::EndRecord, Some(self.pos as u32 - 1));
+                self.update_end(N::BeginRecord, subtree_start);
+                return;
+            }
+
+            self.expect(T::Comma);
+            self.consume_newline();
+        }
+
+        if self.consume(T::CloseCurly) {
+            self.push_node(N::EndRecord, Some(self.pos as u32 - 1));
+            self.update_end(N::BeginRecord, subtree_start);
+            return;
+        }
+        
+        self.expect(T::LowerIdent);
+        self.push_node(N::Ident, Some(self.pos as u32 - 1));
+
+        self.expect(T::OpColon);
+        self.push_node(N::InlineColon, Some(self.pos as u32 - 1));
+
+        self.push_next_frame(subtree_start, cfg, Frame::ContinueRecord { start: false });
+        self.start_expr(cfg.disable_multi_backpassing());
+    }
+
+    fn pump_finish(&mut self, subtree_start: u32, end: N) {
+        self.push_node(end, Some(subtree_start));
+    }
+
+    fn pump_continue_type_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        if self.consume_newline_agnostic(T::Comma).is_some() {
+            self.push_next_frame(
+                subtree_start,
+                cfg,
+                Frame::ContinueTypeTupleOrParen,
+            );
+            self.start_type(cfg);
+        } else {
+            self.expect(T::CloseRound);
+            self.push_node(N::EndParens, Some(self.pos as u32 - 1));
+            self.update_end(N::BeginParens, subtree_start);
+
+            // Pseudo-token that the tokenizer produces for inputs like (a, b)c - there will be a NoSpace after the parens.
+            if self.consume(T::NoSpace) {
+                self.push_next_frame(subtree_start, cfg, Frame::Finish(N::EndTypeAdendum));
+                self.start_type(cfg);
+            }
         }
     }
 }
@@ -2576,7 +2889,7 @@ mod tests {
             let tb = tokenizer.finish();
             eprintln!("tokens: {:?}", tb.kinds);
             let mut state = State::from_buf(tb);
-            state.start_top_level_decls();
+            state.start_file();
             state.pump();
             state.assert_end();
         }
