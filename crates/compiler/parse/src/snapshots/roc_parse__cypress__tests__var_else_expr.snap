@@ -1,11 +1,11 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: abc
+description: "elsewhere\n"
 ---
 (BeginTopLevelDecls HintExpr Ident=>LowerIdent@0 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Ident("abc")
+Ident("elsewhere")
 
 [=== formatted below ===]
 

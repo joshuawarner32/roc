@@ -1,17 +1,18 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: "abc = def\n"
+description: "x + 2\n"
 ---
 (BeginTopLevelDecls
-    (BeginAssign
+    (*
+        HintExpr
         Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        Ident=>LowerIdent@2
-    EndAssign)
+        InlineBinOpPlus=>OpPlus@1
+        Num=>IntBase10@2
+    EndBinOpPlus)
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Assign("abc", Ident("def"))
+BinOp(Ident("x"), Plus, IntBase10("2"))
 
 [=== formatted below ===]
 

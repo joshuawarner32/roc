@@ -1,18 +1,18 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: abc + def
+description: "3\n+ 4\n"
 ---
 (BeginTopLevelDecls
     (*
         HintExpr
-        Ident=>LowerIdent@0
-        InlineBinOpPlus=>OpPlus@1
-        Ident=>LowerIdent@2
+        Num=>IntBase10@0
+        InlineBinOpPlus=>OpPlus@2
+        Num=>IntBase10@3
     EndBinOpPlus)
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-BinOp(Ident("abc"), Plus, Ident("def"))
+BinOp(IntBase10("3"), Plus, IntBase10("4"))
 
 [=== formatted below ===]
 

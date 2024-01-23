@@ -15,4 +15,4 @@ EndTopLevelDecls)
 Apply(Ident("abc"), [Ident("def")])
 
 [=== formatted below ===]
-abc def
+

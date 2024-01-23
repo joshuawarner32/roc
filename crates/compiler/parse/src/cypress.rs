@@ -192,6 +192,16 @@ pub enum N {
     EndBinOpPlus,
     InlineBinOpStar,
     EndBinOpStar,
+    InlineBinOpLessThan,
+    InlineBinOpGreaterThan,
+    InlineBinOpLessThanOrEq,
+    InlineBinOpGreaterThanOrEq,
+    EndBinOpMinus,
+    EndBinOpLessThan,
+    EndBinOpGreaterThan,
+    EndBinOpLessThanOrEq,
+    EndBinOpGreaterThanOrEq,
+    InlineBinOpMinus,
 
     /// Unary not, e.g. `!x`
     EndUnaryNot,
@@ -233,22 +243,25 @@ pub enum N {
     EndBackpassing,
     BeginBackpassing,
     UpperIdent,
-    InlineBinOpLessThan,
-    InlineBinOpGreaterThan,
-    InlineBinOpLessThanOrEq,
-    InlineBinOpGreaterThanOrEq,
-    EndBinOpMinus,
-    EndBinOpLessThan,
-    EndBinOpGreaterThan,
-    EndBinOpLessThanOrEq,
-    EndBinOpGreaterThanOrEq,
     EndTypeAdendum,
     InlineMultiBackpassingComma,
     EndMultiBackpassingArgs,
     EndFieldAccess,
     EndIndexAccess,
+    InlineColonEqual,
+    BeginTypeTagUnion,
+    EndTypeTagUnion,
+    TypeWildcard,
+
+    BeginImplements,
+    EndImplements,
+    BeginTypeRecord,
+    EndTypeRecord,
+    BeginCollection,
+    EndCollection,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum NodeIndexKind {
     Begin,   // this is a begin node; the index points one past the corresponding end node
     End,     // this is an end node; the index points to the corresponding begin node
@@ -276,10 +289,14 @@ impl N {
             | N::BeginBlock
             | N::BeginAssign
             | N::BeginTypeOrTypeAlias
+            | N::BeginTypeTagUnion
             | N::BeginIf
             | N::BeginWhen
             | N::BeginLambda
             | N::BeginTopLevelDecls
+            | N::BeginImplements
+            | N::BeginTypeRecord
+            | N::BeginCollection
             | N::BeginBackpassing => NodeIndexKind::Begin,
             N::EndList
             | N::EndRecord
@@ -289,10 +306,14 @@ impl N {
             | N::EndBlock
             | N::EndAssign
             | N::EndTypeOrTypeAlias
+            | N::EndTypeTagUnion
             | N::EndIf
             | N::EndWhen
             | N::EndLambda
             | N::EndTopLevelDecls
+            | N::EndImplements
+            | N::EndTypeRecord
+            | N::EndCollection
             | N::EndBackpassing => NodeIndexKind::End,
             N::InlineApply
             | N::InlinePizza
@@ -305,12 +326,14 @@ impl N {
             | N::InlineKwIs
             | N::InlineLambdaArrow
             | N::InlineColon
+            | N::InlineColonEqual
             | N::InlineBackArrow
             | N::InlineWhenArrow
             | N::InlineBinOpLessThan
             | N::InlineBinOpGreaterThan
             | N::InlineBinOpLessThanOrEq
             | N::InlineBinOpGreaterThanOrEq
+            | N::InlineBinOpMinus
             | N::InlineMultiBackpassingComma => NodeIndexKind::Token,
             N::Num
             | N::String
@@ -342,7 +365,7 @@ impl N {
             => {
                 NodeIndexKind::EndOnly
             }
-            N::Float | N::SingleQuote | N::Underscore | N::Crash | N::Dbg => NodeIndexKind::Token,
+            N::Float | N::SingleQuote | N::Underscore | N::TypeWildcard | N::Crash | N::Dbg => NodeIndexKind::Token,
         }
     }
 }
@@ -407,7 +430,9 @@ pub enum BinOp {
     Caret,
     Apply,
     DefineTypeOrTypeAlias,
+    DefineOtherTypeThing,
     MultiBackpassingComma,
+    Implements,
 }
 
 impl Prec {
@@ -441,7 +466,12 @@ impl BinOp {
         match self {
             // BinOp::AssignBlock => Prec::Outer,
             BinOp::DeclSeq => Prec::DeclSeq,
-            BinOp::AssignBlock | BinOp::Assign | BinOp::DefineTypeOrTypeAlias | BinOp::Backpassing => Prec::Decl,
+            BinOp::AssignBlock
+            | BinOp::Assign
+            | BinOp::DefineTypeOrTypeAlias
+            | BinOp::DefineOtherTypeThing
+            | BinOp::Backpassing
+            | BinOp::Implements => Prec::Decl,
             BinOp::MultiBackpassingComma => Prec::MultiBackpassingComma,
             BinOp::Apply => Prec::Apply,
             BinOp::Caret => Prec::Exponent,
@@ -462,7 +492,12 @@ impl BinOp {
         match self {
             BinOp::AssignBlock => Assoc::Right,
             BinOp::DeclSeq => Assoc::Right,
-            BinOp::Assign | BinOp::Backpassing | BinOp::DefineTypeOrTypeAlias | BinOp::MultiBackpassingComma => Assoc::Right,
+            BinOp::Assign
+            | BinOp::Backpassing
+            | BinOp::DefineTypeOrTypeAlias
+            | BinOp::DefineOtherTypeThing
+            | BinOp::MultiBackpassingComma
+            | BinOp::Implements => Assoc::Right,
             BinOp::Apply => Assoc::Left,
             BinOp::Caret => Assoc::Right,
             BinOp::Star | BinOp::Slash | BinOp::DoubleSlash | BinOp::Percent => Assoc::Left,
@@ -498,7 +533,9 @@ impl BinOp {
             BinOp::AssignBlock => todo!(),
             BinOp::DeclSeq => todo!(),
             BinOp::Assign => N::InlineAssign,
+            BinOp::Implements => N::InlineKwImplements,
             BinOp::DefineTypeOrTypeAlias => N::InlineColon,
+            BinOp::DefineOtherTypeThing => N::InlineColonEqual,
             BinOp::Backpassing => N::InlineBackArrow,
             BinOp::MultiBackpassingComma => N::InlineMultiBackpassingComma,
             BinOp::Pizza => N::InlinePizza,
@@ -511,7 +548,7 @@ impl BinOp {
             BinOp::LessThanOrEq => N::InlineBinOpLessThanOrEq,
             BinOp::GreaterThanOrEq => N::InlineBinOpGreaterThanOrEq,
             BinOp::Plus => N::InlineBinOpPlus,
-            BinOp::Minus => todo!(),
+            BinOp::Minus => N::InlineBinOpMinus,
             BinOp::Star => N::InlineBinOpStar,
             BinOp::Slash => todo!(),
             BinOp::DoubleSlash => todo!(),
@@ -544,7 +581,7 @@ impl From<BinOp> for N {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum Frame {
     StartExpr {
         min_prec: Prec,
@@ -571,7 +608,7 @@ enum Frame {
     FinishBlockItem,
     StartType,
     ContinueType,
-    ContinueTypeFunction,
+    ContinueTypeCommaSep,
     FinishTypeFunction,
     ContinueWhereClause,
     FinishTypeOrTypeAlias,
@@ -579,20 +616,16 @@ enum Frame {
     Finish(N),
     ContinueTypeTupleOrParen,
     ContinueList,
-}
-
-impl Frame {
-    fn start_expr() -> Frame {
-        Frame::StartExpr {
-            min_prec: Prec::DeclSeq,
-        }
-    }
+    ContinueTypeTagUnion,
+    ContinueTagUnionArgs,
+    ContinueImplementsMethodDecl,
+    ContinueTypeRecord,
 }
 
 #[derive(Clone, Copy)]
 struct ExprCfg {
     expr_indent_floor: Option<Indent>, // expression continuations must be indented more than this.
-    when_branch_indent_floor: Option<Indent>, // when branches must be indented more than this. None means no restriction.
+    block_indent_floor: Option<Indent>, // when branches must be indented more than this. None means no restriction.
     allow_multi_backpassing: bool,
 }
 
@@ -607,7 +640,7 @@ impl fmt::Debug for ExprCfg {
             write!(f, "{}.{}", i.num_spaces, i.num_tabs)?;
         }
 
-        if let Some(i) = self.when_branch_indent_floor {
+        if let Some(i) = self.block_indent_floor {
             write!(f, "w")?;
             write!(f, "{}.{}", i.num_spaces, i.num_tabs)?;
         }
@@ -623,34 +656,51 @@ impl ExprCfg {
             ..self
         }
     }
+
+    fn set_block_indent_floor(&self, cur_indent: Indent) -> ExprCfg {
+        ExprCfg {
+            block_indent_floor: Some(cur_indent),
+            ..*self
+        }
+    }
 }
 
 impl Default for ExprCfg {
     fn default() -> Self {
         ExprCfg {
             expr_indent_floor: None,
-            when_branch_indent_floor: None,
+            block_indent_floor: None, // for when branches and implements methods
             allow_multi_backpassing: true,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum IfState {
     Then,
     Else,
     End,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum WhenState {
     Is,
     BranchPattern(Indent),
     BranchArrow(Indent),
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum Error {
     InconsistentIndent,
+    ExpectViolation(T, Option<T>),
+    ExpectedExpr(Option<T>),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct Message {
+    kind: Error,
+    frames: Vec<Frame>,
+    pos: usize,
 }
 
 struct State {
@@ -660,6 +710,9 @@ struct State {
     line: usize,
 
     tree: Tree,
+
+    pumping: Option<Frame>,
+    messages: Vec<Message>,
 }
 
 impl State {
@@ -670,6 +723,8 @@ impl State {
             pos: 0,
             line: 0,
             tree: Tree::new(),
+            pumping: None,
+            messages: vec![],
         }
     }
 
@@ -697,20 +752,61 @@ impl State {
         self.pos += 1;
     }
 
-    fn expect(&mut self, tok: T) {
-        debug_assert!(tok != T::Newline); // Use expect_newline instead
-        if self.cur() != Some(tok) {
-            todo!("expecting {:?} but found {:?}", tok, self.cur());
+    fn push_error(&mut self, kind: Error) {
+        let mut frames: Vec<Frame> = self.frames.iter().map(|(_, _, f)| *f).collect();
+        if let Some(f) = self.pumping.clone() {
+            frames.push(f);
         }
-        self.bump();
+        self.messages.push(Message {
+            kind,
+            frames,
+            pos: self.pos,
+        });
     }
 
-    fn expect_newline(&mut self) {
-        if self.cur() != Some(T::Newline) {
-            todo!("expecting newline")
+    #[track_caller]
+    fn expect(&mut self, tok: T) {
+        debug_assert!(tok != T::Newline); // Use expect_newline instead
+        if self.cur() == Some(tok) {
+            self.bump();
+        } else {
+            self.push_error(Error::ExpectViolation(tok, self.cur()));
+            self.fast_forward_past_newline();
         }
-        self.pos += 1;
-        self.line += 1;
+    }
+
+    fn fast_forward_past_newline(&mut self) {
+        loop {
+            match self.cur() {
+                Some(T::Newline) => {
+                    self.consume_newline();
+                    break;
+                }
+                Some(_) => {
+                    self.bump();
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+    }
+
+    #[track_caller]
+    fn expect_and_push_node(&mut self, tok: T, node: N) {
+        self.expect(tok);
+        self.push_node(node, Some(self.pos as u32 - 1));
+    }
+
+    #[track_caller]
+    fn expect_newline(&mut self) {
+        if self.cur() == Some(T::Newline) {
+            self.pos += 1;
+            self.line += 1;
+        } else {
+            self.push_error(Error::ExpectViolation(T::Newline, self.cur()));
+            self.fast_forward_past_newline();
+        }
     }
 
     // Advances the cursor if the next tokens are <tok>, <tok newline> or <newline tok>
@@ -750,6 +846,25 @@ impl State {
         true
     }
 
+    // Like consume, except we will also return true and add a message if we're at EOF
+    fn consume_end(&mut self, tok: T) -> bool {
+        debug_assert!(tok != T::Newline); // Use consume_newline instead
+        match self.cur() {
+            None => {
+                self.push_error(Error::ExpectViolation(tok, None));
+                true // intentional! We want the outer scope to think we've consumed the end token!
+            }
+            Some(t) => {
+                if t == tok {
+                    self.bump();
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+    }
+
     fn consume_newline(&mut self) -> bool {
         if self.cur() != Some(T::Newline) {
             return false;
@@ -759,6 +874,18 @@ impl State {
         true
     }
 
+    #[track_caller]
+    fn consume_and_push_node_end(&mut self, tok: T, begin: N, end: N, subtree_start: u32) -> bool {
+        if self.consume(tok) {
+            self.push_node(end, Some(subtree_start));
+            self.update_end(begin, subtree_start);
+            true
+        } else {
+            false
+        }
+    }
+
+    #[track_caller]
     fn update_end(&mut self, kind: N, subtree_start: u32) {
         eprintln!(
             "{:indent$}@{} updating end {} -> {}",
@@ -768,7 +895,13 @@ impl State {
             self.tree.len(),
             indent = 2 * self.frames.len() + 2
         );
-        assert_eq!(self.tree.kinds[subtree_start as usize], kind);
+        assert_eq!(
+            self.tree.kinds[subtree_start as usize],
+            kind,
+            "Expected {:?} but found {:?}; tree: {:?}",
+            kind,
+            self.tree.kinds[subtree_start as usize],
+            ShowTreePosition(&self.tree, subtree_start));
         self.tree.paird_group_ends[subtree_start as usize] = self.tree.len() as u32;
     }
 
@@ -786,6 +919,19 @@ impl State {
         let pos = subtree_start.unwrap_or(self.tree.paird_group_ends.len() as u32);
         self.tree.paird_group_ends.push(pos);
         // eprintln!("{:indent$}tree: {:?}", "", self.tree.debug_vis_grouping(), indent = 2 * self.frames.len() + 4);
+    }
+
+    fn push_node_begin(&mut self, kind: N) -> u32 {
+        let index = self.tree.kinds.len() as u32;
+        debug_assert_eq!(kind.index_kind(), NodeIndexKind::Begin);
+        self.push_node(kind, None);
+        index
+    }
+
+    fn push_node_end(&mut self, begin: N, end: N, subtree_start: u32) {
+        debug_assert_eq!(end.index_kind(), NodeIndexKind::End);
+        self.push_node(end, Some(subtree_start));
+        self.update_end(begin, subtree_start);
     }
 
     fn push_next_frame(&mut self, subtree_start: u32, cfg: ExprCfg, frame: Frame) {
@@ -806,6 +952,7 @@ impl State {
     }
 
     fn pump(&mut self) {
+        let mut i = 0;
         while let Some((subtree_start, cfg, frame)) = self.frames.pop() {
             eprintln!(
                 "{:indent$}@{} *{:?} pumping frame {:?} starting at {}",
@@ -816,6 +963,7 @@ impl State {
                 subtree_start,
                 indent = 2 * self.frames.len()
             );
+            let mut start = self.pos;
             match frame {
                 Frame::StartExpr { min_prec } => self.pump_start_expr(subtree_start, cfg, min_prec),
                 Frame::ContinueTupleOrParen => self.pump_continue_tuple_or_paren(subtree_start, cfg),
@@ -837,14 +985,21 @@ impl State {
                 Frame::ContinueWhen { next } => self.pump_continue_when(subtree_start, cfg, next),
                 Frame::StartType => self.pump_start_type(subtree_start, cfg),
                 Frame::ContinueType => self.pump_continue_type(subtree_start, cfg),
-                Frame::ContinueTypeFunction => self.pump_continue_type_function(subtree_start, cfg),
+                Frame::ContinueTypeCommaSep => self.pump_continue_type_comma_sep(subtree_start, cfg),
                 Frame::FinishTypeFunction => self.pump_finish_type_function(subtree_start, cfg),
                 Frame::ContinueWhereClause => self.pump_continue_where_clause(subtree_start, cfg),
                 Frame::FinishTypeOrTypeAlias => self.pump_finish_type_or_type_alias(subtree_start, cfg),
                 Frame::ContinueRecord { start } => self.pump_continue_record(subtree_start, cfg, start),
                 Frame::ContinueList => self.pump_continue_list(subtree_start, cfg),
                 Frame::ContinueTypeTupleOrParen => self.pump_continue_type_tuple_or_paren(subtree_start, cfg),
+                Frame::ContinueTypeTagUnion => self.pump_continue_type_tag_union(subtree_start, cfg),
+                Frame::ContinueTagUnionArgs => self.pump_continue_tag_union_args(subtree_start, cfg),
+                Frame::ContinueImplementsMethodDecl => self.pump_continue_implements_method_decl(subtree_start, cfg),
+                Frame::ContinueTypeRecord => self.pump_continue_type_record(subtree_start, cfg),
             }
+            // debug_assert!(self.pos > start, "pump didn't advance the cursor");
+            i += 1;
+            debug_assert!(i < 100, "pump looped too many times");
         }
     }
 
@@ -880,6 +1035,14 @@ impl State {
 
         loop {
             match self.cur() {
+                Some(T::LowerIdent) => atom!(N::Ident),
+                 // TODO: do these need to be distinguished in the node?
+                Some(T::Underscore | T::NamedUnderscore) => atom!(N::Underscore),
+                Some(T::UpperIdent) => atom!(N::UpperIdent),
+                Some(T::IntBase10) => atom!(N::Num),
+                Some(T::String) => atom!(N::String),
+                Some(T::Float) => atom!(N::Float),
+
                 Some(T::OpenRound) => {
                     self.bump();
                     while self.consume_newline() {}
@@ -909,18 +1072,9 @@ impl State {
                 }
                 Some(T::OpenSquare) => {
                     self.bump();
-                    self.push_next_frame_starting_here(
-                        cfg,
-                        Frame::ContinueList,
-                    );
-                    self.push_node(N::BeginList, None); // index will be updated later
+                    self.start_list(cfg);
                     return;
                 }
-                Some(T::LowerIdent) => atom!(N::Ident),
-                Some(T::Underscore) => atom!(N::Underscore),
-                Some(T::UpperIdent) => atom!(N::UpperIdent),
-                Some(T::IntBase10) => atom!(N::Num),
-                Some(T::String) => atom!(N::String),
                 Some(T::OpBackslash) => {
                     self.bump();
                     self.push_next_frame_starting_here(cfg, Frame::ContinueLambdaArgs);
@@ -928,28 +1082,35 @@ impl State {
                     return;
                 }
                 Some(T::KwIf) => {
-                    self.bump();
-                    self.push_next_frame_starting_here(
-                        cfg,
-                        Frame::ContinueIf {
-                            next: IfState::Then,
-                        },
-                    );
-                    self.push_node(N::BeginIf, None);
-                    self.start_expr(cfg);
-                    return;
+                    if self.plausible_expr_continue_comes_next() {
+                        atom!(N::Ident);
+                    } else {
+                        self.bump();
+                        self.push_next_frame_starting_here(
+                            cfg,
+                            Frame::ContinueIf {
+                                next: IfState::Then,
+                            },
+                        );
+                        self.push_node(N::BeginIf, None);
+                        self.start_expr(cfg);
+                        return;
+                    }
                 }
                 Some(T::KwWhen) => {
-                    self.bump();
-                    self.push_next_frame_starting_here(
-                        cfg,
-                        Frame::ContinueWhen {
-                            next: WhenState::Is,
-                        },
-                    );
-                    self.push_node(N::BeginWhen, None);
-                    self.start_expr(cfg);
-                    return;
+                    if self.plausible_expr_continue_comes_next() {
+                        atom!(N::Ident);
+                    } else {
+                        self.push_next_frame_starting_here(
+                            cfg,
+                            Frame::ContinueWhen {
+                                next: WhenState::Is,
+                            },
+                        );
+                        self.push_node(N::BeginWhen, None);
+                        self.start_expr(cfg);
+                        return;
+                    }
                 }
                 Some(T::OpBang) => {
                     self.bump();
@@ -974,9 +1135,31 @@ impl State {
                     return;
                 }
                 Some(T::OpArrow) => return, // when arrow; handled in outer scope
-                k => todo!("{:?}", k),
+                k => {
+                    self.push_error(Error::ExpectedExpr(k));
+                    self.fast_forward_past_newline();
+                    return;
+                },
             }
         }
+    }
+
+    fn start_list(&mut self, cfg: ExprCfg) {
+        self.consume_newline();
+        if self.consume(T::CloseSquare) {
+            let subtree_start = self.tree.len();
+            self.push_node(N::BeginList, Some(subtree_start + 2));
+            self.push_node(N::EndList, Some(subtree_start));
+            return;
+        }
+        
+        self.push_next_frame_starting_here(
+            cfg,
+            Frame::ContinueList,
+        );
+        self.push_node(N::BeginList, None);
+        // index will be updated later
+        self.start_expr(cfg.disable_multi_backpassing());
     }
 
     fn handle_field_access_suffix(&mut self) {
@@ -1025,7 +1208,20 @@ impl State {
                     self.start_type(cfg);
                     return;
                 }
-                _ => {}
+                BinOp::DefineOtherTypeThing => {
+                    // TODO: is this correct????
+                    self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
+                    self.start_type(cfg);
+                    return;
+                }
+                BinOp::Implements => {
+                    let cfg = cfg.set_block_indent_floor(self.cur_indent());
+                    self.continue_implements_method_decl_body(subtree_start, cfg);
+                    return;
+                }
+                _ => {
+                    self.consume_newline();
+                }
             }
 
             eprintln!(
@@ -1076,20 +1272,25 @@ impl State {
                     return None;
                 }
             } else {
-                dbg!(k)
+                k
             }
         } else {
             self.cur()
         };
 
+        dbg!(k);
+
         let (op, width) = match k {
             Some(T::LowerIdent | T::OpenCurly | T::IntBase10 | T::IntNonBase10) => (BinOp::Apply, 0), // TODO: check for other things that can start an expr
             Some(T::OpPlus) => (BinOp::Plus, 1),
+            Some(T::OpBinaryMinus) => (BinOp::Minus, 1),
             Some(T::OpStar) => (BinOp::Star, 1),
             Some(T::OpPizza) => (BinOp::Pizza, 1),
             Some(T::OpAssign) => (BinOp::Assign, 1),
             Some(T::OpColon) => (BinOp::DefineTypeOrTypeAlias, 1),
+            Some(T::OpColonEqual) => (BinOp::DefineOtherTypeThing, 1),
             Some(T::OpBackArrow) => (BinOp::Backpassing, 1),
+            Some(T::KwImplements) => (BinOp::Implements, 1),
             Some(T::OpLessThan) => (BinOp::LessThan, 1),
             Some(T::OpLessThanOrEq) => (BinOp::LessThanOrEq, 1),
             Some(T::OpGreaterThan) => (BinOp::GreaterThan, 1),
@@ -1105,8 +1306,6 @@ impl State {
         self.consume_newline();
 
         self.pos += width;
-
-        self.consume_newline();
 
         Some(op)
     }
@@ -1125,9 +1324,40 @@ impl State {
                     self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
                     continue;
                 }
+                Some(T::OpenSquare) => {
+                    self.bump();
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueType,
+                    );
+                    self.start_tag_union(subtree_start, cfg);
+                    return;
+                }
+                Some(T::OpenCurly) => {
+                    self.bump();
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueType,
+                    );
+                    self.start_type_record(cfg);
+                    return;
+                }
                 Some(T::LowerIdent) => {
                     self.bump();
                     self.push_node(N::Ident, Some(self.pos as u32 - 1));
+
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueType,
+                    );
+                    return;
+                }
+                Some(T::OpStar) => {
+                    self.bump();
+                    self.push_node(N::TypeWildcard, Some(self.pos as u32 - 1));
 
                     self.push_next_frame(
                         subtree_start,
@@ -1153,12 +1383,11 @@ impl State {
     }
 
     fn pump_continue_type(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        if let Some(_pos) = self.consume_newline_agnostic(T::Comma) {
-            // this must be the first comma of a function type!
+        if let Some(_pos) = self.consume_token_with_negative_lookahead(T::Comma, &[T::LowerIdent, T::OpColon]) {
             self.push_next_frame(
                 subtree_start,
                 cfg,
-                Frame::ContinueTypeFunction,
+                Frame::ContinueTypeCommaSep,
             );
             self.start_type(cfg);
             return;
@@ -1182,14 +1411,14 @@ impl State {
         }
     }
 
-    fn pump_continue_type_function(&mut self, subtree_start: u32, cfg: ExprCfg) {
+    fn pump_continue_type_comma_sep(&mut self, subtree_start: u32, cfg: ExprCfg) {
         match self.cur() {
             Some(T::Comma) => {
                 self.bump();
                 self.push_next_frame(
                     subtree_start,
                     cfg,
-                    Frame::ContinueTypeFunction,
+                    Frame::ContinueTypeCommaSep,
                 );
                 self.start_type(cfg);
             }
@@ -1199,16 +1428,18 @@ impl State {
                 self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
                 self.start_type(cfg);
             }
+
+            // TODO: if there isn't an outer square/round/curly and we don't eventually get the arrow,
+            // we should error
+            Some(T::CloseSquare | T::CloseRound | T::CloseCurly) => return, // Outer scope will handle
             k => todo!("{:?}", k),
         }
     }
 
     fn pump_continue_where_clause(&mut self, subtree_start: u32, cfg: ExprCfg) {
         // We should have just parsed the `where` followed by a type.
-        self.expect(T::KwImplements);
-        self.push_node(N::InlineKwImplements, Some(self.pos as u32 - 1));
-        self.expect(T::UpperIdent);
-        self.push_node(N::AbilityName, Some(self.pos as u32 - 1));
+        self.expect_and_push_node(T::KwImplements, N::InlineKwImplements);
+        self.expect_and_push_node(T::UpperIdent, N::AbilityName);
     }
 
     fn pump_finish_type_function(&mut self, subtree_start: u32, cfg: ExprCfg) {
@@ -1250,9 +1481,15 @@ impl State {
                 self.update_end(N::Dummy, subtree_start);
                 self.tree.kinds[subtree_start as usize] = N::BeginTypeOrTypeAlias;
             }
+            N::EndImplements => {
+                self.update_end(N::Dummy, subtree_start);
+                self.tree.kinds[subtree_start as usize] = N::BeginImplements;
+            }
             N::Ident
             | N::UpperIdent
             | N::Num
+            | N::String
+            | N::Float
             | N::EndWhen
             | N::EndIf
             | N::EndApply
@@ -1264,7 +1501,9 @@ impl State {
             | N::EndPizza
             | N::EndParens
             | N::EndList
-            | N::EndLambda => {
+            | N::EndLambda
+            | N::EndRecord
+            | N::EndFieldAccess => {
                 self.tree.kinds[subtree_start as usize] = N::HintExpr;
             }
             k => todo!("{:?}", k),
@@ -1319,15 +1558,14 @@ impl State {
             self.start_block_or_expr(cfg);
         } else {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueLambdaArgs);
-            self.push_next_frame_starting_here(cfg, Frame::start_expr());
+            self.start_expr(cfg);
         }
     }
 
     fn pump_continue_if(&mut self, subtree_start: u32, cfg: ExprCfg, next: IfState) {
         match next {
             IfState::Then => {
-                self.expect(T::KwThen);
-                self.push_node(N::InlineKwThen, Some(self.pos as u32 - 1));
+                self.expect_and_push_node(T::KwThen, N::InlineKwThen);
                 self.push_next_frame(
                     subtree_start,
                     cfg,
@@ -1338,8 +1576,7 @@ impl State {
                 self.start_block_or_expr(cfg);
             }
             IfState::Else => {
-                self.expect(T::KwElse);
-                self.push_node(N::InlineKwElse, Some(self.pos as u32 - 1));
+                self.expect_and_push_node(T::KwElse, N::InlineKwElse);
 
                 let next = if self.consume(T::KwIf) {
                     IfState::Then
@@ -1360,8 +1597,7 @@ impl State {
     fn pump_continue_when(&mut self, subtree_start: u32, cfg: ExprCfg, next: WhenState) {
         match next {
             WhenState::Is => {
-                self.expect(T::KwIs);
-                self.push_node(N::InlineKwIs, Some(self.pos as u32 - 1));
+                self.expect_and_push_node(T::KwIs, N::InlineKwIs);
                 self.consume_newline();
                 let indent = self.cur_indent();
                 self.push_next_frame(
@@ -1376,7 +1612,7 @@ impl State {
             WhenState::BranchPattern(indent) => {
                 if self.check(
                     self.cur_indent()
-                        .is_indented_more_than(cfg.when_branch_indent_floor)
+                        .is_indented_more_than(cfg.block_indent_floor)
                         .ok_or(Error::InconsistentIndent),
                 ) && !self.at_terminator()
                 {
@@ -1394,8 +1630,7 @@ impl State {
                 self.update_end(N::BeginWhen, subtree_start);
             }
             WhenState::BranchArrow(indent) => {
-                self.expect(T::OpArrow);
-                self.push_node(N::InlineWhenArrow, Some(self.pos as u32 - 1));
+                self.expect_and_push_node(T::OpArrow, N::InlineWhenArrow);
                 self.push_next_frame(
                     subtree_start,
                     cfg,
@@ -1437,12 +1672,60 @@ impl State {
         match self.cur() {
             Some(T::KwApp) => {
                 self.bump();
+                self.consume_newline();
                 self.expect(T::String);
+                self.consume_newline();
                 self.expect(T::KwProvides);
-                self.expect(T::OpenSquare);
-                self.expect(T::CloseSquare);
+                self.consume_newline();
+                self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
+                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                });
+                self.consume_newline();
                 self.expect(T::KwTo);
+                self.consume_newline();
                 self.expect(T::String);
+                self.consume_newline();
+            }
+            Some(T::KwPlatform) => {
+                self.bump();
+                self.consume_newline();
+                self.expect(T::String);
+                self.consume_newline();
+                self.expect(T::KwRequires);
+                self.consume_newline();
+                self.expect_collection(T::OpenCurly, N::BeginCollection, T::CloseCurly, N::EndCollection, |s| {
+                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                });
+                self.consume(T::NoSpace);
+                self.consume_newline();
+                self.expect_collection(T::OpenCurly, N::BeginCollection, T::CloseCurly, N::EndCollection, |s| {
+                    // This needs to be key:value pairs for lower ident keys and type values
+                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                });
+                self.consume_newline();
+                self.expect(T::KwExposes);
+                self.consume_newline();
+                self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
+                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                });
+                self.consume_newline();
+                self.expect(T::KwPackages);
+                self.consume_newline();
+                self.expect_collection(T::OpenCurly, N::BeginCollection, T::CloseCurly, N::EndCollection, |s| {
+                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                });
+                self.consume_newline();
+                self.expect(T::KwImports);
+                self.consume_newline();
+                self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
+                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                });
+                self.consume_newline();
+                self.expect(T::KwProvides);
+                self.consume_newline();
+                self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
+                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                });
                 self.consume_newline();
             }
             _ => {},
@@ -1459,8 +1742,13 @@ impl State {
         }
     }
 
-    fn start_expr(&mut self, cfg: ExprCfg) {
-        self.push_next_frame_starting_here(cfg, Frame::start_expr());
+    fn start_expr(&mut self, mut cfg: ExprCfg) {
+        cfg.expr_indent_floor = Some(self.cur_indent());
+        self.push_next_frame_starting_here(cfg, 
+            Frame::StartExpr {
+                min_prec: Prec::DeclSeq,
+            }
+        );
     }
 
     fn start_block_item(&mut self, cfg: ExprCfg) {
@@ -1488,6 +1776,7 @@ impl State {
         );
     }
 
+    #[track_caller]
     fn check<T>(&self, v: Result<T, Error>) -> T {
         match v {
             Ok(v) => v,
@@ -1501,7 +1790,7 @@ impl State {
         if start {
             self.consume_newline();
         } else {
-            if self.consume(T::CloseCurly) {
+            if self.consume_end(T::CloseCurly) {
                 self.push_node(N::EndRecord, Some(self.pos as u32 - 1));
                 self.update_end(N::BeginRecord, subtree_start);
                 return;
@@ -1511,17 +1800,14 @@ impl State {
             self.consume_newline();
         }
 
-        if self.consume(T::CloseCurly) {
+        if self.consume_end(T::CloseCurly) {
             self.push_node(N::EndRecord, Some(self.pos as u32 - 1));
             self.update_end(N::BeginRecord, subtree_start);
             return;
         }
         
-        self.expect(T::LowerIdent);
-        self.push_node(N::Ident, Some(self.pos as u32 - 1));
-
-        self.expect(T::OpColon);
-        self.push_node(N::InlineColon, Some(self.pos as u32 - 1));
+        self.expect_and_push_node(T::LowerIdent, N::Ident);
+        self.expect_and_push_node(T::OpColon, N::InlineColon);
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinueRecord { start: false });
         self.start_expr(cfg.disable_multi_backpassing());
@@ -1553,7 +1839,8 @@ impl State {
     }
 
     fn pump_continue_list(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        if self.consume(T::CloseSquare) {
+        self.consume_newline();
+        if self.consume_end(T::CloseSquare) {
             self.push_node(N::EndList, Some(self.pos as u32 - 1));
             self.update_end(N::BeginList, subtree_start);
             return;
@@ -1562,14 +1849,205 @@ impl State {
         self.expect(T::Comma);
         self.consume_newline();
 
-        if self.consume(T::CloseSquare) {
-            self.push_node(N::EndRecord, Some(self.pos as u32 - 1));
-            self.update_end(N::BeginRecord, subtree_start);
+        if self.consume_end(T::CloseSquare) {
+            self.push_node(N::EndList, Some(self.pos as u32 - 1));
+            self.update_end(N::BeginList, subtree_start);
             return;
         }
         
         self.push_next_frame(subtree_start, cfg, Frame::ContinueList);
         self.start_expr(cfg.disable_multi_backpassing());
+    }
+
+    fn start_tag_union(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        self.push_node(N::BeginTypeTagUnion, None);
+        if self.consume_end_tag_union(subtree_start, cfg) {
+            return;
+        }
+
+        self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTagUnion);
+
+        self.expect_and_push_node(T::UpperIdent, N::Tag); // tag name
+
+        self.push_next_frame(subtree_start, cfg, Frame::ContinueTagUnionArgs);
+    }
+
+    fn pump_continue_type_tag_union(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        if self.consume_end_tag_union(subtree_start, cfg) {
+            return;
+        }
+
+        self.expect(T::Comma);
+        if self.consume_end_tag_union(subtree_start, cfg) {
+            return;
+        }
+        
+        self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTagUnion);
+
+        self.expect_and_push_node(T::UpperIdent, N::Tag); // tag name
+
+        self.push_next_frame(subtree_start, cfg, Frame::ContinueTagUnionArgs);
+    }
+
+    fn consume_end_tag_union(&mut self, subtree_start: u32, cfg: ExprCfg) -> bool {
+        self.consume_newline();
+        if self.consume_and_push_node_end(T::CloseSquare, N::BeginTypeTagUnion, N::EndTypeTagUnion, subtree_start) {
+            self.maybe_start_type_adendum(subtree_start, cfg);
+            return true;
+        }
+
+        false
+    }
+
+    fn pump_continue_tag_union_args(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        self.consume_newline();
+        if matches!(self.cur(), Some(T::CloseSquare | T::Comma)) {
+            return;
+        }
+        self.push_next_frame(subtree_start, cfg, Frame::ContinueTagUnionArgs);
+        self.start_type(cfg);
+    }
+
+    fn pump_continue_implements_method_decl(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        self.expect_newline();
+        self.continue_implements_method_decl_body(subtree_start, cfg);
+    }
+
+    fn continue_implements_method_decl_body(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        // We continue as long as the indent is the same as the start of the implements block.
+        if self.check(
+            self.cur_indent()
+                .is_indented_more_than(cfg.block_indent_floor)
+                .ok_or(Error::InconsistentIndent),
+        ) {
+            self.expect_and_push_node(T::LowerIdent, N::Ident);
+            self.expect(T::OpColon); // TODO: need to add a node?
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueImplementsMethodDecl);
+            self.start_type(cfg);
+        } else {
+            self.push_node(N::EndImplements, Some(subtree_start));
+        }
+    }
+
+    fn start_type_record(&mut self, cfg: ExprCfg) {
+        let subtree_start = self.push_node_begin(N::BeginTypeRecord);
+        
+        self.consume_newline();
+        if self.consume_and_push_node_end(T::CloseCurly, N::BeginTypeRecord, N::EndTypeRecord, subtree_start) {
+            return;
+        }
+
+        self.expect_and_push_node(T::LowerIdent, N::Ident);
+        // TODO: ? for optional fields
+        self.expect(T::OpColon); // TODO: need to add a node?
+
+        self.push_next_frame(
+            subtree_start,
+            cfg,
+            Frame::ContinueTypeRecord,
+        );
+        self.start_type(cfg);
+    }
+
+    fn consume_end_type_record(&mut self, subtree_start: u32, cfg: ExprCfg) -> bool {
+        self.consume_newline();
+        if self.consume_and_push_node_end(T::CloseCurly, N::BeginTypeRecord, N::EndTypeRecord, subtree_start) {
+            self.maybe_start_type_adendum(subtree_start, cfg);
+            return true;
+        }
+
+        false
+    }
+
+    fn pump_continue_type_record(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        if self.consume_end_type_record(subtree_start, cfg) {
+            return;
+        }
+
+        self.expect(T::Comma);
+        if self.consume_end_type_record(subtree_start, cfg) {
+            return;
+        }
+
+        self.expect_and_push_node(T::LowerIdent, N::Ident);
+        // TODO: ? for optional fields
+        self.expect(T::OpColon); // TODO: need to add a node?
+
+        self.push_next_frame(
+            subtree_start,
+            cfg,
+            Frame::ContinueTypeRecord,
+        );
+        self.start_type(cfg);
+    }
+
+    fn maybe_start_type_adendum(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        if self.consume(T::NoSpace) {
+            self.push_next_frame(subtree_start, cfg, Frame::Finish(N::EndTypeAdendum));
+            self.start_type(cfg);
+        }
+    }
+
+    fn consume_token_with_negative_lookahead(&mut self, tok: T, negative_following: &[T]) -> Option<usize> {
+        let mut pos = self.pos;
+        while self.buf.kind(pos) == Some(T::Newline) {
+            pos += 1;
+        }
+
+        if self.buf.kind(pos) != Some(tok) {
+            return None;
+        }
+
+        let found = pos;
+
+        pos += 1;
+    
+        for &neg in negative_following {
+            while self.buf.kind(pos) == Some(T::Newline) {
+                pos += 1;
+            }
+
+            if self.buf.kind(pos) == Some(neg) {
+                return None;
+            }
+
+            pos += 1;
+        }
+        self.consume_newline(); // need to do this first to make sure to bump self.line if necessary!
+        self.pos = found + 1;
+        Some(found)
+    }
+
+    fn expect_collection(&mut self, open: T, open_node: N, close: T, close_node: N, f: impl Fn(&mut Self)) {
+        self.expect(open);
+        let subtree_start = self.push_node_begin(open_node);
+        if self.consume(close) {
+            self.push_node_end(open_node, close_node, subtree_start);
+            return;
+        }
+        loop {
+            f(self);
+
+            if self.consume_end(close) {
+                self.push_node_end(open_node, close_node, subtree_start);
+                return;
+            }
+            self.expect(T::Comma);
+            if self.consume_end(close) {
+                self.push_node_end(open_node, close_node, subtree_start);
+                return;
+            }
+        }
+    }
+
+    fn plausible_expr_continue_comes_next(&self) -> bool {
+        match self.buf.kind(self.pos + 1) {
+            Some(T::OpAssign | T::OpColon | T::OpColonEqual) => true,
+            None | Some(T::CloseRound) | Some(T::CloseSquare) | Some(T::CloseCurly) => true,
+            // TODO: maybe also allow binops / etc?
+            // note: we can't allow expr start tokens here (i.e. implicitly allowing `if foo` to be concidered a call)
+            _ => false,
+        }
     }
 }
 
@@ -1647,6 +2125,22 @@ impl FormattedBuffer {
 
     fn dedent(&mut self) {
         self.indent -= 1;
+    }
+}
+
+struct ShowTreePosition<'a>(&'a Tree, u32);
+
+impl fmt::Debug for ShowTreePosition<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // print a list of nodes in the tree, with the current node highlighted
+        for (i, &node) in self.0.kinds.iter().enumerate() {
+            if i == self.1 as usize {
+                write!(f, "<-({:?})-> ", node)?;
+            } else {
+                write!(f, "{:?} ", node)?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -1925,7 +2419,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
 
     let mut stack = Vec::new();
 
-    dbg!(&ctx.toks.kinds);
+    // dbg!(&ctx.toks.kinds);
 
     for (i, &node) in tree.kinds.iter().enumerate() {
         let index = tree.paird_group_ends[i];
@@ -2028,7 +2522,6 @@ impl<'a> CommentExtractor<'a> {
     }
 
     fn check_next_token(&mut self, tok: T) {
-        dbg!(tok);
         debug_assert!(tok != T::Newline);
 
         while self.toks.kind(self.pos) == Some(T::Newline) {
@@ -2072,6 +2565,7 @@ impl<'a> CommentExtractor<'a> {
             | N::EndAssign => {}
 
             N::Ident => self.check_next_token(T::LowerIdent),
+            N::Num => self.check_next_token(T::IntBase10),
             N::InlineAssign => self.check_next_token(T::OpAssign),
 
             N::BeginIf => self.check_next_token(T::KwIf),
@@ -2092,7 +2586,7 @@ impl<'a> CommentExtractor<'a> {
             _ => todo!("{:?}", node),
         }
 
-        dbg!(&self.comments[begin..])
+        &self.comments[begin..]
     }
 }
 
@@ -2104,6 +2598,7 @@ mod canfmt {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Expr<'a> {
         Ident(&'a str),
+        IntBase10(&'a str),
         Apply(&'a Expr<'a>, &'a [Expr<'a>]),
         BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
         Pizza(&'a [Expr<'a>]),
@@ -2153,21 +2648,22 @@ mod canfmt {
 
         let mut stack = ExprStack::new();
 
-        dbg!(&ctx.tree.kinds);
+        // dbg!(&ctx.tree.kinds);
 
         for (i, &node) in ctx.tree.kinds.iter().enumerate() {
-            let comments = dbg!(ce.consume(node));
+            let comments = ce.consume(node);
             if comments.len() > 0 {
                 for comment in comments {
                     stack.push(i, Expr::Comment(ctx.text[comment.begin..comment.end].trim()));
                 }
             }
             let index = ctx.tree.paird_group_ends[i];
-            eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
+            // eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
             match node {
                 N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
                 N::HintExpr => {}
                 N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
+                N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
                 N::EndApply => {
                     let mut values = stack.drain_to_index(index);
                     let first = bump.alloc(values.next().unwrap());
@@ -2455,133 +2951,6 @@ mod tests {
         }
     }
 
-    // struct ExpectBuilder {
-    //     kinds: Vec<N>,
-    //     paird_group_ends: Vec<u32>,
-    // }
-
-    // impl ExpectBuilder {
-    //     fn new() -> ExpectBuilder {
-    //         ExpectBuilder {
-    //             kinds: Vec::new(),
-    //             paird_group_ends: Vec::new(),
-    //         }
-    //     }
-
-    //     fn consume_items(&mut self, items: &[ExpectAtom]) {
-    //         assert!(items.len() > 0);
-    //         assert!(!matches!(items.first().unwrap(), ExpectAtom::Seq(_)));
-    //         assert!(!matches!(items.last().unwrap(), ExpectAtom::Seq(_)));
-
-    //         let start = self.kinds.len();
-
-    //         for item in items {
-    //             match item {
-    //                 ExpectAtom::Seq(items) => self.consume_items(&items),
-    //                 ExpectAtom::Unit(kind) => {
-    //                     self.kinds.push(*kind);
-    //                     self.paird_group_ends.push(self.paird_group_ends.len() as u32);
-    //                 }
-    //                 ExpectAtom::Empty => {}
-    //                 ExpectAtom::Token(..) => todo!(),
-    //             }
-    //         }
-
-    //         let end = self.kinds.len();
-
-    //         if matches!(items.first().unwrap(), ExpectAtom::Unit(_) ) {
-    //             self.paird_group_ends[start] = end as u32;
-    //         }
-
-    //         if matches!(items.last().unwrap(), ExpectAtom::Unit(_) ) {
-    //             self.paird_group_ends[end - 1] = start as u32;
-    //         }
-    //     }
-
-    //     fn finish(mut self) -> Tree {
-    //         Tree {
-    //             kinds: self.kinds,
-    //             paird_group_ends: self.paird_group_ends,
-    //         }
-    //     }
-    // }
-
-    // fn build_expect(items: Vec<ExpectAtom>) -> Tree {
-    //     let mut b = ExpectBuilder::new();
-
-    //     b.consume_items(&items);
-
-    //     let t = b.finish();
-
-    //     let reconstituted = t.to_expect_atom();
-    //     match reconstituted {
-    //         ExpectAtom::Seq(new_items) => assert_eq!(items, new_items),
-    //         ExpectAtom::Unit(item) => assert_eq!(items, vec![ExpectAtom::Unit(item)]),
-    //         ExpectAtom::Empty => panic!(),
-    //         ExpectAtom::Token(..) => panic!(),
-    //     };
-
-    //     t
-    // }
-
-    // macro_rules! cvt_item {
-    //     (*)                 => { ExpectAtom::Empty };
-    //     ($item:ident)       => { ExpectAtom::Unit(N::$item) };
-    //     (($($items:tt)*))   => { ExpectAtom::Seq(vec![$(cvt_item!($items)),*]) };
-    // }
-
-    // macro_rules! expect {
-    //     ($($items:tt)*) => {{
-    //         build_expect(vec![$(cvt_item!($items)),*])
-    //     }};
-    // }
-
-    // fn unindentify(input: &[T]) -> (Vec<T>, Vec<Indent>) {
-    //     let mut output = Vec::new();
-    //     let mut indents = Vec::new();
-
-    //     let mut cur_indent = Indent::default();
-
-    //     // loop over tokens, incrementing indent level when we see an indent, and decrementing when we see a dedent
-    //     // when we see a newline, we add the current indent level to the indents list
-    //     // also remove indent/dedent tokens since the parser doesn't need them.
-
-    //     for &tok in input {
-    //         match tok {
-    //             T::Newline => {
-    //                 indents.push(cur_indent);
-    //                 output.push(tok);
-    //             }
-    //             T::Indent => {
-    //                 cur_indent.num_spaces += 1;
-    //             }
-    //             T::Dedent => {
-    //                 cur_indent.num_spaces -= 1;
-    //             }
-    //             _ => {
-    //                 output.push(tok);
-    //             }
-    //         }
-    //     }
-
-    //     (output, indents)
-    // }
-
-    // #[track_caller]
-    // fn decl_test(kinds: &[T], expected: Tree) {
-    //     let (kinds, indents) = unindentify(kinds);
-    //     let mut state = State::from_tokens(&kinds);
-    //     state.buf.indents = indents;
-    //     state.start_top_level_decls();
-    //     state.pump();
-    //     state.assert_end();
-
-    //     // assert_eq!(&state.tree.kinds, &expected.kinds);
-    //     // eprintln!("{:?}", state.tree.paird_group_ends);
-    //     // eprintln!("{:?}", expected.paird_group_ends);
-    //     assert_eq!(state.tree.to_expect_atom().debug_vis(), expected.to_expect_atom().debug_vis());
-    // }
-
     macro_rules! snapshot_test {
         ($text:expr) => {{
             let text = $text;
@@ -2594,6 +2963,7 @@ mod tests {
             state.start_top_level_decls();
             state.pump();
             state.assert_end();
+            assert_eq!(state.messages, vec![]);
 
             let tree_output = state.to_expect_atom().debug_vis();
 
@@ -2607,7 +2977,8 @@ mod tests {
                 canfmt.iter().map(|i| format!("{:?}", i)).collect::<Vec<_>>().join("\n")
             };
 
-            let format_output = pretty(&state.tree, &state.buf, text).text;
+            // let format_output = pretty(&state.tree, &state.buf, text).text;
+            let format_output = String::new(); // TODO!
 
             let output = format!("{}\n\n[=== canfmt below ===]\n{}\n\n[=== formatted below ===]\n{}",
                 tree_output,
@@ -2850,34 +3221,4535 @@ mod tests {
         ))
     }
 
+    // #[test]
+    // fn test_parse_all_files() {
+    //     // list all .roc files under ../test_syntax/tests/snapshots/pass
+    //     let files = std::fs::read_dir("../test_syntax/tests/snapshots/pass")
+    //         .unwrap()
+    //         .map(|res| res.map(|e| e.path()))
+    //         .collect::<Result<Vec<_>, std::io::Error>>()
+    //         .unwrap();
+
+    //     assert!(files.len() > 0, "no files found in ../test_syntax/tests/snapshots/pass");
+
+    //     for file in files {
+    //         // if the extension is not .roc, continue
+    //         if file.extension().map(|e| e != "roc").unwrap_or(true) {
+    //             continue;
+    //         }
+
+    //         eprintln!("parsing {:?}", file);
+    //         let text = std::fs::read_to_string(&file).unwrap();
+    //         eprintln!("---------------------\n{}\n---------------------", text);
+    //         let mut tokenizer = Tokenizer::new(&text);
+    //         tokenizer.tokenize(); // make sure we don't panic!
+    //         let tb = tokenizer.finish();
+    //         eprintln!("tokens: {:?}", tb.kinds);
+    //         let mut state = State::from_buf(tb);
+    //         state.start_file();
+    //         state.pump();
+    //         state.assert_end();
+    //     }
+    // }
+
     #[test]
-    fn test_parse_all_files() {
-        // list all .roc files under ../test_syntax/tests/snapshots/pass
-        let files = std::fs::read_dir("../test_syntax/tests/snapshots/pass")
-            .unwrap()
-            .map(|res| res.map(|e| e.path()))
-            .collect::<Result<Vec<_>, std::io::Error>>()
-            .unwrap();
+    fn test_where_clause_on_newline_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : a -> U64
+            |    where a implements Hash
+            |
+            |f
+            |
+            "#
+        ));
+    }
 
-        assert!(files.len() > 0, "no files found in ../test_syntax/tests/snapshots/pass");
+    #[test]
+    fn test_one_plus_two_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1+2
+            "#
+        ));
+    }
 
-        for file in files {
-            // if the extension is not .roc, continue
-            if file.extension().map(|e| e != "roc").unwrap_or(true) {
-                continue;
-            }
+    #[test]
+    fn test_nested_backpassing_no_newline_before_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |main =
+            |    task =
+            |        file <-
+            |            foo
+            |        bar
+            |    task
+            |42
+            "#
+        ));
+    }
 
-            eprintln!("parsing {:?}", file);
-            let text = std::fs::read_to_string(&file).unwrap();
-            eprintln!("---------------------\n{}\n---------------------", text);
-            let mut tokenizer = Tokenizer::new(&text);
-            tokenizer.tokenize(); // make sure we don't panic!
-            let tb = tokenizer.finish();
-            eprintln!("tokens: {:?}", tb.kinds);
-            let mut state = State::from_buf(tb);
-            state.start_file();
-            state.pump();
-            state.assert_end();
-        }
+    #[test]
+    fn test_tag_pattern_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |\Thing -> 42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_and_spaces_before_less_than_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x =
+            |    1
+            |    < 2
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_outdented_record_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x = foo {
+            |    bar: blah,
+            |}
+            |x
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_minimal_app_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "test-app" provides [] to "./blah"
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_after_paren_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(
+            |A)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_unary_not_with_parens_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |!(whee 12 foo)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_tuple_in_record_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when { foo: (1, 2) } is
+            |    { foo: (1, x) } -> x
+            |    { foo: (_, b) } -> 3 + b
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_unary_negation_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-foo
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_type_signature_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |foo : Int
+            |foo = 4
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_function_with_tuple_ext_type_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : (Str)a -> (Str)a
+            |f = \x -> x
+            |
+            |f ("Str", 42)
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multi_backpassing_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x, y <- List.map2 [] []
+            |
+            |x + y
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_simple_moduledefs() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Age := U8
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_closing_same_indent_no_trailing_comma_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |myList = [
+            |    0,
+            |    1
+            |]
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_call_with_newlines_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f
+            |    -5
+            |    2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_closing_indent_not_enough_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |myList = [
+            |    0,
+            |    [
+            |        a,
+            |        b,
+            |],
+            |    1,
+            |]
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_tag_in_def_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Z #
+            |h
+            | : a
+            |j
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_lambda_in_chain_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |"a string"
+            ||> Str.toUtf8
+            ||> List.map \byte -> byte + 1
+            ||> List.reverse
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_minus_twelve_minus_five_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-12 - 5
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_in_type_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |R
+            |:D
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_tuple_type_ext_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f: (Str, Str)a -> (Str, Str)a
+            |f = \x -> x
+            |
+            |f (1, 2)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_closure_with_underscores_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |\_, _name -> 42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_negative_in_apply_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a=A
+            | -g a
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ann_open_union_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |foo : [True, Perhaps Thing]*
+            |foo = True
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_before_sub_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3
+            |- 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_annotated_tag_destructure_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |UserId x : [UserId I64]
+            |(UserId x) = UserId 42
+            |
+            |x
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_unary_negation_arg_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |whee  12 -foo
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parenthetical_var_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |whee
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_one_backpassing_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |x <- (\y -> y)
+            |
+            |x
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_pattern_weird_indent_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when [] is
+            |    [1, 2, 3] -> ""
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_negative_float_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-42.9
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_value_def_confusion_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a : F
+            |F : h
+            |abc
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ability_demand_signature_is_multiline_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Hash implements
+            |    hash : a
+            |        -> U64
+            |
+            |1
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_with_type_arguments_moduledefs() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Bookmark a := { chapter: Str, stanza: Str, notes: a }
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_var_when_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |whenever
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_function_effect_types_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |platform "cli"
+            |    requires {}{ main : Task {} [] } # TODO FIXME
+            |    exposes []
+            |    packages {}
+            |    imports [ Task.{ Task } ]
+            |    provides [ mainForHost ]
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_apply_unary_not_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |!whee 12 foo
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_basic_apply_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |whee 1
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_minus_newlines_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[K,
+            |]-i
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_pattern_with_space_in_parens_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when Delmin (Del rx) 0 is
+            |    Delmin (Del ry) _ -> Node Black 0 Bool.false ry
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_closing_indent_not_enough_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |myList = [
+            |    0,
+            |    [
+            |        a,
+            |        b,
+            |    ],
+            |    1,
+            |]
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_underscore_backpassing_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |_ <- (\y -> y)
+            |
+            |4
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ann_closed_union_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |foo : [True, Perhaps Thing]
+            |foo = True
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_outdented_record_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x = foo {
+            |  bar: blah
+            |}
+            |x
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_record_destructure_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |{ x, y } = 5
+            |y = 6
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_space_only_after_minus_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x- y
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_minus_twelve_minus_five_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-12-5
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_basic_field_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |rec.field
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_add_var_with_spaces_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x + 2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_annotated_record_destructure_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{ x, y } : Foo
+            |{ x, y } = { x: "foo", y: 3.14 }
+            |
+            |x
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_string_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |""
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_ident_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |where : { where : I32 }
+            |where = { where: 1 }
+            |
+            |where.where
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_apply_parenthetical_tag_args_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Whee (12) (34)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_tuples_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when (1, 2) is
+            |    (1, x) -> x
+            |    (_, b) -> 3 + b
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_annotation_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |F:e#
+            |
+            |
+            |q
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_negative_numbers_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            | 1 -> 2
+            | -3 -> 4
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_in_type_def_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |R : D
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_var_minus_two_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x - 2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_reference_expr_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |@Age
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_equals_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x==y
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_var_is_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |isnt
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_function_effect_types_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |platform "cli"
+            |    requires {} { main : Task {} [] } # TODO FIXME
+            |    exposes []
+            |    packages {}
+            |    imports [Task.{ Task }]
+            |    provides [mainForHost]
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_pattern_weird_indent_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when [] is
+            |    [1, 2,
+            |3] -> ""
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiple_fields_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |rec.abc.def.ghi
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nonempty_hosted_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |hosted Foo
+            |    exposes
+            |        [
+            |            Stuff,
+            |            Things,
+            |            somethingElse,
+            |        ]
+            |    imports
+            |        [
+            |            Blah,
+            |            Baz.{ stuff, things },
+            |        ]
+            |    generates Bar with
+            |        [
+            |            map,
+            |            after,
+            |            loop,
+            |        ]
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_basic_tag_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Whee
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_before_operator_with_defs_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |7
+            |== (
+            |    Q : c
+            |    42
+            |)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_requires_type_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |platform "test/types"
+            |    requires { Flags, Model, } { main : App Flags Model }
+            |    exposes []
+            |    packages {}
+            |    imports []
+            |    provides [ mainForHost ]
+            |
+            |mainForHost : App Flags Model
+            |mainForHost = main
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_hosted_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |hosted Foo exposes [] imports [] generates Bar with []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiline_string_in_apply_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |e""""\""""
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_interface_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |interface Foo exposes [] imports []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_pattern_as_spaces_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when 0 is
+            |    0 # foobar
+            |        as # barfoo
+            |        n -> {}
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_clause_on_newline_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : a -> U64 where a implements Hash
+            |
+            |f
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_tuple_type_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f: (Str, Str) -> (Str, Str)
+            |f = \x -> x
+            |
+            |f (1, 2)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_underscore_in_assignment_pattern_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Pair x _ = Pair 0 1
+            |Pair _ y = Pair 0 1
+            |Pair _ _ = Pair 0 1
+            |_ = Pair 0 1
+            |Pair (Pair x _) (Pair _ y) = Pair (Pair 0 1) (Pair 2 3)
+            |
+            |0
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiline_type_signature_with_comment_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f :# comment
+            |    {}
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_basic_docs_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |## first line of docs
+            |##     second line
+            |##  third line
+            |## fourth line
+            |##
+            |## sixth line after doc new line
+            |x = 5
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_lambda_indent_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |\x ->
+            |  1
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_space_only_after_minus_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x - y
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parse_alias_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Blah a b : Foo.Bar.Baz x y
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_two_arg_closure_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |\a, b -> 42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_type_def_with_newline_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a : e
+            |Na :=
+            |    e
+            |e0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_in_type_alias_application_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |A:A
+            | A
+            |p
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_two_spaced_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |x = 5
+            |y = 6
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_record_func_type_decl_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : {
+            |    getLine : Effect Str,
+            |    putLine : Str -> Effect Int,
+            |    text : Str,
+            |    value : Int *,
+            |}
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_before_equals_def_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |t #
+            | = 3
+            |e
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_apply_three_args_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a b c d
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_module_def_newline_moduledefs_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |main =
+            |    i = 64
+            |
+            |    i
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_var_if_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |iffy
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_interface_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |interface Foo exposes [] imports []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_closure_in_binop_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a
+            |&& (\x -> x)
+            |    8
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_float_with_underscores_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-1_23_456.0_1_23_456
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nested_def_annotation_moduledefs() {
+        snapshot_test!(block_indentify(
+            r#"
+            |main =
+            |    wrappedNotEq : a, a -> Bool
+            |    wrappedNotEq = \num1, num2 ->
+            |        num1 != num2
+            |
+            |    wrappedNotEq 2 3
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_crash_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |_ = crash ""
+            |_ = crash "" ""
+            |_ = crash 15 123
+            |_ = try foo (\_ -> crash "")
+            |_ =
+            |    _ = crash ""
+            |    crash
+            |
+            |{ f: crash "" }
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parenthesized_type_def_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |D : b
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_apply_tag_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Whee 12 34
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_tuple_access_after_record_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{ a: (1, 2) }.a.0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_positive_int_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parenthesized_type_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(D):b
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_space_before_colon_full_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "example"
+            |    packages { pf: "path" }
+            |    imports [pf.Stdout]
+            |    provides [main] to pf
+            |
+            |main = Stdout.line "Hello"
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_def_moduledefs_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |foo = 1 # comment after
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_qualified_field_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |One.Two.rec.abc.def.ghi
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_before_equals_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |t#
+            |=3
+            |e
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_record_update_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{e&}
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_parens_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(when x is
+            |    Ok ->
+            |        3)
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multi_backpassing_in_def_moduledefs_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |main =
+            |    arg1, arg2 <- f {}
+            |    "Roc <3 Zig!\n"
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parens_in_value_def_annotation_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |i
+            |(#
+            |N):b
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_record_update_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{ Foo.Bar.baz & x: 5, y: 0 }
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_and_spaces_before_less_than_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x = 1
+            |    < 2
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_underscore_in_assignment_pattern_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(Pair x _) = Pair 0 1
+            |(Pair _ y) = Pair 0 1
+            |(Pair _ _) = Pair 0 1
+            |_ = Pair 0 1
+            |(Pair (Pair x _) (Pair _ y)) = Pair (Pair 0 1) (Pair 2 3)
+            |
+            |0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parens_in_type_def_apply_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |U(b a):b
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_inside_empty_list_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[
+            |]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_function_with_tuple_type_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : I64 -> (I64, I64)
+            |f = \x -> (x, x + 1)
+            |
+            |f 42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_control_characters_in_scalar_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |''
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiple_operators_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |31 * 42 + 534
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nested_module_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |interface Foo.Bar.Baz exposes [] imports []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiple_operators_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |31*42+534
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_call_with_newlines_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f
+            |-5
+            |2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_singleton_list_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[
+            |    1,
+            |]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_basic_var_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |whee
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_tuple_type_ext_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : (Str, Str)a -> (Str, Str)a
+            |f = \x -> x
+            |
+            |f (1, 2)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_full_app_header_trailing_commas_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "quicksort"
+            |    packages { pf: "./platform" }
+            |    imports [foo.Bar.{
+            |        Baz,
+            |        FortyTwo,
+            |        # I'm a happy comment
+            |    }]
+            |    provides [quicksort] to pf
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_negate_multiline_string_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-(
+            |    """
+            |    """)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_before_colon_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |w#
+            |:n
+            |Q
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_provides_type_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "test"
+            |    packages { pf: "./platform" }
+            |    imports [foo.Bar.Baz]
+            |    provides [quicksort] { Flags, Model } to pf
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_outdented_colon_in_record_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x = foo {
+            |    bar
+            |    : blah,
+            |}
+            |x
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_destructure_first_item_in_body_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |@Thunk it = id (@A {})
+            |it {}
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_annotated_tuple_destructure_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |( x, y ) : Foo
+            |( x, y ) = ( "foo", 3.14 )
+            |
+            |x
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_record_func_type_decl_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f :
+            |    {
+            |        getLine : Effect Str,
+            |        putLine : Str -> Effect Int,
+            |        text: Str,
+            |        value: Int *
+            |    }
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_requires_type_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |platform "test/types"
+            |    requires { Flags, Model } { main : App Flags Model }
+            |    exposes []
+            |    packages {}
+            |    imports []
+            |    provides [mainForHost]
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_before_colon_def_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |w #
+            | : n
+            |Q
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_pattern_as_list_rest_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when myList is
+            |    [first, .. as rest] -> 0
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_numbers_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    1 -> 2
+            |    3 -> 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_equals_with_spaces_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x == y
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nested_def_annotation_moduledefs_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |main =
+            |    wrappedNotEq : a, a -> Bool
+            |    wrappedNotEq = \num1, num2 ->
+            |        num1 != num2
+            |
+            |    wrappedNotEq 2 3
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nonempty_hosted_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |hosted Foo
+            |    exposes
+            |    [
+            |        Stuff,
+            |        Things,
+            |        somethingElse,
+            |    ]
+            |    imports
+            |    [
+            |        Blah,
+            |        Baz.{ stuff, things },
+            |    ]
+            |    generates Bar with
+            |    [
+            |        map,
+            |        after,
+            |        loop,
+            |    ]
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_sub_with_spaces_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1  -   2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_highest_float_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_with_non_ascii_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3  # 2 × 2
+            |+ 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_after_mul_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3  *
+            |  4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nested_def_without_newline_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x=a:n 4
+            |_
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_one_backpassing_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |x <- \y -> y
+            |
+            |x
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_outdented_app_with_record_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x = foo (baz {
+            |  bar: blah
+            |})
+            |x
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_alternative_patterns_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    "blah" | "blop" -> 1
+            |    "foo"
+            |    | "bar"
+            |    | "baz" -> 2
+            |
+            |    "stuff" -> 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_def_moduledefs() {
+        snapshot_test!(block_indentify(
+            r#"
+            |foo = 1 # comment after
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_interface_with_newline_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |interface T exposes [] imports []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_function_application_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    1 -> Num.neg
+            |     2
+            |    _ -> 4
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_zero_float_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |0.0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_simple_moduledefs_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Age := U8
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_destructure_first_item_in_body_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(@Thunk it) = id (@A {})
+            |it {}
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_parens_indented_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    Ok -> 3
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_app_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "test-app" packages {} imports [] provides [] to blah
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_extra_newline_in_parens_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |B : {}
+            |
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_highest_int_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |9223372036854775807
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_str_block_multiple_newlines_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |"""
+            |
+            |
+            |#
+            |""" #
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_apply_unary_negation_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-whee  12 foo
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nonempty_platform_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |platform "foo/barbaz"
+            |    requires {Model} { main : {} }
+            |    exposes []
+            |    packages { foo: "./foo" }
+            |    imports []
+            |    provides [ mainForHost ]
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiline_type_signature_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f :
+            |    {}
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_if_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |iffy=5
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_one_plus_two_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1 + 2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_dbg_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |dbg 1 == 1
+            |
+            |4
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_before_operator_with_defs_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |7
+            |==(Q:c 42)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_int_with_underscore_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1__23
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_bound_variable_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a:
+            |c 0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_function_python_style_indent_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |func = \x -> when n is
+            |    0 -> 0
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ability_single_line_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Hash implements hash : a -> U64 where a implements Hash
+            |
+            |1
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_add_with_spaces_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1  +   2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_op_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |12
+            |* # test!
+            |92
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_spaces_inside_empty_list_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[  ]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_spaces_inside_empty_list_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_expr_in_parens_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(i#abc
+            |)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_unary_negation_with_parens_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-(whee 12 foo)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_clause_multiple_has_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : a -> (b -> c) where a implements A, b implements Eq, c implements Ord
+            |
+            |f
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_record_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{}
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_clause_multiple_has_across_newlines_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : a -> (b -> c) where a implements Hash, b implements Eq, c implements Ord
+            |
+            |f
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_var_then_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |thenever
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parenthetical_basic_field_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(rec).field
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_crash_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |_ = crash ""
+            |_ = crash "" ""
+            |_ = crash 15 123
+            |_ = try foo (\_ -> crash "")
+            |_ =
+            |  _ = crash ""
+            |  crash
+            |
+            |{ f: crash "" }
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_reference_pattern_with_arguments_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when n is
+            |    @Add n m -> n + m
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_full_app_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "quicksort"
+            |    packages { pf: "./platform" }
+            |    imports [ foo.Bar.Baz ]
+            |    provides [ quicksort ] to pf
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_platform_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |platform "rtfeldman/blah" requires {} { main : {} } exposes [] packages {} imports [] provides []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_expect_fx_moduledefs() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# expecting some effects
+            |expect-fx 5 == 2
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_unary_negation_access_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-rec1.field
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_pattern_as_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when 0 is
+            |    _ as n -> n
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_pattern_with_space_in_parens_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when Delmin (Del rx) 0 is
+            |    Delmin (Del ry ) _ -> Node Black 0 Bool.false ry
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_def_without_newline_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a:b i
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiline_string_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a = "Hello,\n\nWorld!"
+            |b =
+            |    """
+            |    Hello,\n\nWorld!
+            |    """
+            |c =
+            |    """
+            |    Hello,
+            |
+            |    World!
+            |    """
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_app_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "test-app" packages {} imports [] provides [] to blah
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_closure_in_binop_with_spaces_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |i>\s->s
+            |-a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_negative_numbers_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    1 -> 2
+            |    -3 -> 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_before_add_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3
+            |+ 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_one_minus_two_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1-2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_lambda_indent_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |\x ->
+            |    1
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_tuple_accessor_function_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |.1 (1, 2, 3)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_sub_var_with_spaces_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x - 2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_destructure_tag_assignment_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(Email str) = Email "blah@example.com"
+            |str
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ops_with_newlines_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3
+            |+
+            |
+            |4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_inside_empty_list_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[#comment
+            |]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_outdented_colon_in_record_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x = foo {
+            |bar
+            |:
+            |blah
+            |}
+            |x
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_underscore_backpassing_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |_ <- \y -> y
+            |
+            |4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_clause_multiple_has_across_newlines_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : a -> (b -> c)
+            |    where a implements Hash,
+            |      b implements Eq,
+            |      c implements Ord
+            |
+            |f
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_function_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |func = \x -> when n is
+            |              0 -> 0
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_spaced_singleton_list_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[1]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_mixed_docs_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# ## not docs!
+            |## docs, but with a problem
+            |## (namely that this is a mix of docs and regular comments)
+            |# not docs
+            |x = 5
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parenthetical_field_qualified_var_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(One.Two.rec).field
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_one_minus_two_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1 - 2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_singleton_list_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[
+            |1
+            |]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_annotated_record_destructure_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{ x, y } : Foo
+            |{ x, y } = { x : "foo", y : 3.14 }
+            |
+            |x
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_mixed_docs_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |### not docs!
+            |## docs, but with a problem
+            |## (namely that this is a mix of docs and regular comments)
+            |# not docs
+            |x = 5
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_package_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |package "rtfeldman/blah" exposes [] packages {}
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_bound_variable_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a :
+            |    c
+            |0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nonempty_platform_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |platform "foo/barbaz"
+            |    requires { Model } { main : {} }
+            |    exposes []
+            |    packages { foo: "./foo" }
+            |    imports []
+            |    provides [mainForHost]
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_one_def_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |x = 5
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_records_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            | { y } -> 2
+            | { z, w } -> 4
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_var_minus_two_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x-2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_unary_negation_arg_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |whee 12 -foo
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nonempty_package_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |package "foo/barbaz"
+            |    exposes [Foo, Bar]
+            |    packages { foo: "./foo" }
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_apply_two_args_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |whee  12  34
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_sub_with_spaces_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1 - 2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_ident_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |where : {where: I32}
+            |where = {where: 1}
+            |
+            |where.where
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_negate_multiline_string_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-""""""
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_pos_inf_float_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |inf
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_parens_indented_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(when x is
+            |    Ok -> 3
+            |     )
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multi_backpassing_with_apply_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |F 1, r <- a
+            |W
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_apply_two_args_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |whee 12 34
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_annotated_tuple_destructure_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(x, y) : Foo
+            |(x, y) = ("foo", 3.14)
+            |
+            |x
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_standalone_module_defs_moduledefs_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# comment 1
+            |foo = 1
+            |
+            |# comment 2
+            |bar = "hi"
+            |baz = "stuff"
+            |# comment n
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_fn_with_record_arg_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |table : {
+            |    height : Pixels
+            |    } -> Table
+            |table = \{height} -> crash "not implemented"
+            |table
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_annotation_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |F : e #
+            |
+            |q
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_space_before_colon_full() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "example"
+            |    packages { pf : "path" }
+            |    imports [ pf.Stdout ]
+            |    provides [ main ] to pf
+            |
+            |main = Stdout.line "Hello"
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_positive_float_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |42.9
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_expect_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |expect
+            |    1 == 1
+            |
+            |4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_record_type_with_function_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x : { init : {} -> Model, update : Model, Str -> Model, view : Model -> Str }
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_value_def_confusion_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a:F
+            |F
+            |:h
+            |abc
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_negate_multiline_string_with_quote_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-""""<"""
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_single_arg_closure_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |\a -> 42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_clause_function_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : a -> (b -> c) where a implements A
+            |
+            |f
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_list_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_number_literal_suffixes_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{
+            |    u8: 123u8,
+            |    u16: 123u16,
+            |    u32: 123u32,
+            |    u64: 123u64,
+            |    u128: 123u128,
+            |    i8: 123i8,
+            |    i16: 123i16,
+            |    i32: 123i32,
+            |    i64: 123i64,
+            |    i128: 123i128,
+            |    nat: 123nat,
+            |    dec: 123dec,
+            |    u8Neg: -123u8,
+            |    u16Neg: -123u16,
+            |    u32Neg: -123u32,
+            |    u64Neg: -123u64,
+            |    u128Neg: -123u128,
+            |    i8Neg: -123i8,
+            |    i16Neg: -123i16,
+            |    i32Neg: -123i32,
+            |    i64Neg: -123i64,
+            |    i128Neg: -123i128,
+            |    natNeg: -123nat,
+            |    decNeg: -123dec,
+            |    u8Bin: 0b101u8,
+            |    u16Bin: 0b101u16,
+            |    u32Bin: 0b101u32,
+            |    u64Bin: 0b101u64,
+            |    u128Bin: 0b101u128,
+            |    i8Bin: 0b101i8,
+            |    i16Bin: 0b101i16,
+            |    i32Bin: 0b101i32,
+            |    i64Bin: 0b101i64,
+            |    i128Bin: 0b101i128,
+            |    natBin: 0b101nat,
+            |}
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_before_op_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3  # test!
+            |+ 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nested_if_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |if t1 then
+            |  1
+            |else if t2 then
+            |  2
+            |else
+            |  3
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_after_sub_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3  -
+            |  4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_fn_with_record_arg_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |table :
+            |    {
+            |        height : Pixels,
+            |    }
+            |    -> Table
+            |table = \{ height } -> crash "not implemented"
+            |table
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ability_demand_signature_is_multiline_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Hash implements
+            |  hash : a
+            |         -> U64
+            |
+            |1
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_annotated_tag_destructure_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |UserId x : [ UserId I64 ]
+            |UserId x = UserId 42
+            |
+            |x
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_negative_int_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiline_tuple_with_comments_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(
+            |    #before 1
+            |    1
+            |    #after 1
+            |    ,
+            |    #before 2
+            |    2
+            |    #after 2
+            |    ,
+            |    #before 3
+            |    3
+            |    # after 3
+            |)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_tuples_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when (1, 2) is
+            | (1, x) -> x
+            | (_, b) -> 3 + b
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_has_abilities_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |A := U8 implements [Eq, Hash]
+            |
+            |A := a where a implements Other
+            |    implements [Eq, Hash]
+            |
+            |A := a where a implements Other
+            |    implements [Eq, Hash]
+            |
+            |A := U8 implements [Eq { eq }, Hash { hash }]
+            |
+            |A := U8 implements [Eq { eq, eq1 }]
+            |
+            |A := U8 implements [Eq { eq, eq1 }, Hash]
+            |
+            |A := U8 implements [Hash, Eq { eq, eq1 }]
+            |
+            |A := U8 implements []
+            |
+            |A := a where a implements Other
+            |    implements [Eq { eq }, Hash { hash }]
+            |
+            |A := U8 implements [Eq {}]
+            |
+            |0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_negative_in_apply_def_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a = A
+            |    -g
+            |    a
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_lowest_int_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-9223372036854775808
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nested_if_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |if t1 then
+            |    1
+            |else if t2 then
+            |    2
+            |else
+            |    3
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_reference_expr_with_arguments_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |@Age m n
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_unary_not_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |!blah
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_not_multiline_string_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |!
+            |"""
+            |"""
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_expect_fx_moduledefs_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# expecting some effects
+            |expect-fx 5 == 2
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_packed_singleton_list_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[1]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parenthetical_apply_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(whee) 1
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_dbg_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |dbg
+            |    1 == 1
+            |
+            |4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_not_multiline_string_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |!""""""
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_def_without_newline_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a : b
+            |i
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_tag_in_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Z#
+            |h
+            |:a
+            |j
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ten_times_eleven_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |10*11
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiline_type_signature_with_comment_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f :
+            |    # comment
+            |    {}
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_apply_unary_not_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |!whee  12 foo
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nonempty_package_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |package "foo/barbaz"
+            |    exposes [Foo, Bar]
+            |    packages { foo: "./foo" }
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_record_update_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{ e &  }
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_spaced_singleton_list_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[ 1 ]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ability_multi_line_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Hash implements
+            |  hash : a -> U64
+            |  hash2 : a -> U64
+            |
+            |1
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_type_def_with_newline_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a:e
+            |Na:=
+            | e e0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parse_as_ann_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |foo : Foo.Bar.Baz x y as Blah a b
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_tuple_in_record_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when {foo: (1, 2)} is
+            | {foo: (1, x)} -> x
+            | {foo: (_, b)} -> 3 + b
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parens_in_value_def_annotation_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |i #
+            |N : b
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_zero_int_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_plus_when_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1
+            |+
+            |when Foo is
+            |    Foo -> 2
+            |    Bar -> 3
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_if_def_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |iffy = 5
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_add_with_spaces_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1 + 2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_with_non_ascii_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3 # 2 × 2
+            |+ 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_full_app_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "quicksort"
+            |    packages { pf: "./platform" }
+            |    imports [foo.Bar.Baz]
+            |    provides [quicksort] to pf
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_not_docs_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# ######
+            |# ## not docs!
+            |# #still not docs
+            |# #####
+            |x = 5
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_three_arg_closure_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |\a, b, c -> 42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_function_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |func = \x ->
+            |    when n is
+            |        0 -> 0
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_closing_same_indent_with_trailing_comma_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |myList = [
+            |    0,
+            |    1,
+            |]
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_extra_newline_in_parens_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |B:{}
+            |
+            |(
+            |a)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_after_equals_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x =
+            |    5
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_unary_not_with_parens_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |!(whee  12 foo)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_two_branch_when_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            | "" -> 1
+            | "mise" -> 2
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_string_without_escape_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |"123 abc 456 def"
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multi_backpassing_with_apply_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(F 1), r <- a
+            |W
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiline_tuple_with_comments_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(
+            |    # before 1
+            |    1,
+            |    # after 1
+            |    # before 2
+            |    2,
+            |    # after 2
+            |    # before 3
+            |    3,
+            |    # after 3
+            |)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_patterns_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when [] is
+            |  [] -> {}
+            |  [..] -> {}
+            |  [_, .., _, ..] -> {}
+            |  [a, b, c, d] -> {}
+            |  [a, b, ..] -> {}
+            |  [.., c, d] -> {}
+            |  [[A], [..], [a]] -> {}
+            |  [[[], []], [[], x]] -> {}
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_parens_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    Ok ->
+            |        3
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_unary_negation_with_parens_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-(whee  12 foo)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_record_access_after_tuple_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |({a: 0}, {b: 1}).0.a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_outdented_list_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a = [
+            |  1, 2, 3
+            |]
+            |a
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multi_backpassing_in_def_moduledefs() {
+        snapshot_test!(block_indentify(
+            r#"
+            |main =
+            |    arg1, arg2 <- f {}
+            |    "Roc <3 Zig!\n"
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_plus_if_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1 * if Bool.true then 1 else 1
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_closure_in_binop_with_spaces_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |i
+            |> (\s -> s
+            |)
+            |    -a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_if_guard_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    _ ->
+            |        1
+            |
+            |    _ ->
+            |        2
+            |
+            |    Ok ->
+            |        3
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_reference_pattern_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when n is
+            |  @Age -> 1
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_basic_tuple_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(1, 2, 3)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_standalone_module_defs_moduledefs() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# comment 1
+            |foo = 1
+            |
+            |# comment 2
+            |bar = "hi"
+            |baz = "stuff"
+            |# comment n
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_in_packages_full_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "hello"
+            |    packages {
+            |        pf:
+            |        "https://github.com/roc-lang/basic-cli/releases/download/0.7.0/bkGby8jb0tmZYsy2hg1E_B2QrCgcSTxdUlHtETwm5m4.tar.br",
+            |    }
+            |    imports [pf.Stdout]
+            |    provides [main] to pf
+            |
+            |main =
+            |    Stdout.line "I'm a Roc application!"
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_reference_pattern_with_arguments_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when n is
+            |  @Add n m -> n + m
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_tuple_access_after_ident_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |abc = (1, 2, 3)
+            |abc.0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_records_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    { y } -> 2
+            |    { z, w } -> 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_neg_inf_float_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-inf
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_var_else_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |elsewhere
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_type_decl_with_underscore_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |doStuff : UserId -> Task Str _
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_equals_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x == y
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_one_spaced_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |x = 5
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_apply_unary_negation_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-whee 12 foo
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_type_signature_function_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |foo : Int, Float -> Bool
+            |foo = \x, _ -> 42
+            |
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_qualified_var_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |One.Two.whee
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nested_backpassing_no_newline_before_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |main =
+            |    task = file <-
+            |                foo
+            |            bar
+            |    task
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_record_with_if_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{ x: if Bool.true then 1 else 2, y: 3 }
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_lowest_float_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_destructure_tag_assignment_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Email str = Email "blah@example.com"
+            |str
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_not_docs_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |#######
+            |### not docs!
+            |##still not docs
+            |######
+            |x = 5
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_plus_when_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |1 +
+            |    when Foo is
+            |        Foo -> 2
+            |        Bar -> 3
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_closure_in_binop_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a && \x->x
+            |8
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiline_string_in_apply_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |e
+            |    """
+            |    "\"
+            |    """
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_inside_empty_list_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[ # comment
+            |]
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_full_app_header_trailing_commas_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "quicksort"
+            |    packages { pf: "./platform", }
+            |    imports [ foo.Bar.{
+            |        Baz,
+            |        FortyTwo,
+            |        # I'm a happy comment
+            |    } ]
+            |    provides [ quicksort, ] to pf
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_two_backpassing_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |x <- \y -> y
+            |z <- {}
+            |
+            |x
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_in_type_alias_application_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |A : A
+            |    A
+            |p
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parenthesized_type_def_space_before_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(
+            |A):b
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_alternative_patterns_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            | "blah" | "blop" -> 1
+            | "foo" |
+            |  "bar"
+            | |"baz" -> 2
+            | "stuff" -> 4
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_negate_multiline_string_with_quote_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |-(
+            |    """
+            |    "<
+            |    """)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_control_characters_in_scalar_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |'\u(7)'
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ten_times_eleven_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |10 * 11
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_minimal_app_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "test-app" provides [] to "./blah"
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nested_module_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |interface Foo.Bar.Baz exposes [] imports []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_function_python_style_indent_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |func = \x ->
+            |    when n is
+            |        0 -> 0
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_reference_pattern_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when n is
+            |    @Age -> 1
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_op_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |12  * # test!
+            | 92
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parenthesized_type_def_space_before_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |A : b
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_with_type_arguments_moduledefs_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Bookmark a := { chapter : Str, stanza : Str, notes : a }
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_closing_same_indent_no_trailing_comma_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |myList = [
+            |    0,
+            |    1,
+            |]
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parenthetical_var_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |(whee)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_str_block_multiple_newlines_expr() {
+        snapshot_test!(block_indentify(
+            r###"
+            |"""
+            |
+            |
+            |#"""#
+            "###
+        ));
+    }
+
+    #[test]
+    fn test_list_patterns_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when [] is
+            |    [] -> {}
+            |    [..] -> {}
+            |    [_, .., _, ..] -> {}
+            |    [a, b, c, d] -> {}
+            |    [a, b, ..] -> {}
+            |    [.., c, d] -> {}
+            |    [[A], [..], [a]] -> {}
+            |    [[[], []], [[], x]] -> {}
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_platform_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |platform "rtfeldman/blah" requires {} { main : {} } exposes [] packages {} imports [] provides []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_interface_with_newline_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |interface T exposes [] imports []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_after_sub_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3
+            |-
+            |4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_after_mul_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3
+            |*
+            |4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_provides_type_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "test"
+            |    packages { pf: "./platform" }
+            |    imports [ foo.Bar.Baz ]
+            |    provides [ quicksort ] { Flags, Model, } to pf
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ability_multi_line_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Hash implements
+            |    hash : a -> U64
+            |    hash2 : a -> U64
+            |
+            |1
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_clause_non_function_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : a where a implements A
+            |
+            |f
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ops_with_newlines_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3
+            |+
+            |
+            |  4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_record_with_if_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{x : if Bool.true then 1 else 2, y: 3 }
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_after_paren_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |A
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_record_access_after_tuple_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |({ a: 0 }, { b: 1 }).0.a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_single_underscore_closure_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |\\_ -> 42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_hosted_header_header() {
+        snapshot_test!(block_indentify(
+            r#"
+            |hosted Foo exposes [] imports [] generates Bar with []
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multi_char_string_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |"foo"
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_opaque_has_abilities_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |A := U8 implements [Eq, Hash]
+            |
+            |A := a where a implements Other implements [Eq, Hash]
+            |
+            |A := a where a implements Other
+            |     implements [Eq, Hash]
+            |
+            |A := U8 implements [Eq {eq}, Hash {hash}]
+            |
+            |A := U8 implements [Eq {eq, eq1}]
+            |
+            |A := U8 implements [Eq {eq, eq1}, Hash]
+            |
+            |A := U8 implements [Hash, Eq {eq, eq1}]
+            |
+            |A := U8 implements []
+            |
+            |A := a where a implements Other
+            |     implements [Eq {eq}, Hash {hash}]
+            |
+            |A := U8 implements [Eq {}]
+            |
+            |0
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_outdented_app_with_record_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x = foo
+            |    (
+            |        baz {
+            |            bar: blah,
+            |        }
+            |    )
+            |x
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_multiline_string_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a = "Hello,\n\nWorld!"
+            |b = """Hello,\n\nWorld!"""
+            |c =
+            |    """
+            |    Hello,
+            |
+            |    World!
+            |    """
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_empty_package_header_header_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |package "rtfeldman/blah" exposes [] packages {}
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_numbers_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            | 1 -> 2
+            | 3 -> 4
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_one_def_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |x=5
+            |
+            |42
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_after_expr_in_parens_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |i # abc
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_list_minus_newlines_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |[
+            |    K,
+            |]
+            |- i
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_assignment_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x =
+            |    when n is
+            |        0 -> 0
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_nested_def_without_newline_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x =
+            |    a : n
+            |    4
+            |_
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_newline_in_packages_full() {
+        snapshot_test!(block_indentify(
+            r#"
+            |app "hello"
+            |    packages { pf:
+            |"https://github.com/roc-lang/basic-cli/releases/download/0.7.0/bkGby8jb0tmZYsy2hg1E_B2QrCgcSTxdUlHtETwm5m4.tar.br"
+            |}
+            |    imports [pf.Stdout]
+            |    provides [main] to pf
+            |
+            |main =
+            |    Stdout.line "I'm a Roc application!"
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_outdented_list_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |a = [
+            |    1,
+            |    2,
+            |    3,
+            |]
+            |a
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_one_char_string_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |"x"
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_tuple_type_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : (Str, Str) -> (Str, Str)
+            |f = \x -> x
+            |
+            |f (1, 2)
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_expect_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |expect 1 == 1
+            |
+            |4
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_with_function_application_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    1 ->
+            |        Num.neg
+            |            2
+            |
+            |    _ -> 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_when_in_assignment_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |x = when n is
+            |     0 -> 0
+            |42
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_clause_multiple_bound_abilities_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : a -> b where a implements Hash & Eq, b implements Eq & Hash & Display
+            |
+            |f : a -> b
+            |  where a implements Hash & Eq,
+            |    b implements Hash & Display & Eq
+            |
+            |f
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_two_backpassing_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |# leading comment
+            |x <- (\y -> y)
+            |z <- {}
+            |
+            |x
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_two_branch_when_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |when x is
+            |    "" -> 1
+            |    "mise" -> 2
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_ability_two_in_a_row_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |Ab1 implements ab1 : a -> {} where a implements Ab1
+            |
+            |Ab2 implements ab2 : a -> {} where a implements Ab2
+            |
+            |1
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_where_clause_multiple_bound_abilities_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |f : a -> b where a implements Hash & Eq, b implements Eq & Hash & Display
+            |
+            |f : a -> b where a implements Hash & Eq, b implements Hash & Display & Eq
+            |
+            |f
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_number_literal_suffixes_expr() {
+        snapshot_test!(block_indentify(
+            r#"
+            |{
+            |  u8:   123u8,
+            |  u16:  123u16,
+            |  u32:  123u32,
+            |  u64:  123u64,
+            |  u128: 123u128,
+            |  i8:   123i8,
+            |  i16:  123i16,
+            |  i32:  123i32,
+            |  i64:  123i64,
+            |  i128: 123i128,
+            |  nat:  123nat,
+            |  dec:  123dec,
+            |  u8Neg:   -123u8,
+            |  u16Neg:  -123u16,
+            |  u32Neg:  -123u32,
+            |  u64Neg:  -123u64,
+            |  u128Neg: -123u128,
+            |  i8Neg:   -123i8,
+            |  i16Neg:  -123i16,
+            |  i32Neg:  -123i32,
+            |  i64Neg:  -123i64,
+            |  i128Neg: -123i128,
+            |  natNeg:  -123nat,
+            |  decNeg:  -123dec,
+            |  u8Bin:   0b101u8,
+            |  u16Bin:  0b101u16,
+            |  u32Bin:  0b101u32,
+            |  u64Bin:  0b101u64,
+            |  u128Bin: 0b101u128,
+            |  i8Bin:   0b101i8,
+            |  i16Bin:  0b101i16,
+            |  i32Bin:  0b101i32,
+            |  i64Bin:  0b101i64,
+            |  i128Bin: 0b101i128,
+            |  natBin:  0b101nat,
+            |}
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_module_def_newline_moduledefs() {
+        snapshot_test!(block_indentify(
+            r#"
+            |main =
+            |    i = 64
+            |
+            |    i
+            |
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_comment_before_op_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |3 # test!
+            |+ 4
+            "#
+        ));
+    }
+
+    #[test]
+    fn test_parens_in_type_def_apply_expr_formatted() {
+        snapshot_test!(block_indentify(
+            r#"
+            |U (b a) : b
+            |a
+            "#
+        ));
     }
 }

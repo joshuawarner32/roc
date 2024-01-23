@@ -1,0 +1,11 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "9223372036854775807\n"
+---
+(BeginTopLevelDecls HintExpr Num=>IntBase10@0 EndTopLevelDecls)
+
+[=== canfmt below ===]
+IntBase10("9223372036854775807")
+
+[=== formatted below ===]
+

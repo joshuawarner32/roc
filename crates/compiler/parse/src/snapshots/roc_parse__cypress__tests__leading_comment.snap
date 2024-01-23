@@ -9,4 +9,4 @@ Comment("# hello")
 Ident("abc")
 
 [=== formatted below ===]
-abc
+

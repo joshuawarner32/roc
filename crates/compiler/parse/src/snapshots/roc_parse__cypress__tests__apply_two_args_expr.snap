@@ -1,20 +1,20 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: abc def ghi
+description: "whee  12  34\n"
 ---
 (BeginTopLevelDecls
     (*
         HintExpr
         Ident=>LowerIdent@0
         InlineApply=>LowerIdent@0
-        Ident=>LowerIdent@1
-        InlineApply=>LowerIdent@1
-        Ident=>LowerIdent@2
+        Num=>IntBase10@1
+        InlineApply=>IntBase10@1
+        Num=>IntBase10@2
     EndApply)
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Apply(Ident("abc"), [Ident("def"), Ident("ghi")])
+Apply(Ident("whee"), [IntBase10("12"), IntBase10("34")])
 
 [=== formatted below ===]
 

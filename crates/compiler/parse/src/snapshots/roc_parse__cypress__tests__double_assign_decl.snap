@@ -20,5 +20,4 @@ Assign("abc", Ident("def"))
 Assign("ghi", Ident("jkl"))
 
 [=== formatted below ===]
-abc = def
-ghi = jkl
+

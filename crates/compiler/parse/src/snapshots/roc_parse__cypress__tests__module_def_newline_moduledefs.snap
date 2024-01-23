@@ -1,6 +1,6 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: "abc =\n    def = ghi\n    jkl\n"
+description: "main =\n    i = 64\n\n    i\n\n"
 ---
 (BeginTopLevelDecls
     (BeginAssign
@@ -10,7 +10,7 @@ description: "abc =\n    def = ghi\n    jkl\n"
             (BeginAssign
                 Ident=>LowerIdent@3
                 InlineAssign=>OpAssign@4
-                Ident=>LowerIdent@5
+                Num=>IntBase10@5
             EndAssign)
             HintExpr
             Ident=>LowerIdent@7
@@ -19,7 +19,7 @@ description: "abc =\n    def = ghi\n    jkl\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Assign("abc", Block([Assign("def", Ident("ghi")), Ident("jkl")]))
+Assign("main", Block([Assign("i", IntBase10("64")), Ident("i")]))
 
 [=== formatted below ===]
 

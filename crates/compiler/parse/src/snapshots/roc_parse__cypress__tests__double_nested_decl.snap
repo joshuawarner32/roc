@@ -22,8 +22,4 @@ EndTopLevelDecls)
 Assign("a", Block([Assign("b", Block([Ident("c")])), Ident("d")]))
 
 [=== formatted below ===]
-a =
-    b =
-        c
 
-    d

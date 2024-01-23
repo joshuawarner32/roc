@@ -18,5 +18,4 @@ EndTopLevelDecls)
 Assign("abc", Lambda([Ident("def")], Block([Ident("ghi")])))
 
 [=== formatted below ===]
-abc = \def ->
-    ghi
+

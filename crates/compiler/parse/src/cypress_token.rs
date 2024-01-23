@@ -279,7 +279,7 @@ impl<'a> Tokenizer<'a> {
                         }
                         Some(b @ b'0'..=b'9') => {
                             self.cursor.offset += 2;
-                            let tok = self.cursor.chomp_number(b, true);
+                            let tok = self.cursor.chomp_number(b);
                             // we start at the original offset, not the offset after the '-'
                             self.output
                                 .push_token(tok, offset, self.cursor.offset - offset);
@@ -348,35 +348,20 @@ impl<'a> Tokenizer<'a> {
                 }
 
                 b'(' => simple_token!(1, OpenRound),
-                b')' => match self.cursor.peek_at(1) {
-                    None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => {
-                        simple_token!(1, CloseRound)
-                    }
-                    _ => {
-                        simple_token!(1, CloseRound);
-                        self.output.push_token(T::NoSpace, offset, 0);
-                    }
-                },
+                b')' => {
+                    simple_token!(1, CloseRound);
+                    self.maybe_add_nospace();
+                }
                 b'[' => simple_token!(1, OpenSquare),
-                b']' => match self.cursor.peek_at(1) {
-                    None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => {
-                        simple_token!(1, CloseSquare)
-                    }
-                    _ => {
-                        simple_token!(1, CloseSquare);
-                        self.output.push_token(T::NoSpace, offset, 0);
-                    }
-                },
+                b']' => {
+                    simple_token!(1, CloseSquare);
+                    self.maybe_add_nospace();
+                }
                 b'{' => simple_token!(1, OpenCurly),
-                b'}' => match self.cursor.peek_at(1) {
-                    None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => {
-                        simple_token!(1, CloseCurly)
-                    }
-                    _ => {
-                        simple_token!(1, CloseCurly);
-                        self.output.push_token(T::NoSpace, offset, 0);
-                    }
-                },
+                b'}' => {
+                    simple_token!(1, CloseCurly);
+                    self.maybe_add_nospace();
+                }
 
                 b'_' => {
                     match self.cursor.peek_at(1) {
@@ -418,7 +403,7 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
 
-                b'0'..=b'9' => push_token!(self.cursor.chomp_number(b, false)),
+                b'0'..=b'9' => push_token!(self.cursor.chomp_number(b)),
 
                 b'a'..=b'z' => push_token!(self.cursor.chomp_ident_lower()),
 
@@ -437,6 +422,15 @@ impl<'a> Tokenizer<'a> {
                     self.cursor.offset += 1;
                     continue;
                 }
+            }
+        }
+    }
+
+    fn maybe_add_nospace(&mut self) {
+        match self.cursor.peek() {
+            None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#' | b',' | b']' | b'}' | b')' | b'-') => {}
+            _ => {
+                self.output.push_token(T::NoSpace, self.cursor.offset, 0);
             }
         }
     }
@@ -552,8 +546,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         }
     }
 
-    fn chomp_number(&mut self, b: u8, neg: bool) -> T {
-        let start = self.offset;
+    fn chomp_number(&mut self, b: u8) -> T {
         self.offset += 1;
 
         macro_rules! maybe_message_for_uppercase_base {
@@ -569,32 +562,32 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
 
         let tok = if b == b'0' {
             match self.peek() {
-                Some(b @ (b'x' | b'X')) => {
+                Some(b'x' | b'X') => {
                     maybe_message_for_uppercase_base!(b);
                     self.offset += 1;
-                    self.chomp_number_base16(start)
+                    self.chomp_integer_base16()
                 }
-                Some(b @ (b'o' | b'O')) => {
+                Some(b'o' | b'O') => {
                     maybe_message_for_uppercase_base!(b);
                     self.offset += 1;
-                    self.chomp_number_base8(start)
+                    self.chomp_integer_base8()
                 }
-                Some(b @ (b'b' | b'B')) => {
+                Some(b'b' | b'B') => {
                     maybe_message_for_uppercase_base!(b);
                     self.offset += 1;
-                    self.chomp_number_base2(start)
+                    self.chomp_integer_base2()
                 }
                 Some(b'0'..=b'9') => {
                     self.messages.push(Message {
                         kind: MessageKind::LeadingZero,
                         offset: self.offset as u32,
                     });
-                    self.chomp_number_base10(start)
+                    self.chomp_number_base10()
                 }
                 _ => T::IntBase10,
             }
         } else {
-            self.chomp_number_base10(start)
+            self.chomp_number_base10()
         };
 
         // TODO: check for trailing ident chars
@@ -602,18 +595,27 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         tok
     }
 
-    fn chomp_number_base10(&mut self, start: usize) -> T {
+    fn chomp_number_base10(&mut self) -> T {
+        self.chomp_integer_base10();
+        if self.peek() == Some(b'.') {
+            self.offset += 1;
+            self.chomp_integer_base10();
+            T::Float
+        } else {
+            T::IntBase10
+        }
+    }
+
+    fn chomp_integer_base10(&mut self) {
         while let Some(b) = self.peek() {
             match b {
                 b'0'..=b'9' => self.offset += 1,
                 _ => break,
             }
         }
-
-        T::IntBase10
     }
 
-    fn chomp_number_base16(&mut self, start: usize) -> T {
+    fn chomp_integer_base16(&mut self) -> T {
         while let Some(b) = self.peek() {
             match b {
                 b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => self.offset += 1,
@@ -624,7 +626,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         T::IntNonBase10
     }
 
-    fn chomp_number_base8(&mut self, start: usize) -> T {
+    fn chomp_integer_base8(&mut self) -> T {
         while let Some(b) = self.peek() {
             match b {
                 b'0'..=b'7' => self.offset += 1,
@@ -635,7 +637,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         T::IntNonBase10
     }
 
-    fn chomp_number_base2(&mut self, start: usize) -> T {
+    fn chomp_integer_base2(&mut self) -> T {
         while let Some(b) = self.peek() {
             match b {
                 b'0' | b'1' => self.offset += 1,
@@ -857,10 +859,6 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                 offset: self.offset as u32,
             });
         }
-    }
-
-    fn at_eof(&self) -> bool {
-        self.offset >= self.buf.len()
     }
 }
 

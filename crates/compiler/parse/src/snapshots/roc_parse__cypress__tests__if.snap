@@ -6,9 +6,9 @@ description: if abc then def else ghi
     HintExpr
     (BeginIf
         Ident=>LowerIdent@1
-        InlineThen=>KwThen@2
+        InlineKwThen=>KwThen@2
         Ident=>LowerIdent@3
-        InlineElse=>KwElse@4
+        InlineKwElse=>KwElse@4
         Ident=>LowerIdent@5
     EndIf)
 EndTopLevelDecls)
@@ -17,7 +17,4 @@ EndTopLevelDecls)
 If(Ident("abc"), Ident("def"), Ident("ghi"))
 
 [=== formatted below ===]
-if abc then
-    def
-else
-    ghi
+

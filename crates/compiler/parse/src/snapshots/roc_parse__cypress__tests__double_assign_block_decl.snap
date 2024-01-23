@@ -20,8 +20,4 @@ Assign("abc", Block([Ident("def")]))
 Assign("ghi", Block([Ident("jkl")]))
 
 [=== formatted below ===]
-abc =
-    def
 
-ghi =
-    jkl

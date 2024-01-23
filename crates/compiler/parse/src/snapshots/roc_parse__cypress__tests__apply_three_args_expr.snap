@@ -1,6 +1,6 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: abc def ghi
+description: "a b c d\n"
 ---
 (BeginTopLevelDecls
     (*
@@ -10,11 +10,13 @@ description: abc def ghi
         Ident=>LowerIdent@1
         InlineApply=>LowerIdent@1
         Ident=>LowerIdent@2
+        InlineApply=>LowerIdent@2
+        Ident=>LowerIdent@3
     EndApply)
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Apply(Ident("abc"), [Ident("def"), Ident("ghi")])
+Apply(Ident("a"), [Ident("b"), Ident("c"), Ident("d")])
 
 [=== formatted below ===]
 

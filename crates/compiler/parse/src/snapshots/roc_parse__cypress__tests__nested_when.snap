@@ -6,14 +6,14 @@ description: "when abc is def ->\n    when ghi is jkl ->\n        mno\n"
     HintExpr
     (BeginWhen
         Ident=>LowerIdent@1
-        InlineIs=>KwIs@2
+        InlineKwIs=>KwIs@2
         Ident=>LowerIdent@3
         InlineWhenArrow=>OpArrow@4
         (BeginBlock
             HintExpr
             (BeginWhen
                 Ident=>LowerIdent@7
-                InlineIs=>KwIs@8
+                InlineKwIs=>KwIs@8
                 Ident=>LowerIdent@9
                 InlineWhenArrow=>OpArrow@10
                 (BeginBlock HintExpr Ident=>LowerIdent@12 EndBlock)

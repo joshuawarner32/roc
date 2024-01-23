@@ -6,7 +6,7 @@ description: when abc is def -> ghi
     HintExpr
     (BeginWhen
         Ident=>LowerIdent@1
-        InlineIs=>KwIs@2
+        InlineKwIs=>KwIs@2
         Ident=>LowerIdent@3
         InlineWhenArrow=>OpArrow@4
         Ident=>LowerIdent@5
