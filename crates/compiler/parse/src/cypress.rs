@@ -2566,6 +2566,7 @@ impl<'a> CommentExtractor<'a> {
             | N::EndAssign => {}
 
             N::Ident => self.check_next_token(T::LowerIdent),
+            N::UpperIdent => self.check_next_token(T::UpperIdent),
             N::Num => self.check_next_token(T::IntBase10),
             N::InlineAssign => self.check_next_token(T::OpAssign),
 
@@ -2600,6 +2601,7 @@ mod canfmt {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Expr<'a> {
         Ident(&'a str),
+        UpperIdent(&'a str),
         IntBase10(&'a str),
         Apply(&'a Expr<'a>, &'a [Expr<'a>]),
         BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
@@ -2665,6 +2667,7 @@ mod canfmt {
                 N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
                 N::HintExpr => {}
                 N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
+                N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
                 N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
                 N::EndApply => {
                     let mut values = stack.drain_to_index(index);
