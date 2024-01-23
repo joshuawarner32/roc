@@ -1101,6 +1101,7 @@ impl State {
                     if self.plausible_expr_continue_comes_next() {
                         atom!(N::Ident);
                     } else {
+                        self.bump();
                         self.push_next_frame_starting_here(
                             cfg,
                             Frame::ContinueWhen {

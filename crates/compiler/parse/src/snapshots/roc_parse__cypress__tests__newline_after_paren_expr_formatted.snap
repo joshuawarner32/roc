@@ -1,0 +1,11 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "A\n"
+---
+(BeginTopLevelDecls HintExpr UpperIdent=>UpperIdent@0 EndTopLevelDecls)
+
+[=== canfmt below ===]
+UpperIdent("A")
+
+[=== formatted below ===]
+

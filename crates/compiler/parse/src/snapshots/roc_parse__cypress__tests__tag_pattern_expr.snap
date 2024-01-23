@@ -1,0 +1,18 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "\\Thing -> 42\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginLambda
+        UpperIdent=>UpperIdent@1
+        InlineLambdaArrow=>OpArrow@2
+        Num=>IntBase10@3
+    EndLambda)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Lambda([UpperIdent("Thing")], IntBase10("42"))
+
+[=== formatted below ===]
+

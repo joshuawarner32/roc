@@ -26,6 +26,4 @@ EndTopLevelDecls)
 When(Ident("abc"), [Ident("def"), Block([When(Ident("ghi"), [Ident("jkl"), Block([Ident("mno")])])])])
 
 [=== formatted below ===]
-when abc is def ->
-    when ghi is jkl ->
-        mno
+
