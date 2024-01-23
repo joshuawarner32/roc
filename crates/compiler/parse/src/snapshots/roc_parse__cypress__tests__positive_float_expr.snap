@@ -1,0 +1,11 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "42.9\n"
+---
+(BeginTopLevelDecls HintExpr Float=>Float@0 EndTopLevelDecls)
+
+[=== canfmt below ===]
+Float("42.9")
+
+[=== formatted below ===]
+

@@ -592,6 +592,11 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                     });
                     self.chomp_number_base10()
                 }
+                Some(b'.') => {
+                    self.offset += 1;
+                    self.chomp_integer_base10();
+                    T::Float
+                }
                 _ => T::IntBase10,
             }
         } else {

@@ -2569,6 +2569,7 @@ impl<'a> CommentExtractor<'a> {
             N::Ident => self.check_next_token(T::LowerIdent),
             N::UpperIdent => self.check_next_token(T::UpperIdent),
             N::Num => self.check_next_token(T::IntBase10),
+            N::Float => self.check_next_token(T::Float),
             N::InlineAssign => self.check_next_token(T::OpAssign),
 
             N::BeginIf => self.check_next_token(T::KwIf),
@@ -2604,6 +2605,7 @@ mod canfmt {
         Ident(&'a str),
         UpperIdent(&'a str),
         IntBase10(&'a str),
+        Float(&'a str),
         Apply(&'a Expr<'a>, &'a [Expr<'a>]),
         BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
         Pizza(&'a [Expr<'a>]),
@@ -2670,6 +2672,7 @@ mod canfmt {
                 N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
                 N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
                 N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
+                N::Float => stack.push(i, Expr::Float(ctx.text(index))),
                 N::EndApply => {
                     let mut values = stack.drain_to_index(index);
                     let first = bump.alloc(values.next().unwrap());
