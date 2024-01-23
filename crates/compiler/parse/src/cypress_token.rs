@@ -272,19 +272,27 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
                 b'-' => {
+
                     match self.cursor.peek_at(1) {
                         Some(b'>') => simple_token!(2, OpArrow),
                         Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => {
                             simple_token!(1, OpBinaryMinus)
                         }
-                        Some(b @ b'0'..=b'9') => {
-                            self.cursor.offset += 2;
+                        Some(b @ b'0'..=b'9') if sp => {
+                            self.cursor.offset += 1;
                             let tok = self.cursor.chomp_number(b);
                             // we start at the original offset, not the offset after the '-'
+                            dbg!(std::str::from_utf8(&self.cursor.buf[offset..self.cursor.offset]));
                             self.output
                                 .push_token(tok, offset, self.cursor.offset - offset);
                         }
-                        _ => simple_token!(1, OpUnaryMinus),
+                        _ => {
+                            if sp {
+                                simple_token!(1, OpUnaryMinus)
+                            } else {
+                                simple_token!(1, OpBinaryMinus)
+                            }
+                        },
                     }
                 }
                 b'!' => {

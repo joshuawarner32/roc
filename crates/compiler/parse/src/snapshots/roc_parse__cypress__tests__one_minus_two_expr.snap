@@ -1,0 +1,18 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "1-2\n"
+---
+(BeginTopLevelDecls
+    (*
+        HintExpr
+        Num=>IntBase10@0
+        InlineBinOpMinus=>OpBinaryMinus@1
+        Num=>IntBase10@2
+    EndBinOpMinus)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+BinOp(IntBase10("1"), Minus, IntBase10("2"))
+
+[=== formatted below ===]
+

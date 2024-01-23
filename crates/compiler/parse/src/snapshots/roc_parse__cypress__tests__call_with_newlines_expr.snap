@@ -1,0 +1,20 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "f\n-5\n2\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    Ident=>LowerIdent@0
+    HintExpr
+    Num=>IntBase10@2
+    HintExpr
+    Num=>IntBase10@4
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Ident("f")
+IntBase10("-5")
+IntBase10("2")
+
+[=== formatted below ===]
+

@@ -2559,6 +2559,7 @@ impl<'a> CommentExtractor<'a> {
             | N::EndApply
             | N::EndBinOpPlus
             | N::EndBinOpStar
+            | N::EndBinOpMinus
             | N::EndPizza
             | N::BeginBlock
             | N::EndTopLevelDecls
@@ -2578,6 +2579,7 @@ impl<'a> CommentExtractor<'a> {
 
             N::InlineBinOpPlus => self.check_next_token(T::OpPlus),
             N::InlineBinOpStar => self.check_next_token(T::OpStar),
+            N::InlineBinOpMinus => self.check_next_token(T::OpBinaryMinus),
             N::InlinePizza => self.check_next_token(T::OpPizza),
 
             N::BeginLambda => self.check_next_token(T::OpBackslash),
@@ -2683,6 +2685,14 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::BinOp(bump.alloc(a), BinOp::Plus, bump.alloc(b)));
                 }
+                N::EndBinOpMinus => {
+                    let mut values = stack.drain_to_index(index);
+                    assert_eq!(values.len(), 2);
+                    let a = values.next().unwrap();
+                    let b = values.next().unwrap();
+                    drop(values);
+                    stack.push(i, Expr::BinOp(bump.alloc(a), BinOp::Minus, bump.alloc(b)));
+                }
                 N::BeginLambda => {}
                 N::EndLambda => {
                     let mut values = stack.drain_to_index(index);
@@ -2735,6 +2745,7 @@ mod canfmt {
                 | N::InlinePizza
                 | N::InlineBinOpPlus
                 | N::InlineBinOpStar
+                | N::InlineBinOpMinus
                 | N::InlineLambdaArrow => {}
                 N::BeginBlock => {}
                 N::EndBlock => {

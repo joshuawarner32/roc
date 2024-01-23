@@ -1,0 +1,18 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "x- y\n"
+---
+(BeginTopLevelDecls
+    (*
+        HintExpr
+        Ident=>LowerIdent@0
+        InlineBinOpMinus=>OpBinaryMinus@1
+        Ident=>LowerIdent@2
+    EndBinOpMinus)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+BinOp(Ident("x"), Minus, Ident("y"))
+
+[=== formatted below ===]
+
