@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "(i#abc\n)\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginParens Ident=>LowerIdent@1 EndParens)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Ident("i")
+
+[=== formatted below ===]
+

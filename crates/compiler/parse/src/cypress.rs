@@ -809,12 +809,6 @@ impl State {
         todo!();
     }
 
-    // Advances the cursor if the next tokens are <tok>, <tok newline> or <newline tok>
-    // Returns Some(pos) for the token index of the given tok, or None if there wasn't a match
-    fn consume_newline_agnostic(&mut self, tok: T) -> Option<u32> {
-        todo!();
-    }
-
     fn consume(&mut self, tok: T) -> bool {
         if self.cur() != Some(tok) {
             return false;
@@ -847,10 +841,6 @@ impl State {
                 }
             }
         }
-    }
-
-    fn consume_newline(&mut self) -> bool {
-        todo!()
     }
 
     #[track_caller]
@@ -1024,7 +1014,6 @@ impl State {
 
                 Some(T::OpenRound) => {
                     self.bump();
-                    while self.consume_newline() {}
                     self.push_next_frame(
                         subtree_start,
                         cfg,
@@ -1125,7 +1114,6 @@ impl State {
     }
 
     fn start_list(&mut self, cfg: ExprCfg) {
-        self.consume_newline();
         if self.consume(T::CloseSquare) {
             let subtree_start = self.tree.len();
             self.push_node(N::BeginList, Some(subtree_start + 2));
@@ -1428,7 +1416,7 @@ impl State {
     }
 
     fn pump_continue_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        if self.consume_newline_agnostic(T::Comma).is_some() {
+        if self.consume(T::Comma) {
             self.push_next_frame(
                 subtree_start,
                 cfg,
@@ -1789,7 +1777,6 @@ impl State {
     }
 
     fn pump_continue_list(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        self.consume_newline();
         if self.consume_end(T::CloseSquare) {
             self.push_node(N::EndList, Some(self.pos as u32 - 1));
             self.update_end(N::BeginList, subtree_start);
@@ -1797,7 +1784,6 @@ impl State {
         }
 
         self.expect(T::Comma);
-        self.consume_newline();
 
         if self.consume_end(T::CloseSquare) {
             self.push_node(N::EndList, Some(self.pos as u32 - 1));
@@ -1840,7 +1826,6 @@ impl State {
     }
 
     fn consume_end_tag_union(&mut self, subtree_start: u32, cfg: ExprCfg) -> bool {
-        self.consume_newline();
         if self.consume_and_push_node_end(T::CloseSquare, N::BeginTypeTagUnion, N::EndTypeTagUnion, subtree_start) {
             self.maybe_start_type_adendum(subtree_start, cfg);
             return true;
@@ -1850,7 +1835,6 @@ impl State {
     }
 
     fn pump_continue_tag_union_args(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        self.consume_newline();
         if matches!(self.cur(), Some(T::CloseSquare | T::Comma)) {
             return;
         }
@@ -1882,7 +1866,6 @@ impl State {
     fn start_type_record(&mut self, cfg: ExprCfg) {
         let subtree_start = self.push_node_begin(N::BeginTypeRecord);
         
-        self.consume_newline();
         if self.consume_and_push_node_end(T::CloseCurly, N::BeginTypeRecord, N::EndTypeRecord, subtree_start) {
             return;
         }
@@ -1900,7 +1883,6 @@ impl State {
     }
 
     fn consume_end_type_record(&mut self, subtree_start: u32, cfg: ExprCfg) -> bool {
-        self.consume_newline();
         if self.consume_and_push_node_end(T::CloseCurly, N::BeginTypeRecord, N::EndTypeRecord, subtree_start) {
             self.maybe_start_type_adendum(subtree_start, cfg);
             return true;
@@ -2764,6 +2746,7 @@ mod canfmt {
                 | N::InlineBinOpStar
                 | N::InlineBinOpMinus
                 | N::InlineLambdaArrow => {}
+                N::BeginParens | N::EndParens => {} // we don't guarantee that we preserve parens
                 N::BeginBlock => {}
                 N::EndBlock => {
                     let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));

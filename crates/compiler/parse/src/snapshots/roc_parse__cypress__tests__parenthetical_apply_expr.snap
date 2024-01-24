@@ -1,0 +1,18 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "(whee) 1\n"
+---
+(BeginTopLevelDecls
+    (*
+        HintExpr
+        (BeginParens Ident=>LowerIdent@1 EndParens)
+        InlineApply=>CloseRound@2
+        Num=>IntBase10@3
+    EndApply)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Apply(Ident("whee"), [IntBase10("1")])
+
+[=== formatted below ===]
+
