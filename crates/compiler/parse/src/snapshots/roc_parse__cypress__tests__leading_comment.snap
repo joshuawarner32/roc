@@ -2,10 +2,9 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "# hello\nabc\n"
 ---
-(BeginTopLevelDecls HintExpr Ident=>LowerIdent@1 EndTopLevelDecls)
+(BeginTopLevelDecls HintExpr Ident=>LowerIdent@0 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Comment("# hello")
 Ident("abc")
 
 [=== formatted below ===]

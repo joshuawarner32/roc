@@ -12,11 +12,11 @@ description: "when abc is def ->\n    when ghi is jkl ->\n        mno\n"
         (BeginBlock
             HintExpr
             (BeginWhen
-                Ident=>LowerIdent@7
-                InlineKwIs=>KwIs@8
-                Ident=>LowerIdent@9
-                InlineWhenArrow=>OpArrow@10
-                (BeginBlock HintExpr Ident=>LowerIdent@12 EndBlock)
+                Ident=>LowerIdent@6
+                InlineKwIs=>KwIs@7
+                Ident=>LowerIdent@8
+                InlineWhenArrow=>OpArrow@9
+                (BeginBlock HintExpr Ident=>LowerIdent@10 EndBlock)
             EndWhen)
         EndBlock)
     EndWhen)

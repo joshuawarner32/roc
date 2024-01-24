@@ -230,6 +230,8 @@ pub enum N {
     BeginTopLevelDecls,
     Dummy,
 
+    InlineKwWhere,
+
     HintExpr,
     InlineColon,
 
@@ -322,6 +324,7 @@ impl N {
             | N::InlineBinOpStar
             | N::InlineKwThen
             | N::InlineKwElse
+            | N::InlineKwWhere
             | N::InlineKwImplements
             | N::InlineKwIs
             | N::InlineLambdaArrow
@@ -732,11 +735,24 @@ impl State {
         self.buf.kind(self.pos)
     }
 
-    fn cur_indent(&self) -> Indent {
+    fn _update_line(&mut self) {
+        while self.line + 1 < self.buf.lines.len() && self.pos >= self.buf.lines[self.line + 1].0 as usize {
+            self.line += 1;
+        }
+    }
+
+    fn at_newline(&mut self) -> bool {
+        self._update_line();
+        self.pos == self.buf.lines[self.line].0 as usize
+    }
+
+    fn cur_indent(&mut self) -> Indent {
+        self._update_line();
         self.buf
-            .indents
+            .lines
             .get(self.line)
             .copied()
+            .map(|(_, i)| i)
             .unwrap_or(Indent::default())
     }
 
@@ -748,7 +764,6 @@ impl State {
     }
 
     fn bump(&mut self) {
-        debug_assert!(self.cur() != Some(T::Newline));
         self.pos += 1;
     }
 
@@ -766,7 +781,6 @@ impl State {
 
     #[track_caller]
     fn expect(&mut self, tok: T) {
-        debug_assert!(tok != T::Newline); // Use expect_newline instead
         if self.cur() == Some(tok) {
             self.bump();
         } else {
@@ -776,19 +790,11 @@ impl State {
     }
 
     fn fast_forward_past_newline(&mut self) {
-        loop {
-            match self.cur() {
-                Some(T::Newline) => {
-                    self.consume_newline();
-                    break;
-                }
-                Some(_) => {
-                    self.bump();
-                }
-                None => {
-                    break;
-                }
-            }
+        self.line += 1;
+        if self.line < self.buf.lines.len() {
+            self.pos = self.buf.lines[self.line].0 as usize;
+        } else {
+            self.pos = self.buf.kinds.len();
         }
     }
 
@@ -800,45 +806,16 @@ impl State {
 
     #[track_caller]
     fn expect_newline(&mut self) {
-        if self.cur() == Some(T::Newline) {
-            self.pos += 1;
-            self.line += 1;
-        } else {
-            self.push_error(Error::ExpectViolation(T::Newline, self.cur()));
-            self.fast_forward_past_newline();
-        }
+        todo!();
     }
 
     // Advances the cursor if the next tokens are <tok>, <tok newline> or <newline tok>
     // Returns Some(pos) for the token index of the given tok, or None if there wasn't a match
     fn consume_newline_agnostic(&mut self, tok: T) -> Option<u32> {
-        match self.cur() {
-            Some(T::Newline) => {
-                if self.buf.kind(self.pos + 1) == Some(tok) {
-                    let res = Some(self.pos as u32 + 1);
-                    self.pos += 2;
-                    self.line += 1;
-                    res
-                } else {
-                    None
-                }
-            }
-            Some(t) => {
-                if t == tok {
-                    let res = Some(self.pos as u32);
-                    self.pos += 1;
-                    self.consume_newline();
-                    res
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
+        todo!();
     }
 
     fn consume(&mut self, tok: T) -> bool {
-        debug_assert!(tok != T::Newline); // Use consume_newline instead
         if self.cur() != Some(tok) {
             return false;
         }
@@ -846,9 +823,16 @@ impl State {
         true
     }
 
+    fn consume_and_push_node(&mut self, tok: T, node: N) -> bool {
+        if self.consume(tok) {
+            self.push_node(node, Some(self.pos as u32 - 1));
+            return true;
+        }
+        false
+    }
+
     // Like consume, except we will also return true and add a message if we're at EOF
     fn consume_end(&mut self, tok: T) -> bool {
-        debug_assert!(tok != T::Newline); // Use consume_newline instead
         match self.cur() {
             None => {
                 self.push_error(Error::ExpectViolation(tok, None));
@@ -866,12 +850,7 @@ impl State {
     }
 
     fn consume_newline(&mut self) -> bool {
-        if self.cur() != Some(T::Newline) {
-            return false;
-        }
-        self.pos += 1;
-        self.line += 1;
-        true
+        todo!()
     }
 
     #[track_caller]
@@ -1198,7 +1177,7 @@ impl State {
 
             match op {
                 BinOp::Assign => {
-                    if self.consume_newline() {
+                    if self.at_newline() {
                         self.push_next_frame(subtree_start, cfg, Frame::FinishAssign);
                         self.start_block(cfg);
                         return;
@@ -1220,9 +1199,7 @@ impl State {
                     self.continue_implements_method_decl_body(subtree_start, cfg);
                     return;
                 }
-                _ => {
-                    self.consume_newline();
-                }
+                _ => {}
             }
 
             eprintln!(
@@ -1263,26 +1240,32 @@ impl State {
     }
 
     fn next_op(&mut self, min_prec: Prec, cfg: ExprCfg) -> Option<BinOp> {
-        dbg!(cfg);
-        let k = if self.cur() == Some(T::Newline) {
-            let k = self.buf.kind(self.pos + 1);
-            if matches!(k, Some(T::LowerIdent | T::OpenCurly | T::IntBase10 | T::IntNonBase10)) { // TODO: check for other things that can start an expr
-                if self.buf.indents[self.line + 1].is_indented_more_than(cfg.expr_indent_floor).expect("TODO: error handling") {
-                    k
-                } else {
-                    return None;
+        // let k = if self.cur() == Some(T::Newline) {
+        //     let k = self.buf.kind(self.pos + 1);
+        //     if matches!(k, Some(T::LowerIdent | T::OpenCurly | T::IntBase10 | T::IntNonBase10)) { // TODO: check for other things that can start an expr
+        //         if self.buf.lines[self.line + 1].is_indented_more_than(cfg.expr_indent_floor).expect("TODO: error handling") {
+        //             k
+        //         } else {
+        //             return None;
+        //         }
+        //     } else {
+        //         k
+        //     }
+        // } else {
+        //     self.cur()
+        // };
+
+        let (op, width) = match self.cur() {
+            // TODO: check for other things that can start an expr
+            Some(T::LowerIdent | T::OpenCurly | T::IntBase10 | T::IntNonBase10 | T::String) => {
+                if self.at_newline() { // are we at the start of a line?
+                    if !self.buf.lines[self.line].1.is_indented_more_than(cfg.expr_indent_floor).expect("TODO: error handling") {
+                        return None;
+                    }
                 }
-            } else {
-                k
+                (BinOp::Apply, 0)
             }
-        } else {
-            self.cur()
-        };
 
-        dbg!(k);
-
-        let (op, width) = match k {
-            Some(T::LowerIdent | T::OpenCurly | T::IntBase10 | T::IntNonBase10) => (BinOp::Apply, 0), // TODO: check for other things that can start an expr
             Some(T::OpPlus) => (BinOp::Plus, 1),
             Some(T::OpBinaryMinus) => (BinOp::Minus, 1),
             Some(T::OpStar) => (BinOp::Star, 1),
@@ -1303,8 +1286,6 @@ impl State {
         if op.prec() < min_prec || (op.prec() == min_prec && op.grouping_assoc() == Assoc::Left) {
             return None;
         }
-
-        self.consume_newline();
 
         self.pos += width;
 
@@ -1394,15 +1375,14 @@ impl State {
             return;
         }
 
-        if let Some(pos) = self.consume_newline_agnostic(T::OpArrow) {
-            self.push_node(N::InlineLambdaArrow, Some(pos));
+        if self.consume_and_push_node(T::OpArrow, N::InlineLambdaArrow) {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueType);
             self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
             self.start_type(cfg);
             return;
         }
 
-        if let Some(pos) = self.consume_newline_agnostic(T::KwWhere) {
+        if self.consume_and_push_node(T::KwWhere, N::InlineKwWhere) {
             // Is it valid to have some other clause follow a where clause????
             // If so, uncomment:
             // self.push_next_frame(subtree_start, cfg, Frame::ContinueType);
@@ -1512,8 +1492,6 @@ impl State {
     }
 
     fn pump_continue_block(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        while self.consume_newline() {}
-
         // need to inspect the expr we just parsed.
         // if it's a decl we keep going; if it's not, we're done.
         if self.tree.kinds.last().copied().unwrap().is_decl() {
@@ -1535,8 +1513,6 @@ impl State {
 
     fn pump_continue_top_level(&mut self, subtree_start: u32, cfg: ExprCfg, num_found: i32) {
         // keep parsing decls until the end
-        while self.consume_newline() {}
-
         if self.pos < self.buf.kinds.len() {
             self.push_next_frame(
                 subtree_start,
@@ -1599,7 +1575,6 @@ impl State {
         match next {
             WhenState::Is => {
                 self.expect_and_push_node(T::KwIs, N::InlineKwIs);
-                self.consume_newline();
                 let indent = self.cur_indent();
                 self.push_next_frame(
                     subtree_start,
@@ -1611,11 +1586,10 @@ impl State {
                 self.start_expr(cfg);
             }
             WhenState::BranchPattern(indent) => {
-                if self.check(
-                    self.cur_indent()
+                if self.cur_indent()
                         .is_indented_more_than(cfg.block_indent_floor)
-                        .ok_or(Error::InconsistentIndent),
-                ) && !self.at_terminator()
+                        .ok_or(Error::InconsistentIndent)
+                        .expect("TODO: error handling") && !self.at_terminator()
                 {
                     self.push_next_frame(
                         subtree_start,
@@ -1651,8 +1625,6 @@ impl State {
     }
 
     fn start_top_level_decls(&mut self) {
-        while self.consume_newline() {}
-
         if self.pos == self.buf.kinds.len() {
             let subtree_start = self.tree.len();
             self.push_node(N::BeginTopLevelDecls, None);
@@ -1669,65 +1641,45 @@ impl State {
     }
 
     fn start_file(&mut self) {
-        while self.consume_newline() {}
         match self.cur() {
             Some(T::KwApp) => {
                 self.bump();
-                self.consume_newline();
                 self.expect(T::String);
-                self.consume_newline();
                 self.expect(T::KwProvides);
-                self.consume_newline();
                 self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
                     s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
                 });
-                self.consume_newline();
                 self.expect(T::KwTo);
-                self.consume_newline();
                 self.expect(T::String);
-                self.consume_newline();
             }
             Some(T::KwPlatform) => {
                 self.bump();
-                self.consume_newline();
                 self.expect(T::String);
-                self.consume_newline();
                 self.expect(T::KwRequires);
-                self.consume_newline();
                 self.expect_collection(T::OpenCurly, N::BeginCollection, T::CloseCurly, N::EndCollection, |s| {
                     s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
                 });
                 self.consume(T::NoSpace);
-                self.consume_newline();
                 self.expect_collection(T::OpenCurly, N::BeginCollection, T::CloseCurly, N::EndCollection, |s| {
                     // This needs to be key:value pairs for lower ident keys and type values
                     s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
                 });
-                self.consume_newline();
                 self.expect(T::KwExposes);
-                self.consume_newline();
                 self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
                     s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
                 });
-                self.consume_newline();
                 self.expect(T::KwPackages);
-                self.consume_newline();
                 self.expect_collection(T::OpenCurly, N::BeginCollection, T::CloseCurly, N::EndCollection, |s| {
                     s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
                 });
-                self.consume_newline();
                 self.expect(T::KwImports);
-                self.consume_newline();
                 self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
                     s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
                 });
-                self.consume_newline();
                 self.expect(T::KwProvides);
-                self.consume_newline();
                 self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
                     s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
                 });
-                self.consume_newline();
             }
             _ => {},
         }
@@ -1736,7 +1688,7 @@ impl State {
     }
 
     fn start_block_or_expr(&mut self, cfg: ExprCfg) {
-        if self.consume_newline() {
+        if self.at_newline() {
             self.start_block(cfg);
         } else {
             self.start_expr(cfg);
@@ -1788,9 +1740,7 @@ impl State {
     fn pump_continue_record(&mut self, subtree_start: u32, cfg: ExprCfg, start: bool) {
         // TODO: allow { existingRecord & foo: bar } syntax
 
-        if start {
-            self.consume_newline();
-        } else {
+        if !start {
             if self.consume_end(T::CloseCurly) {
                 self.push_node(N::EndRecord, Some(self.pos as u32 - 1));
                 self.update_end(N::BeginRecord, subtree_start);
@@ -1798,7 +1748,6 @@ impl State {
             }
 
             self.expect(T::Comma);
-            self.consume_newline();
         }
 
         if self.consume_end(T::CloseCurly) {
@@ -1819,7 +1768,7 @@ impl State {
     }
 
     fn pump_continue_type_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        if self.consume_newline_agnostic(T::Comma).is_some() {
+        if self.consume(T::Comma) {
             self.push_next_frame(
                 subtree_start,
                 cfg,
@@ -1916,11 +1865,11 @@ impl State {
 
     fn continue_implements_method_decl_body(&mut self, subtree_start: u32, cfg: ExprCfg) {
         // We continue as long as the indent is the same as the start of the implements block.
-        if self.check(
-            self.cur_indent()
+        if self.cur_indent()
                 .is_indented_more_than(cfg.block_indent_floor)
-                .ok_or(Error::InconsistentIndent),
-        ) {
+                .ok_or(Error::InconsistentIndent)
+                .expect("TODO: error handling")
+        {
             self.expect_and_push_node(T::LowerIdent, N::Ident);
             self.expect(T::OpColon); // TODO: need to add a node?
             self.push_next_frame(subtree_start, cfg, Frame::ContinueImplementsMethodDecl);
@@ -1991,9 +1940,6 @@ impl State {
 
     fn consume_token_with_negative_lookahead(&mut self, tok: T, negative_following: &[T]) -> Option<usize> {
         let mut pos = self.pos;
-        while self.buf.kind(pos) == Some(T::Newline) {
-            pos += 1;
-        }
 
         if self.buf.kind(pos) != Some(tok) {
             return None;
@@ -2004,17 +1950,12 @@ impl State {
         pos += 1;
     
         for &neg in negative_following {
-            while self.buf.kind(pos) == Some(T::Newline) {
-                pos += 1;
-            }
-
             if self.buf.kind(pos) == Some(neg) {
                 return None;
             }
 
             pos += 1;
         }
-        self.consume_newline(); // need to do this first to make sure to bump self.line if necessary!
         self.pos = found + 1;
         Some(found)
     }
@@ -2146,22 +2087,14 @@ impl fmt::Debug for ShowTreePosition<'_> {
 }
 
 fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String {
-    let mut newline_offsets = Vec::new();
-    
-    for (i, kind) in buf.kinds.iter().enumerate() {
-        if *kind == T::Newline {
-            newline_offsets.push(i as u32);
-        }
-    }
-
     // binary search to find the line of msg.pos
-    let (line_start, line_end) = match newline_offsets.binary_search(&msg.pos) {
-        Ok(i) => (newline_offsets[i], newline_offsets[i]),
+    let (line_start, line_end) = match buf.lines.binary_search_by_key(&msg.pos, |(offset, _indent)| *offset) {
+        Ok(i) => (buf.lines[i].0, buf.lines[i].0),
         Err(i) => {
             if i > 0 {
-                (newline_offsets[i - 1], newline_offsets[i])
+                (buf.lines[i - 1].0, buf.lines[i].0)
             } else {
-                (0, newline_offsets[i])
+                (0, buf.lines[i].0)
             }
         },
     };
@@ -2239,18 +2172,20 @@ struct TokenizedBufferFollower<'a> {
 
 impl<'a> TokenizedBufferFollower<'a> {
     fn _bump(&mut self, trivia: &mut Vec<Comment>) {
-        self.toks
-            .extract_comments_at(self.text, self.pos, trivia);
+        panic!();
+        // self.toks
+        //     .extract_comments_at(self.text, self.pos, trivia);
         self.pos += 1;
     }
 
     fn check_next_token(&mut self, tok: T, trivia: &mut Vec<Comment>) {
-        if tok != T::Newline {
-            // fast forward past newlines in the underlying buffer
-            while self.toks.kind(self.pos) == Some(T::Newline) {
-                self._bump(trivia);
-            }
-        }
+        panic!();
+        // if tok != T::Newline {
+        //     // fast forward past newlines in the underlying buffer
+        //     while self.toks.kind(self.pos) == Some(T::Newline) {
+        //         self._bump(trivia);
+        //     }
+        // }
         if self.toks.kind(self.pos) != Some(tok) {
             panic!(
                 "programming error: misaligned token stream when formatting.\n\
@@ -2353,23 +2288,25 @@ struct FmtInfoProp<'a> {
 
 impl<'a> FmtInfoProp<'a> {
     fn _bump(&mut self) {
-        self.toks
-            .extract_comments_at(self.text, self.pos, &mut self.trivia);
+        panic!();
+        // self.toks
+        //     .extract_comments_at(self.text, self.pos, &mut self.trivia);
         self.pos += 1;
     }
 
     fn check_next_token(&mut self, tok: T) -> FmtInfo {
-        debug_assert!(tok != T::Newline);
+        panic!();
+        // debug_assert!(tok != T::Newline);
 
         let comment_start = self.pos;
         let mut newline = false;
 
         // fast forward past newlines in the underlying buffer
         // also capture trivia at this stage
-        while self.toks.kind(self.pos) == Some(T::Newline) {
-            newline = true;
-            self._bump();
-        }
+        // while self.toks.kind(self.pos) == Some(T::Newline) {
+        //     newline = true;
+        //     self._bump();
+        // }
 
         if self.toks.kind(self.pos) != Some(tok) {
             panic!(
@@ -2595,12 +2532,13 @@ impl<'a> CommentExtractor<'a> {
     }
 
     fn check_next_token(&mut self, tok: T) {
-        debug_assert!(tok != T::Newline);
+        panic!();
+        // debug_assert!(tok != T::Newline);
 
-        while self.toks.kind(self.pos) == Some(T::Newline) {
-            self.toks.extract_comments_at(self.text, self.pos, &mut self.comments);
-            self.pos += 1;
-        }
+        // while self.toks.kind(self.pos) == Some(T::Newline) {
+        //     self.toks.extract_comments_at(self.text, self.pos, &mut self.comments);
+        //     self.pos += 1;
+        // }
 
         if self.toks.kind(self.pos) != Some(tok) {
             panic!(
@@ -2723,19 +2661,19 @@ mod canfmt {
     }
 
     pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: FormatCtx<'b>) -> &'a [Expr<'a>] {
-        let mut ce = CommentExtractor::new(ctx.text, ctx.toks);
+        // let mut ce = CommentExtractor::new(ctx.text, ctx.toks);
 
         let mut stack = ExprStack::new();
 
         // dbg!(&ctx.tree.kinds);
 
         for (i, &node) in ctx.tree.kinds.iter().enumerate() {
-            let comments = ce.consume(node);
-            if comments.len() > 0 {
-                for comment in comments {
-                    // stack.push(i, Expr::Comment(ctx.text[comment.begin..comment.end].trim()));
-                }
-            }
+            // let comments = ce.consume(node);
+            // if comments.len() > 0 {
+            //     for comment in comments {
+            //         stack.push(i, Expr::Comment(ctx.text[comment.begin..comment.end].trim()));
+            //     }
+            // }
             let index = ctx.tree.paird_group_ends[i];
             // eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
             match node {

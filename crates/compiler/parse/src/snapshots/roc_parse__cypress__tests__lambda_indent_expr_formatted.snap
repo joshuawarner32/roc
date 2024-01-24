@@ -7,7 +7,7 @@ description: "\\x ->\n    1\n"
     (BeginLambda
         Ident=>LowerIdent@1
         InlineLambdaArrow=>OpArrow@2
-        (BeginBlock HintExpr Num=>IntBase10@4 EndBlock)
+        (BeginBlock HintExpr Num=>IntBase10@3 EndBlock)
     EndLambda)
 EndTopLevelDecls)
 

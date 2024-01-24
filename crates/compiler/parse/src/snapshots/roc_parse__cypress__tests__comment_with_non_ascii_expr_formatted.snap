@@ -1,6 +1,6 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: "3\n+\n\n  4\n"
+description: "3 # 2 × 2\n+ 4\n"
 ---
 (BeginTopLevelDecls
     (*

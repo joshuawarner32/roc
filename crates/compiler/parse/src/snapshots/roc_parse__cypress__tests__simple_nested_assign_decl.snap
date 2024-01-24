@@ -8,12 +8,12 @@ description: "abc =\n    def = ghi\n    jkl\n"
         InlineAssign=>OpAssign@1
         (BeginBlock
             (BeginAssign
-                Ident=>LowerIdent@3
-                InlineAssign=>OpAssign@4
-                Ident=>LowerIdent@5
+                Ident=>LowerIdent@2
+                InlineAssign=>OpAssign@3
+                Ident=>LowerIdent@4
             EndAssign)
             HintExpr
-            Ident=>LowerIdent@7
+            Ident=>LowerIdent@5
         EndBlock)
     EndAssign)
 EndTopLevelDecls)

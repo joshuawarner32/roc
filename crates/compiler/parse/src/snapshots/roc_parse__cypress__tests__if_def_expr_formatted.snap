@@ -9,7 +9,7 @@ description: "iffy = 5\n\n42\n"
         Num=>IntBase10@2
     EndAssign)
     HintExpr
-    Num=>IntBase10@4
+    Num=>IntBase10@3
 EndTopLevelDecls)
 
 [=== canfmt below ===]

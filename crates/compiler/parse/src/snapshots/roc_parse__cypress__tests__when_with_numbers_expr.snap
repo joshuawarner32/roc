@@ -1,20 +1,23 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: "when x is\n    Ok ->\n        3\n"
+description: "when x is\n 1 -> 2\n 3 -> 4\n\n"
 ---
 (BeginTopLevelDecls
     HintExpr
     (BeginWhen
         Ident=>LowerIdent@1
         InlineKwIs=>KwIs@2
-        UpperIdent=>UpperIdent@3
+        Num=>IntBase10@3
         InlineWhenArrow=>OpArrow@4
-        (BeginBlock HintExpr Num=>IntBase10@5 EndBlock)
+        Num=>IntBase10@5
+        Num=>IntBase10@6
+        InlineWhenArrow=>OpArrow@7
+        Num=>IntBase10@8
     EndWhen)
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-When(Ident("x"), [UpperIdent("Ok"), Block([IntBase10("3")])])
+When(Ident("x"), [IntBase10("1"), IntBase10("2"), IntBase10("3"), IntBase10("4")])
 
 [=== formatted below ===]
 

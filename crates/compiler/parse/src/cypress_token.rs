@@ -1,8 +1,6 @@
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum T {
-    Newline,
-
     Float,
     String,
     SingleQuote,
@@ -117,7 +115,7 @@ pub struct TokenenizedBuffer {
     pub(crate) kinds: Vec<T>,
     pub(crate) offsets: Vec<u32>,
     pub(crate) lengths: Vec<u32>, // TODO: assess if it's better to just (re)compute this on the fly when accessing later
-    pub(crate) indents: Vec<Indent>,
+    pub(crate) lines: Vec<(u32, Indent)>,
 }
 
 impl TokenenizedBuffer {
@@ -126,7 +124,7 @@ impl TokenenizedBuffer {
             kinds: Vec::new(),
             offsets: Vec::new(),
             lengths: Vec::new(),
-            indents: Vec::new(),
+            lines: Vec::new(),
         }
     }
 
@@ -134,45 +132,6 @@ impl TokenenizedBuffer {
         self.kinds.push(kind);
         self.offsets.push(offset as u32);
         self.lengths.push(length as u32);
-    }
-
-    pub(crate) fn extract_comments_at(
-        &self,
-        text: &str,
-        pos: usize,
-        comments: &mut Vec<Comment>,
-    ) {
-        debug_assert!(self.kinds[pos] == T::Newline);
-
-        let begin = self.offsets[pos] as usize;
-        let end = begin + self.lengths[pos] as usize;
-
-        let section = dbg!(&text[begin..end]).as_bytes();
-
-        let mut c = Cursor {
-            buf: section,
-            offset: 0,
-            messages: (),
-        };
-
-        c.chomp_trivia(comments);
-    }
-
-    pub fn line_at_token(&self, pos: u32) -> usize {
-        // TODO: binary search
-        let mut line = 0;
-        
-        for (i, kind) in self.kinds.iter().enumerate() {
-            if *kind == T::Newline {
-                line += 1;
-            }
-
-            if self.offsets[i] == pos {
-                return line;
-            }
-        }
-
-        panic!("no token at offset {}", pos);
     }
 }
 
@@ -220,7 +179,7 @@ impl<'a> Tokenizer<'a> {
         };
 
         // TODO: consume initial indent, push it onto the stack instead of just assuming 0
-        t.output.indents.push(Indent::default());
+        t.output.lines.push((0, Indent::default()));
 
         t
     }
@@ -251,8 +210,8 @@ impl<'a> Tokenizer<'a> {
             match b {
                 b' ' | b'\t' | b'\n' | b'\r' | b'#' | b'\x00'..=b'\x1f' => {
                     if let Some(indent) = self.cursor.chomp_trivia(&mut ()) {
-                        self.output.push_token(T::Newline, offset, self.cursor.offset - offset);
-                        self.output.indents.push(indent);
+                        let line_start = self.output.kinds.len() as u32;
+                        self.output.lines.push((line_start, indent));
                     }
                     saw_whitespace = true;
                 }
@@ -289,7 +248,6 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
                 b'-' => {
-
                     match self.cursor.peek_at(1) {
                         Some(b'>') => simple_token!(2, OpArrow),
                         Some(b' ' | b'\t' | b'\r' | b'\n' | b'#') => {
@@ -299,7 +257,6 @@ impl<'a> Tokenizer<'a> {
                             self.cursor.offset += 1;
                             let tok = self.cursor.chomp_number(b);
                             // we start at the original offset, not the offset after the '-'
-                            dbg!(std::str::from_utf8(&self.cursor.buf[offset..self.cursor.offset]));
                             self.output
                                 .push_token(tok, offset, self.cursor.offset - offset);
                         }
@@ -945,14 +902,14 @@ mod tests {
         tokenizer.tokenize();
         assert_eq!(
             tokenizer.output.kinds,
-            vec![T::IntBase10, T::Newline, T::IntBase10]
+            vec![T::IntBase10, T::IntBase10]
         );
         assert_eq!(
-            tokenizer.output.indents,
-            vec![Indent {
-                num_spaces: 2,
-                num_tabs: 1
-            }]
+            tokenizer.output.lines,
+            vec![
+                (0, Indent { num_spaces: 0, num_tabs: 0 }),
+                (1, Indent { num_spaces: 2, num_tabs: 1 }),
+            ]
         );
     }
 

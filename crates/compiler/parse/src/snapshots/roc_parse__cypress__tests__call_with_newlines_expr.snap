@@ -6,9 +6,9 @@ description: "f\n-5\n2\n"
     HintExpr
     Ident=>LowerIdent@0
     HintExpr
-    Num=>IntBase10@2
+    Num=>IntBase10@1
     HintExpr
-    Num=>IntBase10@4
+    Num=>IntBase10@2
 EndTopLevelDecls)
 
 [=== canfmt below ===]

@@ -6,12 +6,12 @@ description: "abc =\n    def\nghi =\n    jkl\n"
     (BeginAssign
         Ident=>LowerIdent@0
         InlineAssign=>OpAssign@1
-        (BeginBlock HintExpr Ident=>LowerIdent@3 EndBlock)
+        (BeginBlock HintExpr Ident=>LowerIdent@2 EndBlock)
     EndAssign)
     (BeginAssign
-        Ident=>LowerIdent@5
-        InlineAssign=>OpAssign@6
-        (BeginBlock HintExpr Ident=>LowerIdent@8 EndBlock)
+        Ident=>LowerIdent@3
+        InlineAssign=>OpAssign@4
+        (BeginBlock HintExpr Ident=>LowerIdent@5 EndBlock)
     EndAssign)
 EndTopLevelDecls)
 

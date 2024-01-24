@@ -9,9 +9,9 @@ description: "abc = def\nghi = jkl\n"
         Ident=>LowerIdent@2
     EndAssign)
     (BeginAssign
-        Ident=>LowerIdent@4
-        InlineAssign=>OpAssign@5
-        Ident=>LowerIdent@6
+        Ident=>LowerIdent@3
+        InlineAssign=>OpAssign@4
+        Ident=>LowerIdent@5
     EndAssign)
 EndTopLevelDecls)
 

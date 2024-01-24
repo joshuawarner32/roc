@@ -9,7 +9,7 @@ description: "abc = \\def ->\n    ghi\n"
         (BeginLambda
             Ident=>LowerIdent@3
             InlineLambdaArrow=>OpArrow@4
-            (BeginBlock HintExpr Ident=>LowerIdent@6 EndBlock)
+            (BeginBlock HintExpr Ident=>LowerIdent@5 EndBlock)
         EndLambda)
     EndAssign)
 EndTopLevelDecls)

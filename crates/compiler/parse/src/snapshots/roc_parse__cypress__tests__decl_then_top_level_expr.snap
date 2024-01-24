@@ -6,10 +6,10 @@ description: "abc =\n    def\nghi\n"
     (BeginAssign
         Ident=>LowerIdent@0
         InlineAssign=>OpAssign@1
-        (BeginBlock HintExpr Ident=>LowerIdent@3 EndBlock)
+        (BeginBlock HintExpr Ident=>LowerIdent@2 EndBlock)
     EndAssign)
     HintExpr
-    Ident=>LowerIdent@5
+    Ident=>LowerIdent@3
 EndTopLevelDecls)
 
 [=== canfmt below ===]

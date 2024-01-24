@@ -6,8 +6,8 @@ description: "3\n-\n4\n"
     (*
         HintExpr
         Num=>IntBase10@0
-        InlineBinOpMinus=>OpBinaryMinus@2
-        Num=>IntBase10@4
+        InlineBinOpMinus=>OpBinaryMinus@1
+        Num=>IntBase10@2
     EndBinOpMinus)
 EndTopLevelDecls)
 

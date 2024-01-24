@@ -8,12 +8,12 @@ description: "main =\n    i = 64\n\n    i\n\n"
         InlineAssign=>OpAssign@1
         (BeginBlock
             (BeginAssign
-                Ident=>LowerIdent@3
-                InlineAssign=>OpAssign@4
-                Num=>IntBase10@5
+                Ident=>LowerIdent@2
+                InlineAssign=>OpAssign@3
+                Num=>IntBase10@4
             EndAssign)
             HintExpr
-            Ident=>LowerIdent@7
+            Ident=>LowerIdent@5
         EndBlock)
     EndAssign)
 EndTopLevelDecls)

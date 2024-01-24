@@ -1,6 +1,6 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: "iffy=5\n\n42\n\n"
+description: "# leading comment\nx = 5\n\n42\n\n"
 ---
 (BeginTopLevelDecls
     (BeginAssign
@@ -13,7 +13,7 @@ description: "iffy=5\n\n42\n\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Assign("iffy", IntBase10("5"))
+Assign("x", IntBase10("5"))
 IntBase10("42")
 
 [=== formatted below ===]
