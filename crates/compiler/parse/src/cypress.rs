@@ -700,7 +700,7 @@ enum Error {
 struct Message {
     kind: Error,
     frames: Vec<Frame>,
-    pos: usize,
+    pos: u32,
 }
 
 struct State {
@@ -760,7 +760,7 @@ impl State {
         self.messages.push(Message {
             kind,
             frames,
-            pos: self.pos,
+            pos: self.pos as u32,
         });
     }
 
@@ -2145,6 +2145,78 @@ impl fmt::Debug for ShowTreePosition<'_> {
     }
 }
 
+fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String {
+    let mut newline_offsets = Vec::new();
+    
+    for (i, kind) in buf.kinds.iter().enumerate() {
+        if *kind == T::Newline {
+            newline_offsets.push(i as u32);
+        }
+    }
+
+    // binary search to find the line of msg.pos
+    let (line_start, line_end) = match newline_offsets.binary_search(&msg.pos) {
+        Ok(i) => (newline_offsets[i], newline_offsets[i]),
+        Err(i) => {
+            if i > 0 {
+                (newline_offsets[i - 1], newline_offsets[i])
+            } else {
+                (0, newline_offsets[i])
+            }
+        },
+    };
+
+    let mut res = String::new();
+
+    res.push_str(&format!("Error at token {} (offset {}):\n", msg.pos, buf.offsets[msg.pos as usize]));
+
+    // print the first line (tokens)
+    let mut pointer_offset = 0;
+    let mut pointer_len = 0;
+    for (i, kind) in buf.kinds.iter().enumerate().skip(line_start as usize).take((line_end - line_start) as usize) {
+        let text = format!("{:?} ", kind);
+        if i < msg.pos as usize {
+            pointer_offset += text.len();
+        } else if i == msg.pos as usize {
+            pointer_len = text.len();
+        }
+        res.push_str(&text);
+    }
+    res.push('\n');
+
+    // print the pointer
+    for _ in 0..pointer_offset {
+        res.push(' ');
+    }
+    for _ in 0..pointer_len {
+        res.push('^');
+    }
+    res.push('\n');
+
+    // print the text
+    res.push_str(&text[buf.offsets[line_start as usize] as usize..buf.offsets[line_end as usize] as usize]);
+    res.push('\n');
+
+    let pointer_offset = buf.offsets[msg.pos as usize] as usize - buf.offsets[line_start as usize] as usize;
+    let pointer_len = buf.lengths[msg.pos as usize] as usize;
+
+    // print the pointer
+    for _ in 0..pointer_offset {
+        res.push(' ');
+    }
+    for _ in 0..pointer_len {
+        res.push('^');
+    }
+    res.push('\n');
+
+    res.push_str(&format!("{:?}", msg.kind));
+    for frame in &msg.frames {
+        res.push_str(&format!("\n  in {:?}", frame));
+    }
+    
+    res
+}
+
 #[derive(Copy, Clone)]
 pub struct FormatCtx<'a> {
     tree: &'a Tree,
@@ -2661,7 +2733,7 @@ mod canfmt {
             let comments = ce.consume(node);
             if comments.len() > 0 {
                 for comment in comments {
-                    stack.push(i, Expr::Comment(ctx.text[comment.begin..comment.end].trim()));
+                    // stack.push(i, Expr::Comment(ctx.text[comment.begin..comment.end].trim()));
                 }
             }
             let index = ctx.tree.paird_group_ends[i];
@@ -2712,7 +2784,7 @@ mod canfmt {
                 N::BeginAssign => {}
                 N::EndAssign => {
                     let mut values = stack.drain_to_index(index);
-                    assert_eq!(values.len(), 2);
+                    assert_eq!(values.len(), 2, "{:?}", values.collect::<std::vec::Vec<_>>());
                     let name = values.next().unwrap();
                     let name_text = match name {
                         Expr::Ident(name) => name,
@@ -2981,7 +3053,13 @@ mod tests {
             state.start_top_level_decls();
             state.pump();
             state.assert_end();
-            assert_eq!(state.messages, vec![]);
+            if state.messages.len() > 0 {
+                for msg in &state.messages {
+                    eprintln!("{}", format_message(text, &state.buf, msg));
+                }
+
+                panic!("unexpected messages: {:?}", state.messages);
+            }
 
             let tree_output = state.to_expect_atom().debug_vis();
 

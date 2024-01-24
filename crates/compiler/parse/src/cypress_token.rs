@@ -157,6 +157,23 @@ impl TokenenizedBuffer {
 
         c.chomp_trivia(comments);
     }
+
+    pub fn line_at_token(&self, pos: u32) -> usize {
+        // TODO: binary search
+        let mut line = 0;
+        
+        for (i, kind) in self.kinds.iter().enumerate() {
+            if *kind == T::Newline {
+                line += 1;
+            }
+
+            if self.offsets[i] == pos {
+                return line;
+            }
+        }
+
+        panic!("no token at offset {}", pos);
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
