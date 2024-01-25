@@ -133,6 +133,10 @@ impl TokenenizedBuffer {
         self.offsets.push(offset as u32);
         self.lengths.push(length as u32);
     }
+
+    pub fn offset(&self, idx: u32) -> usize {
+        self.offsets[idx as usize] as usize
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -406,6 +410,12 @@ impl<'a> Tokenizer<'a> {
                 }
             }
         }
+
+        if self.output.lines.last().unwrap().0 == self.output.kinds.len() as u32 {
+            self.output.lines.pop();
+        }
+
+        self.output.offsets.push(self.cursor.offset as u32);
     }
 
     fn maybe_add_nospace(&mut self) {

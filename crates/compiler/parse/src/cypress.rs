@@ -660,9 +660,16 @@ impl ExprCfg {
         }
     }
 
-    fn set_block_indent_floor(&self, cur_indent: Indent) -> ExprCfg {
+    fn set_block_indent_floor(&self, cur_indent: Option<Indent>) -> ExprCfg {
         ExprCfg {
-            block_indent_floor: Some(cur_indent),
+            block_indent_floor: cur_indent,
+            ..*self
+        }
+    }
+
+    fn set_expr_indent_floor(&self, cur_indent: Option<Indent>) -> ExprCfg {
+        ExprCfg {
+            expr_indent_floor: cur_indent,
             ..*self
         }
     }
@@ -739,11 +746,15 @@ impl State {
         while self.line + 1 < self.buf.lines.len() && self.pos >= self.buf.lines[self.line + 1].0 as usize {
             self.line += 1;
         }
+        debug_assert!(self.pos >= self.buf.lines[self.line].0 as usize);
+        if self.line + 1 < self.buf.lines.len() {
+            debug_assert!(self.pos < self.buf.lines[self.line + 1].0 as usize);
+        }
     }
 
     fn at_newline(&mut self) -> bool {
         self._update_line();
-        self.pos == self.buf.lines[self.line].0 as usize
+        self.pos == self.buf.lines[self.line].0 as usize && self.pos < self.buf.kinds.len()
     }
 
     fn cur_indent(&mut self) -> Indent {
@@ -768,6 +779,14 @@ impl State {
     }
 
     fn push_error(&mut self, kind: Error) {
+        eprintln!(
+            "{:indent$}@{} pushing error {:?}",
+            "",
+            self.pos,
+            kind,
+            indent = 2 * self.frames.len() + 2
+        );
+
         let mut frames: Vec<Frame> = self.frames.iter().map(|(_, _, f)| *f).collect();
         if let Some(f) = self.pumping.clone() {
             frames.push(f);
@@ -790,8 +809,8 @@ impl State {
     }
 
     fn fast_forward_past_newline(&mut self) {
-        self.line += 1;
-        if self.line < self.buf.lines.len() {
+        if self.line + 1 < self.buf.lines.len() {
+            self.line += 1;
             self.pos = self.buf.lines[self.line].0 as usize;
         } else {
             self.pos = self.buf.kinds.len();
@@ -1183,7 +1202,7 @@ impl State {
                     return;
                 }
                 BinOp::Implements => {
-                    let cfg = cfg.set_block_indent_floor(self.cur_indent());
+                    let cfg = cfg.set_block_indent_floor(Some(self.cur_indent()));
                     self.continue_implements_method_decl_body(subtree_start, cfg);
                     return;
                 }
@@ -1601,6 +1620,10 @@ impl State {
                         next: WhenState::BranchPattern(indent),
                     },
                 );
+                let indent = self.cur_indent();
+                let cfg = cfg
+                    .set_block_indent_floor(Some(indent))
+                    .set_expr_indent_floor(Some(indent));
                 self.start_block_or_expr(cfg);
             }
         }
@@ -1608,7 +1631,11 @@ impl State {
 
     fn start_top_level_item(&mut self) {
         self.push_next_frame_starting_here(ExprCfg::default(), Frame::FinishBlockItem);
-        self.start_expr(ExprCfg::default());
+        let indent = self.cur_indent();
+        let cfg = ExprCfg::default()
+            .set_expr_indent_floor(Some(indent))
+            .set_block_indent_floor(Some(indent));
+        self.start_expr(cfg);
         self.push_node(N::Dummy, None); // will be replaced by the actual node in pump_finish_block_item
     }
 
@@ -1694,6 +1721,7 @@ impl State {
 
     fn start_block_item(&mut self, cfg: ExprCfg) {
         self.push_next_frame_starting_here(cfg, Frame::FinishBlockItem);
+        let cfg = cfg.set_expr_indent_floor(Some(self.cur_indent()));
         self.start_expr(cfg);
         self.push_node(N::Dummy, None); // will be replaced by the actual node in pump_finish_block_item
     }
@@ -2074,16 +2102,22 @@ fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String 
         Ok(i) => (buf.lines[i].0, buf.lines[i].0),
         Err(i) => {
             if i > 0 {
-                (buf.lines[i - 1].0, buf.lines[i].0)
+                if i < buf.lines.len() {
+                    (buf.lines[i - 1].0, buf.lines[i].0)
+                } else {
+                    (buf.lines[i - 1].0, buf.kinds.len() as u32)
+                }
             } else {
                 (0, buf.lines[i].0)
             }
         },
     };
 
+    debug_assert!(line_start <= msg.pos && msg.pos <= line_end);
+
     let mut res = String::new();
 
-    res.push_str(&format!("Error at token {} (offset {}):\n", msg.pos, buf.offsets[msg.pos as usize]));
+    res.push_str(&format!("Error at token {} (offset {}):\n", msg.pos, buf.offset(msg.pos)));
 
     // print the first line (tokens)
     let mut pointer_offset = 0;
@@ -2109,11 +2143,11 @@ fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String 
     res.push('\n');
 
     // print the text
-    res.push_str(&text[buf.offsets[line_start as usize] as usize..buf.offsets[line_end as usize] as usize]);
+    res.push_str(&text[buf.offset(line_start)..buf.offset(line_end)]);
     res.push('\n');
 
     let pointer_offset = buf.offsets[msg.pos as usize] as usize - buf.offsets[line_start as usize] as usize;
-    let pointer_len = buf.lengths[msg.pos as usize] as usize;
+    let pointer_len = buf.lengths.get(msg.pos as usize).map(|o| *o as usize).unwrap_or(0);
 
     // print the pointer
     for _ in 0..pointer_offset {
@@ -2746,7 +2780,7 @@ mod canfmt {
                 | N::InlineBinOpStar
                 | N::InlineBinOpMinus
                 | N::InlineLambdaArrow => {}
-                N::BeginParens | N::EndParens => {} // we don't guarantee that we preserve parens
+            N::BeginParens | N::EndParens => {} // we don't guarantee that we preserve parens
                 N::BeginBlock => {}
                 N::EndBlock => {
                     let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));
@@ -2969,7 +3003,20 @@ mod tests {
             let mut tokenizer = Tokenizer::new(text);
             tokenizer.tokenize();
             let tb = tokenizer.finish();
-            eprintln!("tokens: {:?}", tb.kinds);
+            eprint!("tokens:");
+            let mut last = 0;
+            for (i, (begin, indent)) in tb.lines.iter().enumerate() {
+                for tok in &tb.kinds[last as usize .. *begin as usize] {
+                    eprint!(" {:?}", tok);
+                }
+                eprint!("\n{}: {:?} {}.{}:", i, begin, indent.num_spaces, indent.num_tabs);
+                last = *begin;
+            }
+            for tok in &tb.kinds[last as usize..] {
+                eprint!(" {:?}", tok);
+            }
+            eprintln!();
+
             let mut state = State::from_buf(tb);
             state.start_top_level_decls();
             state.pump();
