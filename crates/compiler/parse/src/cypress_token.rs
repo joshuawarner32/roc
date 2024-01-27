@@ -8,7 +8,7 @@ pub enum T {
     UpperIdent,
     LowerIdent,
     Underscore,
-    DotIdent,
+    DotLowerIdent,
     DotNumber,
 
     OpenRound,
@@ -85,7 +85,9 @@ pub enum T {
     IntBase10,
     IntNonBase10,
     NoSpaceDotNumber,
-    NoSpaceDotIdent,
+    NoSpaceDotLowerIdent,
+    DotUpperIdent,
+    NoSpaceDotUpperIdent,
 }
 
 impl T {
@@ -267,11 +269,17 @@ impl<'a> Tokenizer<'a> {
                             self.output
                                 .push_token(if sp { T::DotNumber } else { T::NoSpaceDotNumber }, offset, self.cursor.offset - offset);
                         }
-                        Some(b'a'..=b'z') | Some(b'A'..=b'Z') => {
+                        Some(b'a'..=b'z') => {
                             self.cursor.offset += 1;
                             self.cursor.chomp_ident_general();
                             self.output
-                                .push_token(if sp { T::DotIdent } else { T::NoSpaceDotIdent }, offset, self.cursor.offset - offset);
+                                .push_token(if sp { T::DotLowerIdent } else { T::NoSpaceDotLowerIdent }, offset, self.cursor.offset - offset);
+                        }
+                        Some(b'A'..=b'Z') => {
+                            self.cursor.offset += 1;
+                            self.cursor.chomp_ident_general();
+                            self.output
+                                .push_token(if sp { T::DotUpperIdent } else { T::NoSpaceDotUpperIdent }, offset, self.cursor.offset - offset);
                         }
                         Some(b'{') => {
                             self.cursor.offset += 1;

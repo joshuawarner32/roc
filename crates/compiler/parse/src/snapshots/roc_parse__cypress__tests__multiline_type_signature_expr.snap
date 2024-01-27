@@ -1,0 +1,20 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "f :\n    {}\n\n42\n"
+---
+(BeginTopLevelDecls
+    (BeginTypeOrTypeAlias
+        Ident=>LowerIdent@0
+        InlineColon=>OpColon@1
+        (BeginTypeRecord EndTypeRecord)
+    EndTypeOrTypeAlias)
+    HintExpr
+    Num=>IntBase10@4
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+TypeAlias("f", TypeRecord([]))
+IntBase10("42")
+
+[=== formatted below ===]
+

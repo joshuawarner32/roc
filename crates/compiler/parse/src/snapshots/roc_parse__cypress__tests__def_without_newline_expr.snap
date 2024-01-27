@@ -1,0 +1,20 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "a:b i\n"
+---
+(BeginTopLevelDecls
+    (BeginTypeOrTypeAlias
+        Ident=>LowerIdent@0
+        InlineColon=>OpColon@1
+        Ident=>LowerIdent@2
+    EndTypeOrTypeAlias)
+    HintExpr
+    Ident=>LowerIdent@3
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+TypeAlias("a", Ident("b"))
+Ident("i")
+
+[=== formatted below ===]
+

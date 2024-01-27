@@ -1,0 +1,23 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "Z #\nh\n : a\nj\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    UpperIdent=>UpperIdent@0
+    (BeginTypeOrTypeAlias
+        Ident=>LowerIdent@1
+        InlineColon=>OpColon@2
+        Ident=>LowerIdent@3
+    EndTypeOrTypeAlias)
+    HintExpr
+    Ident=>LowerIdent@4
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+UpperIdent("Z")
+TypeAlias("h", Ident("a"))
+Ident("j")
+
+[=== formatted below ===]
+

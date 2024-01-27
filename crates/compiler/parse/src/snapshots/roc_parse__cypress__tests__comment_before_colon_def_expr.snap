@@ -1,0 +1,17 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "w#\n:n\nQ\n"
+---
+(BeginTopLevelDecls
+    (BeginTypeOrTypeAlias
+        Ident=>LowerIdent@0
+        InlineColon=>OpColon@1
+        (* Ident=>LowerIdent@2 TypeName=>UpperIdent@3 EndTypeApply)
+    EndTypeOrTypeAlias)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+TypeAlias("w", TypeApply(Ident("n"), [TypeName("Q")]))
+
+[=== formatted below ===]
+

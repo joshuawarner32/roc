@@ -1,0 +1,26 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "{x : if Bool.true then 1 else 2, y: 3 }\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginRecord
+        Ident=>LowerIdent@1
+        InlineColon=>OpColon@2
+        ((* BeginIf ModuleName=>UpperIdent@4 DotModuleLowerIdent)
+            InlineKwThen=>KwThen@6
+            Num=>IntBase10@7
+            InlineKwElse=>KwElse@8
+            Num=>IntBase10@9
+        EndIf)
+        Ident=>LowerIdent@11
+        InlineColon=>OpColon@12
+        Num=>IntBase10@13
+    EndRecord)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Record([("x", If(ModuleLowerName("Bool", ".true"), IntBase10("1"), IntBase10("2"))), ("y", IntBase10("3"))])
+
+[=== formatted below ===]
+
