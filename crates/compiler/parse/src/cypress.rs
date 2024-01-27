@@ -2923,7 +2923,7 @@ mod canfmt {
         BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
         Pizza(&'a [Expr<'a>]),
         Lambda(&'a [Expr<'a>], &'a Expr<'a>),
-        If(&'a Expr<'a>, &'a Expr<'a>, &'a Expr<'a>),
+        If(&'a [(&'a Expr<'a>, &'a Expr<'a>)], &'a Expr<'a>),
         When(&'a Expr<'a>, &'a [Expr<'a>]),
         Block(&'a [Expr<'a>]),
         Record(&'a [(&'a str, &'a Expr<'a>)]),
@@ -2999,7 +2999,7 @@ mod canfmt {
                     stack.push(i, Expr::BinOp(bump.alloc(a), $op, bump.alloc(b)));
                 }};
             }
-            
+
             // eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
             match node {
                 N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
@@ -3094,20 +3094,24 @@ mod canfmt {
                 N::EndIf => {
                     // pop three elements (cond, then, else)
                     let mut values = stack.drain_to_index(index);
-                    assert_eq!(
-                        values.len(),
-                        3,
+                    assert!(
+                        values.len() >= 3 && (values.len() - 1) % 2 == 0,
                         "{:?}",
                         values.collect::<std::vec::Vec<_>>()
                     );
-                    let cond = values.next().unwrap();
-                    let then = values.next().unwrap();
-                    let els = values.next().unwrap();
-                    drop(values);
-                    stack.push(
-                        i,
-                        Expr::If(bump.alloc(cond), bump.alloc(then), bump.alloc(els)),
+                    let mut condthenseq = Vec::<(&'a Expr<'a>, &'a Expr<'a>)>::with_capacity_in(
+                        (values.len() - 1) / 2,
+                        bump,
                     );
+                    for _ in 0..(values.len() - 1) / 2 {
+                        let cond = values.next().unwrap();
+                        let then = values.next().unwrap();
+                        condthenseq.push((bump.alloc(cond), bump.alloc(then)));
+                    }
+                    let els = values.next().unwrap();
+                    assert!(values.next().is_none());
+                    drop(values);
+                    stack.push(i, Expr::If(condthenseq.into_bump_slice(), bump.alloc(els)));
                 }
                 N::BeginWhen => {}
                 N::InlineKwIs => {}

@@ -20,7 +20,7 @@ description: "{ x: if Bool.true then 1 else 2, y: 3 }\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-Record([("x", If(ModuleLowerName("Bool", ".true"), IntBase10("1"), IntBase10("2"))), ("y", IntBase10("3"))])
+Record([("x", If([(ModuleLowerName("Bool", ".true"), IntBase10("1"))], IntBase10("2"))), ("y", IntBase10("3"))])
 
 [=== formatted below ===]
 
