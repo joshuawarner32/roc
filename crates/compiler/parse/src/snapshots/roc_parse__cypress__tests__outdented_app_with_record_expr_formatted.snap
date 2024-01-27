@@ -1,0 +1,34 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "x = foo\n    (\n        baz {\n            bar: blah,\n        }\n    )\nx\n"
+---
+(BeginTopLevelDecls
+    (BeginAssign
+        Ident=>LowerIdent@0
+        InlineAssign=>OpAssign@1
+        (*
+            Ident=>LowerIdent@2
+            InlineApply=>LowerIdent@2
+            (BeginParens
+                (*
+                    Ident=>LowerIdent@4
+                    InlineApply=>LowerIdent@4
+                    (BeginRecord
+                        Ident=>LowerIdent@6
+                        InlineColon=>OpColon@7
+                        Ident=>LowerIdent@8
+                    EndRecord)
+                EndApply)
+            EndParens)
+        EndApply)
+    EndAssign)
+    HintExpr
+    Ident=>LowerIdent@12
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Assign("x", Apply(Ident("foo"), [Apply(Ident("baz"), [Record([("bar", Ident("blah"))])])]))
+Ident("x")
+
+[=== formatted below ===]
+

@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "(\n    #before 1\n    1\n    #after 1\n    ,\n    #before 2\n    2\n    #after 2\n    ,\n    #before 3\n    3\n    # after 3\n)\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginParens Num=>IntBase10@1 Num=>IntBase10@3 Num=>IntBase10@5 EndParens)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Tuple([IntBase10("1"), IntBase10("2"), IntBase10("3")])
+
+[=== formatted below ===]
+

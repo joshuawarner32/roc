@@ -208,11 +208,27 @@ pub enum N {
     InlineBinOpGreaterThan,
     InlineBinOpLessThanOrEq,
     InlineBinOpGreaterThanOrEq,
+    InlineBinOpSlash,
+    InlineBinOpDoubleSlash,
+    InlineBinOpPercent,
+    InlineBinOpCaret,
+    InlineBinOpAnd,
+    InlineBinOpOr,
+    InlineBinOpEquals,
+    InlineBinOpNotEquals,
     EndBinOpMinus,
     EndBinOpLessThan,
     EndBinOpGreaterThan,
     EndBinOpLessThanOrEq,
     EndBinOpGreaterThanOrEq,
+    EndBinOpSlash,
+    EndBinOpDoubleSlash,
+    EndBinOpPercent,
+    EndBinOpCaret,
+    EndBinOpAnd,
+    EndBinOpOr,
+    EndBinOpEquals,
+    EndBinOpNotEquals,
     InlineBinOpMinus,
 
     /// Unary not, e.g. `!x`
@@ -355,6 +371,14 @@ impl N {
             | N::InlineBinOpGreaterThan
             | N::InlineBinOpLessThanOrEq
             | N::InlineBinOpGreaterThanOrEq
+            | N::InlineBinOpSlash
+            | N::InlineBinOpDoubleSlash
+            | N::InlineBinOpPercent
+            | N::InlineBinOpCaret
+            | N::InlineBinOpAnd
+            | N::InlineBinOpOr
+            | N::InlineBinOpEquals
+            | N::InlineBinOpNotEquals
             | N::InlineBinOpMinus
             | N::InlineMultiBackpassingComma => NodeIndexKind::Token,
             N::Num
@@ -383,6 +407,14 @@ impl N {
             | N::EndBinOpGreaterThan
             | N::EndBinOpLessThanOrEq
             | N::EndBinOpGreaterThanOrEq
+            | N::EndBinOpSlash
+            | N::EndBinOpDoubleSlash
+            | N::EndBinOpPercent
+            | N::EndBinOpCaret
+            | N::EndBinOpAnd
+            | N::EndBinOpOr
+            | N::EndBinOpEquals
+            | N::EndBinOpNotEquals
             | N::EndTypeAdendum
             | N::EndMultiBackpassingArgs
             | N::EndFieldAccess
@@ -565,10 +597,10 @@ impl BinOp {
             BinOp::Backpassing => N::InlineBackArrow,
             BinOp::MultiBackpassingComma => N::InlineMultiBackpassingComma,
             BinOp::Pizza => N::InlinePizza,
-            BinOp::And => todo!(),
-            BinOp::Or => todo!(),
-            BinOp::Equals => todo!(),
-            BinOp::NotEquals => todo!(),
+            BinOp::And => N::InlineBinOpAnd,
+            BinOp::Or => N::InlineBinOpOr,
+            BinOp::Equals => N::InlineBinOpEquals,
+            BinOp::NotEquals => N::InlineBinOpNotEquals,
             BinOp::LessThan => N::InlineBinOpLessThan,
             BinOp::GreaterThan => N::InlineBinOpGreaterThan,
             BinOp::LessThanOrEq => N::InlineBinOpLessThanOrEq,
@@ -576,10 +608,10 @@ impl BinOp {
             BinOp::Plus => N::InlineBinOpPlus,
             BinOp::Minus => N::InlineBinOpMinus,
             BinOp::Star => N::InlineBinOpStar,
-            BinOp::Slash => todo!(),
-            BinOp::DoubleSlash => todo!(),
-            BinOp::Percent => todo!(),
-            BinOp::Caret => todo!(),
+            BinOp::Slash => N::InlineBinOpSlash,
+            BinOp::DoubleSlash => N::InlineBinOpDoubleSlash,
+            BinOp::Percent => N::InlineBinOpPercent,
+            BinOp::Caret => N::InlineBinOpCaret,
             BinOp::Apply => N::InlineApply,
         }
     }
@@ -602,6 +634,14 @@ impl From<BinOp> for N {
             BinOp::AssignBlock => N::EndAssign,
             BinOp::Backpassing => N::EndBackpassing,
             BinOp::MultiBackpassingComma => N::EndMultiBackpassingArgs,
+            BinOp::Slash => N::EndBinOpSlash,
+            BinOp::DoubleSlash => N::EndBinOpDoubleSlash,
+            BinOp::Percent => N::EndBinOpPercent,
+            BinOp::Caret => N::EndBinOpCaret,
+            BinOp::And => N::EndBinOpAnd,
+            BinOp::Or => N::EndBinOpOr,
+            BinOp::Equals => N::EndBinOpEquals,
+            BinOp::NotEquals => N::EndBinOpNotEquals,
             _ => todo!("binop to node {:?}", op),
         }
     }
@@ -1051,7 +1091,7 @@ impl State {
         }
     }
 
-    fn pump_start_expr(&mut self, subtree_start: u32, mut cfg: ExprCfg, mut min_prec: Prec) {
+    fn pump_start_expr(&mut self, mut subtree_start: u32, mut cfg: ExprCfg, mut min_prec: Prec) {
         macro_rules! maybe_return {
             () => {
                 match self.cur() {
@@ -1118,6 +1158,7 @@ impl State {
                     );
                     self.push_next_frame_starting_here(cfg, Frame::ContinueTupleOrParen);
                     self.push_node(N::BeginParens, None);
+                    subtree_start = self.tree.len();
                     min_prec = Prec::Outer;
                     cfg = cfg.disable_multi_backpassing();
                     continue;
@@ -1337,7 +1378,10 @@ impl State {
                 | T::OpenCurly
                 | T::IntBase10
                 | T::IntNonBase10
-                | T::String,
+                | T::String
+                | T::OpenRound
+                | T::OpenCurly
+                | T::OpenSquare,
             ) => {
                 if self.at_newline() {
                     // are we at the start of a line?
@@ -1361,6 +1405,7 @@ impl State {
             Some(T::OpColonEqual) => (BinOp::DefineOtherTypeThing, 1),
             Some(T::OpBackArrow) => (BinOp::Backpassing, 1),
             Some(T::KwImplements) => (BinOp::Implements, 1),
+            Some(T::OpEquals) => (BinOp::Equals, 1),
             Some(T::OpLessThan) => (BinOp::LessThan, 1),
             Some(T::OpLessThanOrEq) => (BinOp::LessThanOrEq, 1),
             Some(T::OpGreaterThan) => (BinOp::GreaterThan, 1),
@@ -1467,7 +1512,7 @@ impl State {
             Some(T::Comma) => {
                 if self.peek_at(1) != Some(T::LowerIdent) || self.peek_at(2) != Some(T::OpColon) {
                     self.bump();
-                    if in_apply {
+                    if in_apply == Some(true) {
                         self.push_node(N::EndTypeApply, Some(subtree_start));
                     }
                     self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeCommaSep);
@@ -1477,7 +1522,7 @@ impl State {
             }
             Some(T::OpArrow) => {
                 self.bump();
-                if in_apply {
+                if in_apply == Some(true) {
                     self.push_node(N::EndTypeApply, Some(subtree_start));
                 }
                 self.push_node(N::InlineLambdaArrow, Some(self.pos as u32 - 1));
@@ -1489,7 +1534,7 @@ impl State {
             Some(T::KwWhere) => {
                 if !self.plausible_expr_continue_comes_next() {
                     // TODO: should write a plausible_type_continue_comes_next
-                    if in_apply {
+                    if in_apply == Some(true) {
                         self.push_node(N::EndTypeApply, Some(subtree_start));
                     }
                     self.push_node(N::InlineKwWhere, Some(self.pos as u32 - 1));
@@ -1502,7 +1547,9 @@ impl State {
                 }
             }
             // TODO: check for other things that can start an expr
-            Some(T::LowerIdent | T::UpperIdent | T::OpenCurly | T::OpenSquare | T::OpenRound) if in_apply.is_some() => {
+            Some(T::LowerIdent | T::UpperIdent | T::OpenCurly | T::OpenSquare | T::OpenRound)
+                if in_apply.is_some() =>
+            {
                 if self.at_newline() {
                     // are we at the start of a line?
                     if !self.buf.lines[self.line]
@@ -1511,18 +1558,24 @@ impl State {
                         .expect("TODO: error handling")
                     {
                         // Not indented enough; we're done.
-                        if in_apply {
+                        if in_apply == Some(true) {
                             self.push_node(N::EndTypeApply, Some(subtree_start));
                         }
                     }
                 }
 
                 // We need to keep processing args
-                self.push_next_frame(subtree_start, cfg, Frame::ContinueType { in_apply: Some(true) });
+                self.push_next_frame(
+                    subtree_start,
+                    cfg,
+                    Frame::ContinueType {
+                        in_apply: Some(true),
+                    },
+                );
                 self.start_type(cfg);
             }
             _ => {
-                if in_apply {
+                if in_apply == Some(true) {
                     self.push_node(N::EndTypeApply, Some(subtree_start));
                 }
             }
@@ -1566,7 +1619,7 @@ impl State {
             self.start_expr(cfg.disable_multi_backpassing());
         } else {
             self.expect(T::CloseRound);
-            self.push_node(N::EndParens, Some(self.pos as u32 - 1));
+            self.push_node(N::EndParens, Some(subtree_start));
             self.update_end(N::BeginParens, subtree_start);
         }
     }
@@ -1613,7 +1666,15 @@ impl State {
             | N::EndList
             | N::EndLambda
             | N::EndRecord
-            | N::EndFieldAccess => {
+            | N::EndFieldAccess
+            | N::EndBinOpSlash
+            | N::EndBinOpDoubleSlash
+            | N::EndBinOpPercent
+            | N::EndBinOpCaret
+            | N::EndBinOpAnd
+            | N::EndBinOpOr
+            | N::EndBinOpEquals
+            | N::EndBinOpNotEquals => {
                 self.tree.kinds[subtree_start as usize] = N::HintExpr;
             }
             k => todo!("{:?}", k),
@@ -2869,6 +2930,7 @@ mod canfmt {
         RecordAccess(&'a Expr<'a>, &'a str),
         TupleAccess(&'a Expr<'a>, &'a str),
         ModuleLowerName(&'a str, &'a str),
+        Tuple(&'a [Expr<'a>]),
 
         // Not really expressions, but considering them as such to make the formatter as error tolerant as possible
         Assign(&'a str, &'a Expr<'a>),
@@ -2926,6 +2988,18 @@ mod canfmt {
             //     }
             // }
             let index = ctx.tree.paird_group_ends[i];
+
+            macro_rules! binop {
+                ($op:expr) => {{
+                    let mut values = stack.drain_to_index(index);
+                    assert_eq!(values.len(), 2);
+                    let a = values.next().unwrap();
+                    let b = values.next().unwrap();
+                    drop(values);
+                    stack.push(i, Expr::BinOp(bump.alloc(a), $op, bump.alloc(b)));
+                }};
+            }
+            
             // eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
             match node {
                 N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
@@ -2944,7 +3018,7 @@ mod canfmt {
                         // stack.push(i, Expr::TypeName(ctx.text(index)));
                         todo!();
                     }
-                },
+                }
                 N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
                 N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
                 N::Float => stack.push(i, Expr::Float(ctx.text(index))),
@@ -2976,30 +3050,17 @@ mod canfmt {
                     let args = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Expr::Pizza(args));
                 }
-                N::EndBinOpPlus => {
-                    let mut values = stack.drain_to_index(index);
-                    assert_eq!(values.len(), 2);
-                    let a = values.next().unwrap();
-                    let b = values.next().unwrap();
-                    drop(values);
-                    stack.push(i, Expr::BinOp(bump.alloc(a), BinOp::Plus, bump.alloc(b)));
-                }
-                N::EndBinOpMinus => {
-                    let mut values = stack.drain_to_index(index);
-                    assert_eq!(values.len(), 2);
-                    let a = values.next().unwrap();
-                    let b = values.next().unwrap();
-                    drop(values);
-                    stack.push(i, Expr::BinOp(bump.alloc(a), BinOp::Minus, bump.alloc(b)));
-                }
-                N::EndBinOpStar => {
-                    let mut values = stack.drain_to_index(index);
-                    assert_eq!(values.len(), 2);
-                    let a = values.next().unwrap();
-                    let b = values.next().unwrap();
-                    drop(values);
-                    stack.push(i, Expr::BinOp(bump.alloc(a), BinOp::Star, bump.alloc(b)));
-                }
+                N::EndBinOpPlus => binop!(BinOp::Plus),
+                N::EndBinOpMinus => binop!(BinOp::Minus),
+                N::EndBinOpStar => binop!(BinOp::Star),
+                N::EndBinOpSlash => binop!(BinOp::Slash),
+                N::EndBinOpDoubleSlash => binop!(BinOp::DoubleSlash),
+                N::EndBinOpPercent => binop!(BinOp::Percent),
+                N::EndBinOpCaret => binop!(BinOp::Caret),
+                N::EndBinOpAnd => binop!(BinOp::And),
+                N::EndBinOpOr => binop!(BinOp::Or),
+                N::EndBinOpEquals => binop!(BinOp::Equals),
+                N::EndBinOpNotEquals => binop!(BinOp::NotEquals),
                 N::BeginLambda => {}
                 N::EndLambda => {
                     let mut values = stack.drain_to_index(index);
@@ -3033,7 +3094,12 @@ mod canfmt {
                 N::EndIf => {
                     // pop three elements (cond, then, else)
                     let mut values = stack.drain_to_index(index);
-                    assert_eq!(values.len(), 3, "{:?}", values.collect::<std::vec::Vec<_>>());
+                    assert_eq!(
+                        values.len(),
+                        3,
+                        "{:?}",
+                        values.collect::<std::vec::Vec<_>>()
+                    );
                     let cond = values.next().unwrap();
                     let then = values.next().unwrap();
                     let els = values.next().unwrap();
@@ -3096,6 +3162,20 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::TypeRecord(pairs.into_bump_slice()));
                 }
+                N::BeginParens => {}
+                N::EndParens => {
+                    let mut values = stack.drain_to_index(index);
+                    if values.len() == 1 {
+                        // we don't create a tuple for a single element
+                        let value = values.next().unwrap();
+                        drop(values);
+                        stack.push(i, value);
+                    } else {
+                        let mut values = values.into_iter();
+                        let args = bump.alloc_slice_fill_iter(values);
+                        stack.push(i, Expr::Tuple(args));
+                    }
+                }
                 N::InlineApply
                 | N::InlineAssign
                 | N::InlinePizza
@@ -3103,8 +3183,15 @@ mod canfmt {
                 | N::InlineBinOpPlus
                 | N::InlineBinOpStar
                 | N::InlineBinOpMinus
+                | N::InlineBinOpSlash
+                | N::InlineBinOpDoubleSlash
+                | N::InlineBinOpPercent
+                | N::InlineBinOpCaret
+                | N::InlineBinOpAnd
+                | N::InlineBinOpOr
+                | N::InlineBinOpEquals
+                | N::InlineBinOpNotEquals
                 | N::InlineLambdaArrow => {}
-                N::BeginParens | N::EndParens => {} // we don't guarantee that we preserve parens
                 N::BeginBlock => {}
                 N::EndBlock => {
                     let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));
@@ -3175,7 +3262,13 @@ mod tests {
             while i > begin {
                 let (new_i, atom) = self.expect_atom(i, buf);
                 assert!(new_i < i);
-                assert!(new_i >= begin);
+                assert!(
+                    new_i >= begin,
+                    "new_i={}, begin={}, node={:?}",
+                    new_i,
+                    begin,
+                    node
+                );
                 res.push_front(atom);
                 i = new_i;
             }
