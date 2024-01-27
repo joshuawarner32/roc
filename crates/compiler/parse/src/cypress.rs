@@ -97,8 +97,11 @@
 #![allow(unused)] // temporarily during development
 
 use crate::cypress_token::{Comment, Indent, TokenenizedBuffer, T};
-use std::{collections::{btree_map::Keys, VecDeque}, f32::consts::E};
 use std::fmt;
+use std::{
+    collections::{btree_map::Keys, VecDeque},
+    f32::consts::E,
+};
 
 pub struct Tree {
     kinds: Vec<N>,
@@ -226,8 +229,12 @@ pub enum N {
     InlineLambdaArrow,
     EndLambda,
 
-    EndTopLevelDecls,
     BeginTopLevelDecls,
+    EndTopLevelDecls,
+
+    /// A type application of some kind, including types or tags
+    EndTypeApply,
+
     Dummy,
 
     InlineKwWhere,
@@ -261,6 +268,8 @@ pub enum N {
     EndTypeRecord,
     BeginCollection,
     EndCollection,
+    DotIdent,
+    DotNumber,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -341,6 +350,8 @@ impl N {
             N::Num
             | N::String
             | N::Ident
+            | N::DotIdent
+            | N::DotNumber
             | N::UpperIdent
             | N::TypeName
             | N::AbilityName
@@ -365,10 +376,10 @@ impl N {
             | N::EndMultiBackpassingArgs
             | N::EndFieldAccess
             | N::EndIndexAccess
-            => {
-                NodeIndexKind::EndOnly
+            | N::EndTypeApply => NodeIndexKind::EndOnly,
+            N::Float | N::SingleQuote | N::Underscore | N::TypeWildcard | N::Crash | N::Dbg => {
+                NodeIndexKind::Token
             }
-            N::Float | N::SingleQuote | N::Underscore | N::TypeWildcard | N::Crash | N::Dbg => NodeIndexKind::Token,
         }
     }
 }
@@ -395,11 +406,11 @@ impl Tree {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
     Outer,
-    DeclSeq,  // BinOp::DeclSeq,
-    Decl,     // BinOp::Assign, BinOp::Backpassing,
+    DeclSeq,               // BinOp::DeclSeq,
+    Decl,                  // BinOp::Assign, BinOp::Backpassing,
     MultiBackpassingComma, // BinOp::MultiBackpassingComma. Used for parsing the comma in `x, y, z <- foo`
-    Pizza,    // BinOp::Pizza,
-    AndOr,    // BinOp::And, BinOp::Or,
+    Pizza,                 // BinOp::Pizza,
+    AndOr,                 // BinOp::And, BinOp::Or,
     Compare, // BinOp::Equals, BinOp::NotEquals, BinOp::LessThan, BinOp::GreaterThan, BinOp::LessThanOrEq, BinOp::GreaterThanOrEq,
     Add,     // BinOp::Plus, BinOp::Minus,
     Multiply, // BinOp::Star, BinOp::Slash, BinOp::DoubleSlash, BinOp::Percent,
@@ -610,12 +621,16 @@ enum Frame {
     FinishLambda,
     FinishBlockItem,
     StartType,
-    ContinueType,
+    ContinueType {
+        in_apply: bool,
+    },
     ContinueTypeCommaSep,
     FinishTypeFunction,
     ContinueWhereClause,
     FinishTypeOrTypeAlias,
-    ContinueRecord { start: bool },
+    ContinueRecord {
+        start: bool,
+    },
     Finish(N),
     ContinueTypeTupleOrParen,
     ContinueList,
@@ -635,8 +650,16 @@ struct ExprCfg {
 impl fmt::Debug for ExprCfg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // shorthand for debugging
-        
-        write!(f, "{}", if self.allow_multi_backpassing { "mb" } else { "/" })?;
+
+        write!(
+            f,
+            "{}",
+            if self.allow_multi_backpassing {
+                "mb"
+            } else {
+                "/"
+            }
+        )?;
 
         if let Some(i) = self.expr_indent_floor {
             write!(f, "e")?;
@@ -742,8 +765,14 @@ impl State {
         self.buf.kind(self.pos)
     }
 
+    fn peek_at(&self, pos: usize) -> Option<T> {
+        self.buf.kind(pos)
+    }
+
     fn _update_line(&mut self) {
-        while self.line + 1 < self.buf.lines.len() && self.pos >= self.buf.lines[self.line + 1].0 as usize {
+        while self.line + 1 < self.buf.lines.len()
+            && self.pos >= self.buf.lines[self.line + 1].0 as usize
+        {
             self.line += 1;
         }
         debug_assert!(self.pos >= self.buf.lines[self.line].0 as usize);
@@ -889,7 +918,8 @@ impl State {
             "Expected {:?} but found {:?}; tree: {:?}",
             kind,
             self.tree.kinds[subtree_start as usize],
-            ShowTreePosition(&self.tree, subtree_start));
+            ShowTreePosition(&self.tree, subtree_start)
+        );
         self.tree.paird_group_ends[subtree_start as usize] = self.tree.len() as u32;
     }
 
@@ -954,7 +984,9 @@ impl State {
             let mut start = self.pos;
             match frame {
                 Frame::StartExpr { min_prec } => self.pump_start_expr(subtree_start, cfg, min_prec),
-                Frame::ContinueTupleOrParen => self.pump_continue_tuple_or_paren(subtree_start, cfg),
+                Frame::ContinueTupleOrParen => {
+                    self.pump_continue_tuple_or_paren(subtree_start, cfg)
+                }
                 Frame::FinishLambda => self.pump_finish_lambda(subtree_start),
                 Frame::FinishBlockItem => self.pump_finish_block_item(subtree_start),
                 Frame::Finish(end) => self.pump_finish(subtree_start, end),
@@ -972,17 +1004,33 @@ impl State {
                 Frame::ContinueIf { next } => self.pump_continue_if(subtree_start, cfg, next),
                 Frame::ContinueWhen { next } => self.pump_continue_when(subtree_start, cfg, next),
                 Frame::StartType => self.pump_start_type(subtree_start, cfg),
-                Frame::ContinueType => self.pump_continue_type(subtree_start, cfg),
-                Frame::ContinueTypeCommaSep => self.pump_continue_type_comma_sep(subtree_start, cfg),
+                Frame::ContinueType { in_apply } => {
+                    self.pump_continue_type(subtree_start, cfg, in_apply)
+                }
+                Frame::ContinueTypeCommaSep => {
+                    self.pump_continue_type_comma_sep(subtree_start, cfg)
+                }
                 Frame::FinishTypeFunction => self.pump_finish_type_function(subtree_start, cfg),
                 Frame::ContinueWhereClause => self.pump_continue_where_clause(subtree_start, cfg),
-                Frame::FinishTypeOrTypeAlias => self.pump_finish_type_or_type_alias(subtree_start, cfg),
-                Frame::ContinueRecord { start } => self.pump_continue_record(subtree_start, cfg, start),
+                Frame::FinishTypeOrTypeAlias => {
+                    self.pump_finish_type_or_type_alias(subtree_start, cfg)
+                }
+                Frame::ContinueRecord { start } => {
+                    self.pump_continue_record(subtree_start, cfg, start)
+                }
                 Frame::ContinueList => self.pump_continue_list(subtree_start, cfg),
-                Frame::ContinueTypeTupleOrParen => self.pump_continue_type_tuple_or_paren(subtree_start, cfg),
-                Frame::ContinueTypeTagUnion => self.pump_continue_type_tag_union(subtree_start, cfg),
-                Frame::ContinueTagUnionArgs => self.pump_continue_tag_union_args(subtree_start, cfg),
-                Frame::ContinueImplementsMethodDecl => self.pump_continue_implements_method_decl(subtree_start, cfg),
+                Frame::ContinueTypeTupleOrParen => {
+                    self.pump_continue_type_tuple_or_paren(subtree_start, cfg)
+                }
+                Frame::ContinueTypeTagUnion => {
+                    self.pump_continue_type_tag_union(subtree_start, cfg)
+                }
+                Frame::ContinueTagUnionArgs => {
+                    self.pump_continue_tag_union_args(subtree_start, cfg)
+                }
+                Frame::ContinueImplementsMethodDecl => {
+                    self.pump_continue_implements_method_decl(subtree_start, cfg)
+                }
                 Frame::ContinueTypeRecord => self.pump_continue_type_record(subtree_start, cfg),
             }
             // debug_assert!(self.pos > start, "pump didn't advance the cursor");
@@ -1009,14 +1057,15 @@ impl State {
                     },
                 );
                 return;
-            }
+            };
         }
 
         macro_rules! atom {
             ($n:expr) => {{
                 self.bump();
+                let subtree_start = self.tree.len();
                 self.push_node($n, Some(self.pos as u32 - 1));
-                self.handle_field_access_suffix();
+                self.handle_field_access_suffix(subtree_start);
                 maybe_return!();
             }};
         }
@@ -1024,7 +1073,7 @@ impl State {
         loop {
             match self.cur() {
                 Some(T::LowerIdent) => atom!(N::Ident),
-                 // TODO: do these need to be distinguished in the node?
+                // TODO: do these need to be distinguished in the node?
                 Some(T::Underscore | T::NamedUnderscore) => atom!(N::Underscore),
                 Some(T::UpperIdent) => atom!(N::UpperIdent),
                 Some(T::IntBase10) => atom!(N::Num),
@@ -1050,10 +1099,7 @@ impl State {
                 }
                 Some(T::OpenCurly) => {
                     self.bump();
-                    self.push_next_frame_starting_here(
-                        cfg,
-                        Frame::ContinueRecord { start: true, },
-                    );
+                    self.push_next_frame_starting_here(cfg, Frame::ContinueRecord { start: true });
                     self.push_node(N::BeginRecord, None); // index will be updated later
                     return;
                 }
@@ -1102,32 +1148,44 @@ impl State {
                 }
                 Some(T::OpBang) => {
                     self.bump();
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr {
-                        min_prec,
-                        cur_op: None,
-                        num_found: 1,
-                    });
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueExpr {
+                            min_prec,
+                            cur_op: None,
+                            num_found: 1,
+                        },
+                    );
                     self.push_next_frame_starting_here(cfg, Frame::Finish(N::EndUnaryNot));
                     self.start_expr(cfg);
                     return;
                 }
                 Some(T::OpUnaryMinus) => {
                     self.bump();
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueExpr {
-                        min_prec,
-                        cur_op: None,
-                        num_found: 1,
-                    });
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueExpr {
+                            min_prec,
+                            cur_op: None,
+                            num_found: 1,
+                        },
+                    );
                     self.push_next_frame_starting_here(cfg, Frame::Finish(N::EndUnaryMinus));
                     self.start_expr(cfg);
                     return;
                 }
                 Some(T::OpArrow) => return, // when arrow; handled in outer scope
+                Some(k) if k.is_keyword() => {
+                    // treat as an identifier
+                    atom!(N::Ident);
+                }
                 k => {
                     self.push_error(Error::ExpectedExpr(k));
                     self.fast_forward_past_newline();
                     return;
-                },
+                }
             }
         }
     }
@@ -1139,26 +1197,25 @@ impl State {
             self.push_node(N::EndList, Some(subtree_start));
             return;
         }
-        
-        self.push_next_frame_starting_here(
-            cfg,
-            Frame::ContinueList,
-        );
+
+        self.push_next_frame_starting_here(cfg, Frame::ContinueList);
         self.push_node(N::BeginList, None);
         // index will be updated later
         self.start_expr(cfg.disable_multi_backpassing());
     }
 
-    fn handle_field_access_suffix(&mut self) {
+    fn handle_field_access_suffix(&mut self, subtree_start: u32) {
         loop {
             match self.cur() {
                 Some(T::NoSpaceDotIdent) => {
                     self.bump();
-                    self.push_node(N::EndFieldAccess, Some(self.pos as u32 - 1));
+                    self.push_node(N::DotIdent, Some(self.pos as u32 - 1));
+                    self.push_node(N::EndFieldAccess, Some(subtree_start));
                 }
                 Some(T::NoSpaceDotNumber) => {
                     self.bump();
-                    self.push_node(N::EndIndexAccess, Some(self.pos as u32 - 1));
+                    self.push_node(N::DotNumber, Some(self.pos as u32 - 1));
+                    self.push_node(N::EndIndexAccess, Some(subtree_start));
                 }
                 _ => return,
             }
@@ -1247,26 +1304,23 @@ impl State {
     }
 
     fn next_op(&mut self, min_prec: Prec, cfg: ExprCfg) -> Option<BinOp> {
-        // let k = if self.cur() == Some(T::Newline) {
-        //     let k = self.buf.kind(self.pos + 1);
-        //     if matches!(k, Some(T::LowerIdent | T::OpenCurly | T::IntBase10 | T::IntNonBase10)) { // TODO: check for other things that can start an expr
-        //         if self.buf.lines[self.line + 1].is_indented_more_than(cfg.expr_indent_floor).expect("TODO: error handling") {
-        //             k
-        //         } else {
-        //             return None;
-        //         }
-        //     } else {
-        //         k
-        //     }
-        // } else {
-        //     self.cur()
-        // };
-
         let (op, width) = match self.cur() {
             // TODO: check for other things that can start an expr
-            Some(T::LowerIdent | T::OpenCurly | T::IntBase10 | T::IntNonBase10 | T::String) => {
-                if self.at_newline() { // are we at the start of a line?
-                    if !self.buf.lines[self.line].1.is_indented_more_than(cfg.expr_indent_floor).expect("TODO: error handling") {
+            Some(
+                T::LowerIdent
+                | T::UpperIdent
+                | T::OpenCurly
+                | T::IntBase10
+                | T::IntNonBase10
+                | T::String,
+            ) => {
+                if self.at_newline() {
+                    // are we at the start of a line?
+                    if !self.buf.lines[self.line]
+                        .1
+                        .is_indented_more_than(cfg.expr_indent_floor)
+                        .expect("TODO: error handling")
+                    {
                         return None;
                     }
                 }
@@ -1307,7 +1361,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType,
+                        Frame::ContinueType { in_apply: false },
                     );
                     self.push_node(N::BeginParens, None);
                     self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
@@ -1318,7 +1372,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType,
+                        Frame::ContinueType { in_apply: false },
                     );
                     self.start_tag_union(subtree_start, cfg);
                     return;
@@ -1328,7 +1382,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType,
+                        Frame::ContinueType { in_apply: false },
                     );
                     self.start_type_record(cfg);
                     return;
@@ -1340,7 +1394,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType,
+                        Frame::ContinueType { in_apply: false },
                     );
                     return;
                 }
@@ -1351,7 +1405,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType,
+                        Frame::ContinueType { in_apply: false },
                     );
                     return;
                 }
@@ -1362,7 +1416,19 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType,
+                        Frame::ContinueType { in_apply: false },
+                    );
+                    return;
+                }
+                Some(k) if k.is_keyword() => {
+                    // treat as an identifier
+                    self.bump();
+                    self.push_node(N::Ident, Some(self.pos as u32 - 1));
+
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueType { in_apply: false },
                     );
                     return;
                 }
@@ -1371,31 +1437,70 @@ impl State {
         }
     }
 
-    fn pump_continue_type(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        if let Some(_pos) = self.consume_token_with_negative_lookahead(T::Comma, &[T::LowerIdent, T::OpColon]) {
-            self.push_next_frame(
-                subtree_start,
-                cfg,
-                Frame::ContinueTypeCommaSep,
-            );
-            self.start_type(cfg);
-            return;
-        }
+    fn pump_continue_type(&mut self, subtree_start: u32, cfg: ExprCfg, in_apply: bool) {
+        match self.cur() {
+            Some(T::Comma) => {
+                if self.peek_at(1) != Some(T::LowerIdent) || self.peek_at(2) != Some(T::OpColon) {
+                    self.bump();
+                    if in_apply {
+                        self.push_node(N::EndTypeApply, Some(subtree_start));
+                    }
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeCommaSep);
+                    self.start_type(cfg);
+                    return;
+                }
+            }
+            Some(T::OpArrow) => {
+                self.bump();
+                if in_apply {
+                    self.push_node(N::EndTypeApply, Some(subtree_start));
+                }
+                self.push_node(N::InlineLambdaArrow, Some(self.pos as u32 - 1));
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueType { in_apply });
+                self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
+                self.start_type(cfg);
+                return;
+            }
+            Some(T::KwWhere) => {
+                if !self.plausible_expr_continue_comes_next() {
+                    // TODO: should write a plausible_type_continue_comes_next
+                    if in_apply {
+                        self.push_node(N::EndTypeApply, Some(subtree_start));
+                    }
+                    self.push_node(N::InlineKwWhere, Some(self.pos as u32 - 1));
+                    // Is it valid to have some other clause follow a where clause????
+                    // If so, uncomment:
+                    // self.push_next_frame(subtree_start, cfg, Frame::ContinueType { in_apply });
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
+                    self.start_type(cfg);
+                    return;
+                }
+            }
+            // TODO: check for other things that can start an expr
+            Some(T::LowerIdent | T::UpperIdent | T::OpenCurly | T::OpenSquare | T::OpenRound) => {
+                if self.at_newline() {
+                    // are we at the start of a line?
+                    if !self.buf.lines[self.line]
+                        .1
+                        .is_indented_more_than(cfg.expr_indent_floor)
+                        .expect("TODO: error handling")
+                    {
+                        // Not indented enough; we're done.
+                        if in_apply {
+                            self.push_node(N::EndTypeApply, Some(subtree_start));
+                        }
+                    }
+                }
 
-        if self.consume_and_push_node(T::OpArrow, N::InlineLambdaArrow) {
-            self.push_next_frame(subtree_start, cfg, Frame::ContinueType);
-            self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
-            self.start_type(cfg);
-            return;
-        }
-
-        if self.consume_and_push_node(T::KwWhere, N::InlineKwWhere) {
-            // Is it valid to have some other clause follow a where clause????
-            // If so, uncomment:
-            // self.push_next_frame(subtree_start, cfg, Frame::ContinueType);
-            self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
-            self.start_type(cfg);
-            return;
+                // We need to keep processing args
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueType { in_apply: true });
+                self.start_type(cfg);
+            }
+            _ => {
+                if in_apply {
+                    self.push_node(N::EndTypeApply, Some(subtree_start));
+                }
+            }
         }
     }
 
@@ -1403,11 +1508,7 @@ impl State {
         match self.cur() {
             Some(T::Comma) => {
                 self.bump();
-                self.push_next_frame(
-                    subtree_start,
-                    cfg,
-                    Frame::ContinueTypeCommaSep,
-                );
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeCommaSep);
                 self.start_type(cfg);
             }
             Some(T::OpArrow) => {
@@ -1436,11 +1537,7 @@ impl State {
 
     fn pump_continue_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::Comma) {
-            self.push_next_frame(
-                subtree_start,
-                cfg,
-                Frame::ContinueTupleOrParen,
-            );
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueTupleOrParen);
             self.start_expr(cfg.disable_multi_backpassing());
         } else {
             self.expect(T::CloseRound);
@@ -1593,10 +1690,12 @@ impl State {
                 self.start_expr(cfg);
             }
             WhenState::BranchPattern(indent) => {
-                if self.cur_indent()
-                        .is_indented_more_than(cfg.block_indent_floor)
-                        .ok_or(Error::InconsistentIndent)
-                        .expect("TODO: error handling") && !self.at_terminator()
+                if self
+                    .cur_indent()
+                    .is_indented_more_than(cfg.block_indent_floor)
+                    .ok_or(Error::InconsistentIndent)
+                    .expect("TODO: error handling")
+                    && !self.at_terminator()
                 {
                     self.push_next_frame(
                         subtree_start,
@@ -1661,9 +1760,15 @@ impl State {
                 self.bump();
                 self.expect(T::String);
                 self.expect(T::KwProvides);
-                self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
-                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
-                });
+                self.expect_collection(
+                    T::OpenSquare,
+                    N::BeginCollection,
+                    T::CloseSquare,
+                    N::EndCollection,
+                    |s| {
+                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                    },
+                );
                 self.expect(T::KwTo);
                 self.expect(T::String);
             }
@@ -1671,32 +1776,68 @@ impl State {
                 self.bump();
                 self.expect(T::String);
                 self.expect(T::KwRequires);
-                self.expect_collection(T::OpenCurly, N::BeginCollection, T::CloseCurly, N::EndCollection, |s| {
-                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
-                });
+                self.expect_collection(
+                    T::OpenCurly,
+                    N::BeginCollection,
+                    T::CloseCurly,
+                    N::EndCollection,
+                    |s| {
+                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                    },
+                );
                 self.consume(T::NoSpace);
-                self.expect_collection(T::OpenCurly, N::BeginCollection, T::CloseCurly, N::EndCollection, |s| {
-                    // This needs to be key:value pairs for lower ident keys and type values
-                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
-                });
+                self.expect_collection(
+                    T::OpenCurly,
+                    N::BeginCollection,
+                    T::CloseCurly,
+                    N::EndCollection,
+                    |s| {
+                        // This needs to be key:value pairs for lower ident keys and type values
+                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                    },
+                );
                 self.expect(T::KwExposes);
-                self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
-                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
-                });
+                self.expect_collection(
+                    T::OpenSquare,
+                    N::BeginCollection,
+                    T::CloseSquare,
+                    N::EndCollection,
+                    |s| {
+                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                    },
+                );
                 self.expect(T::KwPackages);
-                self.expect_collection(T::OpenCurly, N::BeginCollection, T::CloseCurly, N::EndCollection, |s| {
-                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
-                });
+                self.expect_collection(
+                    T::OpenCurly,
+                    N::BeginCollection,
+                    T::CloseCurly,
+                    N::EndCollection,
+                    |s| {
+                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                    },
+                );
                 self.expect(T::KwImports);
-                self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
-                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
-                });
+                self.expect_collection(
+                    T::OpenSquare,
+                    N::BeginCollection,
+                    T::CloseSquare,
+                    N::EndCollection,
+                    |s| {
+                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                    },
+                );
                 self.expect(T::KwProvides);
-                self.expect_collection(T::OpenSquare, N::BeginCollection, T::CloseSquare, N::EndCollection, |s| {
-                    s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
-                });
+                self.expect_collection(
+                    T::OpenSquare,
+                    N::BeginCollection,
+                    T::CloseSquare,
+                    N::EndCollection,
+                    |s| {
+                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                    },
+                );
             }
-            _ => {},
+            _ => {}
         }
 
         self.start_top_level_decls();
@@ -1712,10 +1853,11 @@ impl State {
 
     fn start_expr(&mut self, mut cfg: ExprCfg) {
         cfg.expr_indent_floor = Some(self.cur_indent());
-        self.push_next_frame_starting_here(cfg, 
+        self.push_next_frame_starting_here(
+            cfg,
             Frame::StartExpr {
                 min_prec: Prec::DeclSeq,
-            }
+            },
         );
     }
 
@@ -1758,7 +1900,7 @@ impl State {
 
         if !start {
             if self.consume_end(T::CloseCurly) {
-                self.push_node(N::EndRecord, Some(self.pos as u32 - 1));
+                self.push_node(N::EndRecord, Some(subtree_start));
                 self.update_end(N::BeginRecord, subtree_start);
                 return;
             }
@@ -1767,16 +1909,35 @@ impl State {
         }
 
         if self.consume_end(T::CloseCurly) {
-            self.push_node(N::EndRecord, Some(self.pos as u32 - 1));
+            self.push_node(N::EndRecord, Some(subtree_start));
             self.update_end(N::BeginRecord, subtree_start);
             return;
         }
-        
-        self.expect_and_push_node(T::LowerIdent, N::Ident);
+
+        self.expect_lower_ident_and_push_node();
+
         self.expect_and_push_node(T::OpColon, N::InlineColon);
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinueRecord { start: false });
         self.start_expr(cfg.disable_multi_backpassing());
+    }
+
+    fn expect_lower_ident_and_push_node(&mut self) {
+        match self.cur() {
+            Some(k) if k.is_keyword() => {
+                // treat as an identifier
+                self.bump();
+                self.push_node(N::Ident, Some(self.pos as u32 - 1));
+            }
+            Some(T::LowerIdent) => {
+                self.bump();
+                self.push_node(N::Ident, Some(self.pos as u32 - 1));
+            }
+            _ => {
+                self.push_error(Error::ExpectViolation(T::LowerIdent, self.cur()));
+                self.fast_forward_past_newline();
+            }
+        }
     }
 
     fn pump_finish(&mut self, subtree_start: u32, end: N) {
@@ -1785,11 +1946,7 @@ impl State {
 
     fn pump_continue_type_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::Comma) {
-            self.push_next_frame(
-                subtree_start,
-                cfg,
-                Frame::ContinueTypeTupleOrParen,
-            );
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
             self.start_type(cfg);
         } else {
             self.expect(T::CloseRound);
@@ -1818,7 +1975,7 @@ impl State {
             self.update_end(N::BeginList, subtree_start);
             return;
         }
-        
+
         self.push_next_frame(subtree_start, cfg, Frame::ContinueList);
         self.start_expr(cfg.disable_multi_backpassing());
     }
@@ -1845,7 +2002,7 @@ impl State {
         if self.consume_end_tag_union(subtree_start, cfg) {
             return;
         }
-        
+
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTagUnion);
 
         self.expect_and_push_node(T::UpperIdent, N::Tag); // tag name
@@ -1854,7 +2011,12 @@ impl State {
     }
 
     fn consume_end_tag_union(&mut self, subtree_start: u32, cfg: ExprCfg) -> bool {
-        if self.consume_and_push_node_end(T::CloseSquare, N::BeginTypeTagUnion, N::EndTypeTagUnion, subtree_start) {
+        if self.consume_and_push_node_end(
+            T::CloseSquare,
+            N::BeginTypeTagUnion,
+            N::EndTypeTagUnion,
+            subtree_start,
+        ) {
             self.maybe_start_type_adendum(subtree_start, cfg);
             return true;
         }
@@ -1877,10 +2039,11 @@ impl State {
 
     fn continue_implements_method_decl_body(&mut self, subtree_start: u32, cfg: ExprCfg) {
         // We continue as long as the indent is the same as the start of the implements block.
-        if self.cur_indent()
-                .is_indented_more_than(cfg.block_indent_floor)
-                .ok_or(Error::InconsistentIndent)
-                .expect("TODO: error handling")
+        if self
+            .cur_indent()
+            .is_indented_more_than(cfg.block_indent_floor)
+            .ok_or(Error::InconsistentIndent)
+            .expect("TODO: error handling")
         {
             self.expect_and_push_node(T::LowerIdent, N::Ident);
             self.expect(T::OpColon); // TODO: need to add a node?
@@ -1893,25 +2056,31 @@ impl State {
 
     fn start_type_record(&mut self, cfg: ExprCfg) {
         let subtree_start = self.push_node_begin(N::BeginTypeRecord);
-        
-        if self.consume_and_push_node_end(T::CloseCurly, N::BeginTypeRecord, N::EndTypeRecord, subtree_start) {
+
+        if self.consume_and_push_node_end(
+            T::CloseCurly,
+            N::BeginTypeRecord,
+            N::EndTypeRecord,
+            subtree_start,
+        ) {
             return;
         }
 
-        self.expect_and_push_node(T::LowerIdent, N::Ident);
+        self.expect_lower_ident_and_push_node();
         // TODO: ? for optional fields
         self.expect(T::OpColon); // TODO: need to add a node?
 
-        self.push_next_frame(
-            subtree_start,
-            cfg,
-            Frame::ContinueTypeRecord,
-        );
+        self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeRecord);
         self.start_type(cfg);
     }
 
     fn consume_end_type_record(&mut self, subtree_start: u32, cfg: ExprCfg) -> bool {
-        if self.consume_and_push_node_end(T::CloseCurly, N::BeginTypeRecord, N::EndTypeRecord, subtree_start) {
+        if self.consume_and_push_node_end(
+            T::CloseCurly,
+            N::BeginTypeRecord,
+            N::EndTypeRecord,
+            subtree_start,
+        ) {
             self.maybe_start_type_adendum(subtree_start, cfg);
             return true;
         }
@@ -1933,11 +2102,7 @@ impl State {
         // TODO: ? for optional fields
         self.expect(T::OpColon); // TODO: need to add a node?
 
-        self.push_next_frame(
-            subtree_start,
-            cfg,
-            Frame::ContinueTypeRecord,
-        );
+        self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeRecord);
         self.start_type(cfg);
     }
 
@@ -1948,7 +2113,11 @@ impl State {
         }
     }
 
-    fn consume_token_with_negative_lookahead(&mut self, tok: T, negative_following: &[T]) -> Option<usize> {
+    fn consume_token_with_negative_lookahead(
+        &mut self,
+        tok: T,
+        negative_following: &[T],
+    ) -> Option<usize> {
         let mut pos = self.pos;
 
         if self.buf.kind(pos) != Some(tok) {
@@ -1958,7 +2127,7 @@ impl State {
         let found = pos;
 
         pos += 1;
-    
+
         for &neg in negative_following {
             if self.buf.kind(pos) == Some(neg) {
                 return None;
@@ -1970,7 +2139,14 @@ impl State {
         Some(found)
     }
 
-    fn expect_collection(&mut self, open: T, open_node: N, close: T, close_node: N, f: impl Fn(&mut Self)) {
+    fn expect_collection(
+        &mut self,
+        open: T,
+        open_node: N,
+        close: T,
+        close_node: N,
+        f: impl Fn(&mut Self),
+    ) {
         self.expect(open);
         let subtree_start = self.push_node_begin(open_node);
         if self.consume(close) {
@@ -2098,7 +2274,10 @@ impl fmt::Debug for ShowTreePosition<'_> {
 
 fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String {
     // binary search to find the line of msg.pos
-    let (line_start, line_end) = match buf.lines.binary_search_by_key(&msg.pos, |(offset, _indent)| *offset) {
+    let (line_start, line_end) = match buf
+        .lines
+        .binary_search_by_key(&msg.pos, |(offset, _indent)| *offset)
+    {
         Ok(i) => (buf.lines[i].0, buf.lines[i].0),
         Err(i) => {
             if i > 0 {
@@ -2110,19 +2289,29 @@ fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String 
             } else {
                 (0, buf.lines[i].0)
             }
-        },
+        }
     };
 
     debug_assert!(line_start <= msg.pos && msg.pos <= line_end);
 
     let mut res = String::new();
 
-    res.push_str(&format!("Error at token {} (offset {}):\n", msg.pos, buf.offset(msg.pos)));
+    res.push_str(&format!(
+        "Error at token {} (offset {}):\n",
+        msg.pos,
+        buf.offset(msg.pos)
+    ));
 
     // print the first line (tokens)
     let mut pointer_offset = 0;
     let mut pointer_len = 0;
-    for (i, kind) in buf.kinds.iter().enumerate().skip(line_start as usize).take((line_end - line_start) as usize) {
+    for (i, kind) in buf
+        .kinds
+        .iter()
+        .enumerate()
+        .skip(line_start as usize)
+        .take((line_end - line_start) as usize)
+    {
         let text = format!("{:?} ", kind);
         if i < msg.pos as usize {
             pointer_offset += text.len();
@@ -2146,8 +2335,13 @@ fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String 
     res.push_str(&text[buf.offset(line_start)..buf.offset(line_end)]);
     res.push('\n');
 
-    let pointer_offset = buf.offsets[msg.pos as usize] as usize - buf.offsets[line_start as usize] as usize;
-    let pointer_len = buf.lengths.get(msg.pos as usize).map(|o| *o as usize).unwrap_or(0);
+    let pointer_offset =
+        buf.offsets[msg.pos as usize] as usize - buf.offsets[line_start as usize] as usize;
+    let pointer_len = buf
+        .lengths
+        .get(msg.pos as usize)
+        .map(|o| *o as usize)
+        .unwrap_or(0);
 
     // print the pointer
     for _ in 0..pointer_offset {
@@ -2162,7 +2356,7 @@ fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String 
     for frame in &msg.frames {
         res.push_str(&format!("\n  in {:?}", frame));
     }
-    
+
     res
 }
 
@@ -2639,11 +2833,18 @@ mod canfmt {
         If(&'a Expr<'a>, &'a Expr<'a>, &'a Expr<'a>),
         When(&'a Expr<'a>, &'a [Expr<'a>]),
         Block(&'a [Expr<'a>]),
+        Record(&'a [(&'a str, &'a Expr<'a>)]),
+        RecordAccess(&'a Expr<'a>, &'a str),
+        TupleAccess(&'a Expr<'a>, &'a str),
 
         // Not really expressions, but considering them as such to make the formatter as error tolerant as possible
         Assign(&'a str, &'a Expr<'a>),
         Expr(&'a Expr<'a>),
         Comment(&'a str),
+        TypeAlias(&'a str, &'a Expr<'a>),
+        TypeRecord(&'a [(&'a str, &'a Expr<'a>)]),
+        TypeName(&'a str),
+        TypeApply(&'a Expr<'a>, &'a [Expr<'a>]),
     }
 
     struct ExprStack<'a> {
@@ -2696,14 +2897,32 @@ mod canfmt {
                 N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
                 N::HintExpr => {}
                 N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
+                N::TypeName => stack.push(i, Expr::TypeName(ctx.text(index))),
                 N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
                 N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
                 N::Float => stack.push(i, Expr::Float(ctx.text(index))),
+                N::DotIdent => stack.push(i, Expr::Ident(ctx.text(index))),
+                N::EndFieldAccess => {
+                    let mut values = stack.drain_to_index(index);
+                    let value = values.next().unwrap();
+                    let name = match values.next().unwrap() {
+                        Expr::Ident(name) => name,
+                        _ => panic!("Expected ident"),
+                    };
+                    drop(values);
+                    stack.push(i, Expr::RecordAccess(bump.alloc(value), name));
+                }
                 N::EndApply => {
                     let mut values = stack.drain_to_index(index);
                     let first = bump.alloc(values.next().unwrap());
                     let args = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Expr::Apply(first, args));
+                }
+                N::EndTypeApply => {
+                    let mut values = stack.drain_to_index(index);
+                    let first = bump.alloc(values.next().unwrap());
+                    let args = bump.alloc_slice_fill_iter(values);
+                    stack.push(i, Expr::TypeApply(first, args));
                 }
                 N::EndPizza => {
                     let values = stack.drain_to_index(index);
@@ -2738,7 +2957,12 @@ mod canfmt {
                 N::BeginAssign => {}
                 N::EndAssign => {
                     let mut values = stack.drain_to_index(index);
-                    assert_eq!(values.len(), 2, "{:?}", values.collect::<std::vec::Vec<_>>());
+                    assert_eq!(
+                        values.len(),
+                        2,
+                        "{:?}",
+                        values.collect::<std::vec::Vec<_>>()
+                    );
                     let name = values.next().unwrap();
                     let name_text = match name {
                         Expr::Ident(name) => name,
@@ -2773,14 +2997,59 @@ mod canfmt {
                     let arms = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Expr::When(bump.alloc(cond), arms));
                 }
+                N::BeginTypeOrTypeAlias => {}
+                N::EndTypeOrTypeAlias => {
+                    let mut values = stack.drain_to_index(index);
+                    let name = values.next().unwrap();
+                    let name_text = match name {
+                        Expr::Ident(name) => name,
+                        _ => panic!("Expected ident"),
+                    };
+                    let value = values.next().unwrap();
+                    drop(values);
+                    stack.push(i, Expr::TypeAlias(name_text, bump.alloc(value)));
+                }
+                N::BeginRecord => {}
+                N::EndRecord => {
+                    let mut values = stack.drain_to_index(index);
+                    let mut pairs: Vec<(&'a str, &'a Expr<'a>)> = Vec::new_in(bump);
+                    loop {
+                        let name = match values.next() {
+                            Some(Expr::Ident(name)) => name,
+                            None => break,
+                            _ => panic!("Expected ident"),
+                        };
+                        let value = values.next().unwrap();
+                        pairs.push((name, bump.alloc(value)));
+                    }
+                    drop(values);
+                    stack.push(i, Expr::Record(pairs.into_bump_slice()));
+                }
+                N::BeginTypeRecord => {}
+                N::EndTypeRecord => {
+                    let mut values = stack.drain_to_index(index);
+                    let mut pairs: Vec<(&'a str, &'a Expr<'a>)> = Vec::new_in(bump);
+                    loop {
+                        let name = match values.next() {
+                            Some(Expr::Ident(name)) => name,
+                            None => break,
+                            _ => panic!("Expected ident"),
+                        };
+                        let value = values.next().unwrap();
+                        pairs.push((name, bump.alloc(value)));
+                    }
+                    drop(values);
+                    stack.push(i, Expr::TypeRecord(pairs.into_bump_slice()));
+                }
                 N::InlineApply
                 | N::InlineAssign
                 | N::InlinePizza
+                | N::InlineColon
                 | N::InlineBinOpPlus
                 | N::InlineBinOpStar
                 | N::InlineBinOpMinus
                 | N::InlineLambdaArrow => {}
-            N::BeginParens | N::EndParens => {} // we don't guarantee that we preserve parens
+                N::BeginParens | N::EndParens => {} // we don't guarantee that we preserve parens
                 N::BeginBlock => {}
                 N::EndBlock => {
                     let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));
@@ -2920,7 +3189,11 @@ mod tests {
             }
 
             if has_begin {
-                assert_eq!(self.paird_group_ends[begin], end as u32);
+                assert_eq!(
+                    self.paird_group_ends[begin], end as u32,
+                    "begin/end mismatch at {}, with node {:?}",
+                    begin, node
+                );
             } else {
                 res.push_front(ExpectAtom::Empty);
             }
@@ -2999,6 +3272,7 @@ mod tests {
     macro_rules! snapshot_test {
         ($text:expr) => {{
             let text = $text;
+            eprintln!("text:\n{}", text);
             let text: &str = text.as_ref();
             let mut tokenizer = Tokenizer::new(text);
             tokenizer.tokenize();
@@ -3028,6 +3302,8 @@ mod tests {
 
                 panic!("unexpected messages: {:?}", state.messages);
             }
+
+            eprintln!("raw tree: {:?}", state.tree.kinds);
 
             let tree_output = state.to_expect_atom().debug_vis();
 
@@ -3526,17 +3802,18 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn test_comment_after_tag_in_def_expr_formatted() {
-        snapshot_test!(block_indentify(
-            r#"
-            |Z #
-            |h
-            | : a
-            |j
-            "#
-        ));
-    }
+    // This test no longer works on the new parser; h needs to be indented
+    // #[test]
+    // fn test_comment_after_tag_in_def_expr_formatted() {
+    //     snapshot_test!(block_indentify(
+    //         r#"
+    //         |Z #
+    //         |h
+    //         | : a
+    //         |j
+    //         "#
+    //     ));
+    // }
 
     #[test]
     fn test_lambda_in_chain_expr() {
@@ -6352,17 +6629,18 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn test_comment_after_tag_in_def_expr() {
-        snapshot_test!(block_indentify(
-            r#"
-            |Z#
-            |h
-            |:a
-            |j
-            "#
-        ));
-    }
+    // This test no longer works on the new parser; h needs to be indented
+    // #[test]
+    // fn test_comment_after_tag_in_def_expr() {
+    //     snapshot_test!(block_indentify(
+    //         r#"
+    //         |Z#
+    //         |h
+    //         |:a
+    //         |j
+    //         "#
+    //     ));
+    // }
 
     #[test]
     fn test_ten_times_eleven_expr() {

@@ -88,6 +88,39 @@ pub enum T {
     NoSpaceDotIdent,
 }
 
+impl T {
+    pub fn is_keyword(self) -> bool {
+        match self {
+            T::KwIf
+            | T::KwThen
+            | T::KwElse
+            | T::KwWhen
+            | T::KwIs
+            | T::KwAs
+            | T::KwDbg
+            | T::KwExpect
+            | T::KwCrash
+            | T::KwHas
+            | T::KwWhere
+            | T::KwImplements
+            | T::KwExposes
+            | T::KwImports
+            | T::KwWith
+            | T::KwGenerates
+            | T::KwPackage
+            | T::KwPackages
+            | T::KwRequires
+            | T::KwProvides
+            | T::KwTo
+            | T::KwInterface
+            | T::KwApp
+            | T::KwPlatform
+            | T::KwHosted => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct Indent {
     pub(crate) num_spaces: u16,
