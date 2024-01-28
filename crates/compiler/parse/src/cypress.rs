@@ -266,6 +266,7 @@ pub enum N {
 
     HintExpr,
     InlineColon,
+    InlineTypeColon,
 
     EndTypeLambda,
     InlineKwImplements,
@@ -295,6 +296,7 @@ pub enum N {
     DotModuleLowerIdent,
     DotModuleUpperIdent,
     DotNumber,
+    EndWhereClause,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -364,6 +366,7 @@ impl N {
             | N::InlineKwIs
             | N::InlineLambdaArrow
             | N::InlineColon
+            | N::InlineTypeColon
             | N::InlineColonEqual
             | N::InlineBackArrow
             | N::InlineWhenArrow
@@ -419,6 +422,7 @@ impl N {
             | N::EndMultiBackpassingArgs
             | N::EndFieldAccess
             | N::EndIndexAccess
+            | N::EndWhereClause
             | N::EndTypeApply => NodeIndexKind::EndOnly,
             N::DotModuleLowerIdent | N::DotModuleUpperIdent => NodeIndexKind::EndSingleToken,
             N::Float | N::SingleQuote | N::Underscore | N::TypeWildcard | N::Crash | N::Dbg => {
@@ -592,7 +596,7 @@ impl BinOp {
             BinOp::DeclSeq => todo!(),
             BinOp::Assign => N::InlineAssign,
             BinOp::Implements => N::InlineKwImplements,
-            BinOp::DefineTypeOrTypeAlias => N::InlineColon,
+            BinOp::DefineTypeOrTypeAlias => N::InlineTypeColon,
             BinOp::DefineOtherTypeThing => N::InlineColonEqual,
             BinOp::Backpassing => N::InlineBackArrow,
             BinOp::MultiBackpassingComma => N::InlineMultiBackpassingComma,
@@ -672,11 +676,12 @@ enum Frame {
     },
     FinishLambda,
     FinishBlockItem,
-    StartType,
+    StartType { allow_clauses: bool },
     ContinueType {
         in_apply: Option<bool>,
+        allow_clauses: bool,
     },
-    ContinueTypeCommaSep,
+    ContinueTypeCommaSep { allow_clauses: bool },
     FinishTypeFunction,
     ContinueWhereClause,
     FinishTypeOrTypeAlias,
@@ -1055,12 +1060,12 @@ impl State {
                 Frame::ContinueLambdaArgs => self.pump_continue_lambda_args(subtree_start, cfg),
                 Frame::ContinueIf { next } => self.pump_continue_if(subtree_start, cfg, next),
                 Frame::ContinueWhen { next } => self.pump_continue_when(subtree_start, cfg, next),
-                Frame::StartType => self.pump_start_type(subtree_start, cfg),
-                Frame::ContinueType { in_apply } => {
-                    self.pump_continue_type(subtree_start, cfg, in_apply)
+                Frame::StartType { allow_clauses } => self.pump_start_type(subtree_start, cfg, allow_clauses),
+                Frame::ContinueType { in_apply, allow_clauses  } => {
+                    self.pump_continue_type(subtree_start, cfg, in_apply, allow_clauses )
                 }
-                Frame::ContinueTypeCommaSep => {
-                    self.pump_continue_type_comma_sep(subtree_start, cfg)
+                Frame::ContinueTypeCommaSep { allow_clauses } => {
+                    self.pump_continue_type_comma_sep(subtree_start, cfg, allow_clauses)
                 }
                 Frame::FinishTypeFunction => self.pump_finish_type_function(subtree_start, cfg),
                 Frame::ContinueWhereClause => self.pump_continue_where_clause(subtree_start, cfg),
@@ -1315,13 +1320,13 @@ impl State {
                 }
                 BinOp::DefineTypeOrTypeAlias => {
                     self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-                    self.start_type(cfg);
+                    self.start_type(cfg, true);
                     return;
                 }
                 BinOp::DefineOtherTypeThing => {
                     // TODO: is this correct????
                     self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-                    self.start_type(cfg);
+                    self.start_type(cfg, true);
                     return;
                 }
                 BinOp::Implements => {
@@ -1423,7 +1428,7 @@ impl State {
         Some(op)
     }
 
-    fn pump_start_type(&mut self, subtree_start: u32, cfg: ExprCfg) {
+    fn pump_start_type(&mut self, subtree_start: u32, cfg: ExprCfg, allow_clauses: bool) {
         loop {
             match self.cur() {
                 Some(T::OpenRound) => {
@@ -1431,7 +1436,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType { in_apply: None },
+                        Frame::ContinueType { in_apply: None, allow_clauses, },
                     );
                     self.push_node(N::BeginParens, None);
                     self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
@@ -1442,7 +1447,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType { in_apply: None },
+                        Frame::ContinueType { in_apply: None, allow_clauses, },
                     );
                     self.start_tag_union(subtree_start, cfg);
                     return;
@@ -1452,7 +1457,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType { in_apply: None },
+                        Frame::ContinueType { in_apply: None, allow_clauses, },
                     );
                     self.start_type_record(cfg);
                     return;
@@ -1464,7 +1469,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType { in_apply: None },
+                        Frame::ContinueType { in_apply: None, allow_clauses, },
                     );
                     return;
                 }
@@ -1475,7 +1480,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType { in_apply: None },
+                        Frame::ContinueType { in_apply: None, allow_clauses, },
                     );
                     return;
                 }
@@ -1486,7 +1491,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType { in_apply: None },
+                        Frame::ContinueType { in_apply: None, allow_clauses, },
                     );
                     return;
                 }
@@ -1498,7 +1503,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType { in_apply: None },
+                        Frame::ContinueType { in_apply: None, allow_clauses, },
                     );
                     return;
                 }
@@ -1507,7 +1512,7 @@ impl State {
         }
     }
 
-    fn pump_continue_type(&mut self, subtree_start: u32, cfg: ExprCfg, in_apply: Option<bool>) {
+    fn pump_continue_type(&mut self, subtree_start: u32, cfg: ExprCfg, in_apply: Option<bool>, allow_clauses: bool) {
         match self.cur() {
             Some(T::Comma) => {
                 if self.peek_at(1) != Some(T::LowerIdent) || self.peek_at(2) != Some(T::OpColon) {
@@ -1515,8 +1520,8 @@ impl State {
                     if in_apply == Some(true) {
                         self.push_node(N::EndTypeApply, Some(subtree_start));
                     }
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeCommaSep);
-                    self.start_type(cfg);
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeCommaSep { allow_clauses });
+                    self.start_type(cfg, false);
                     return;
                 }
             }
@@ -1526,23 +1531,24 @@ impl State {
                     self.push_node(N::EndTypeApply, Some(subtree_start));
                 }
                 self.push_node(N::InlineLambdaArrow, Some(self.pos as u32 - 1));
-                self.push_next_frame(subtree_start, cfg, Frame::ContinueType { in_apply });
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueType { in_apply, allow_clauses });
                 self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
-                self.start_type(cfg);
+                self.start_type(cfg, false);
                 return;
             }
-            Some(T::KwWhere) => {
+            Some(T::KwWhere) if allow_clauses => {
                 if !self.plausible_expr_continue_comes_next() {
+                    self.bump();
                     // TODO: should write a plausible_type_continue_comes_next
                     if in_apply == Some(true) {
                         self.push_node(N::EndTypeApply, Some(subtree_start));
                     }
+
+                    let clause_subtree_start = self.tree.len();
                     self.push_node(N::InlineKwWhere, Some(self.pos as u32 - 1));
-                    // Is it valid to have some other clause follow a where clause????
-                    // If so, uncomment:
-                    // self.push_next_frame(subtree_start, cfg, Frame::ContinueType { in_apply });
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
-                    self.start_type(cfg);
+                    self.push_next_frame(subtree_start, cfg, Frame::Finish(N::EndWhereClause));
+                    self.push_next_frame(clause_subtree_start, cfg, Frame::ContinueWhereClause);
+                    self.start_type(cfg, false);
                     return;
                 }
             }
@@ -1570,9 +1576,10 @@ impl State {
                     cfg,
                     Frame::ContinueType {
                         in_apply: Some(true),
+                        allow_clauses,
                     },
                 );
-                self.start_type(cfg);
+                self.start_type(cfg, false);
             }
             _ => {
                 if in_apply == Some(true) {
@@ -1582,18 +1589,18 @@ impl State {
         }
     }
 
-    fn pump_continue_type_comma_sep(&mut self, subtree_start: u32, cfg: ExprCfg) {
+    fn pump_continue_type_comma_sep(&mut self, subtree_start: u32, cfg: ExprCfg, allow_clauses: bool) {
         match self.cur() {
             Some(T::Comma) => {
                 self.bump();
-                self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeCommaSep);
-                self.start_type(cfg);
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeCommaSep { allow_clauses });
+                self.start_type(cfg, false);
             }
             Some(T::OpArrow) => {
                 self.bump();
                 self.push_node(N::InlineLambdaArrow, Some(self.pos as u32 - 1));
                 self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
-                self.start_type(cfg);
+                self.start_type(cfg, false);
             }
 
             // TODO: if there isn't an outer square/round/curly and we don't eventually get the arrow,
@@ -1960,8 +1967,8 @@ impl State {
         self.start_block_item(cfg);
     }
 
-    fn start_type(&mut self, cfg: ExprCfg) {
-        self.push_next_frame_starting_here(cfg, Frame::StartType);
+    fn start_type(&mut self, cfg: ExprCfg, allow_clauses: bool) {
+        self.push_next_frame_starting_here(cfg, Frame::StartType { allow_clauses });
     }
 
     fn assert_end(&self) {
@@ -2033,7 +2040,7 @@ impl State {
     fn pump_continue_type_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::Comma) {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
-            self.start_type(cfg);
+            self.start_type(cfg, false);
         } else {
             self.expect(T::CloseRound);
             self.push_node(N::EndParens, Some(self.pos as u32 - 1));
@@ -2042,7 +2049,7 @@ impl State {
             // Pseudo-token that the tokenizer produces for inputs like (a, b)c - there will be a NoSpace after the parens.
             if self.consume(T::NoSpace) {
                 self.push_next_frame(subtree_start, cfg, Frame::Finish(N::EndTypeAdendum));
-                self.start_type(cfg);
+                self.start_type(cfg, false);
             }
         }
     }
@@ -2115,7 +2122,7 @@ impl State {
             return;
         }
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTagUnionArgs);
-        self.start_type(cfg);
+        self.start_type(cfg, false);
     }
 
     fn pump_continue_implements_method_decl(&mut self, subtree_start: u32, cfg: ExprCfg) {
@@ -2134,7 +2141,7 @@ impl State {
             self.expect_and_push_node(T::LowerIdent, N::Ident);
             self.expect(T::OpColon); // TODO: need to add a node?
             self.push_next_frame(subtree_start, cfg, Frame::ContinueImplementsMethodDecl);
-            self.start_type(cfg);
+            self.start_type(cfg, false);
         } else {
             self.push_node(N::EndImplements, Some(subtree_start));
         }
@@ -2157,7 +2164,7 @@ impl State {
         self.expect(T::OpColon); // TODO: need to add a node?
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeRecord);
-        self.start_type(cfg);
+        self.start_type(cfg, false);
     }
 
     fn consume_end_type_record(&mut self, subtree_start: u32, cfg: ExprCfg) -> bool {
@@ -2189,13 +2196,13 @@ impl State {
         self.expect(T::OpColon); // TODO: need to add a node?
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeRecord);
-        self.start_type(cfg);
+        self.start_type(cfg, false);
     }
 
     fn maybe_start_type_adendum(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::NoSpace) {
             self.push_next_frame(subtree_start, cfg, Frame::Finish(N::EndTypeAdendum));
-            self.start_type(cfg);
+            self.start_type(cfg, false);
         }
     }
 
@@ -2909,6 +2916,8 @@ impl<'a> CommentExtractor<'a> {
 }
 
 mod canfmt {
+    use std::fmt::Debug;
+
     use super::*;
     use bumpalo::collections::vec::Vec;
     use bumpalo::Bump;
@@ -2934,60 +2943,167 @@ mod canfmt {
 
         // Not really expressions, but considering them as such to make the formatter as error tolerant as possible
         Assign(&'a str, &'a Expr<'a>),
-        Expr(&'a Expr<'a>),
         Comment(&'a str),
-        TypeAlias(&'a str, &'a Expr<'a>),
-        TypeRecord(&'a [(&'a str, &'a Expr<'a>)]),
-        TypeName(&'a str),
-        TypeApply(&'a Expr<'a>, &'a [Expr<'a>]),
+        TypeAlias(&'a str, &'a Type<'a>),
+        AbilityName(&'a str),
     }
 
-    struct ExprStack<'a> {
-        stack: std::vec::Vec<(usize, Expr<'a>)>,
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Type<'a> {
+        Name(&'a str),
+        Record(&'a [(&'a str, &'a Type<'a>)]),
+        Apply(&'a Type<'a>, &'a [Type<'a>]),
+        Lambda(&'a [Type<'a>], &'a Type<'a>),
+        WhereClause(&'a Type<'a>, &'a Type<'a>, &'a Type<'a>),
     }
 
-    impl<'a> std::fmt::Debug for ExprStack<'a> {
+    struct TreeStack<V> {
+        stack: std::vec::Vec<(usize, V)>,
+    }
+
+    impl<'a, V: Debug> std::fmt::Debug for TreeStack<V> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             self.stack.fmt(f)
         }
     }
 
-    impl<'a> ExprStack<'a> {
+    impl<V> TreeStack<V> {
         fn new() -> Self {
             Self {
                 stack: std::vec::Vec::new(),
             }
         }
 
-        fn push(&mut self, index: usize, expr: Expr<'a>) {
-            self.stack.push((index, expr));
+        fn push(&mut self, index: usize, item: V) {
+            self.stack.push((index, item));
         }
 
-        fn drain_to_index(&mut self, index: u32) -> impl ExactSizeIterator<Item = Expr<'a>> + '_ {
+        fn drain_to_index(&mut self, index: u32) -> impl ExactSizeIterator<Item = V> + '_ {
             let mut begin = self.stack.len();
             while begin > 0 && self.stack[begin - 1].0 >= index as usize {
                 begin -= 1;
             }
             self.stack.drain(begin..).map(|(_, e)| e)
         }
+
+        fn pop(&mut self) -> Option<V> {
+            self.stack.pop().map(|(_, e)| e)
+        }
+    }
+
+    struct TreeWalker<'b> {
+        kinds: &'b [N],
+        indices: &'b [u32],
+        pos: usize,
+    }
+
+    impl<'b> TreeWalker<'b> {
+        fn new(tree: &'b Tree) -> Self {
+            Self {
+                kinds: &tree.kinds,
+                indices: &tree.paird_group_ends,
+                pos: 0
+            }
+        }
+
+        fn next(&mut self) -> Option<N> {
+            let res = self.kinds.get(self.pos).copied();
+            self.pos += 1;
+            res
+        }
+
+        fn cur(&self) -> Option<N> {
+            self.kinds.get(self.pos).copied()
+        }
+
+        fn cur_index(&self) -> Option<(N, usize, u32)> {
+            self.cur().map(|n| (n, self.pos, self.indices[self.pos]))
+        }
+
+        fn next_index(&mut self) -> Option<(N, usize, u32)> {
+            let res = self.cur_index();
+            self.pos += 1;
+            res
+        }
+    }
+
+    fn build_type<'a, 'b: 'a>(bump: &'a Bump, ctx: FormatCtx<'b>, w: &mut TreeWalker<'b>) -> (Type<'a>, usize, u32) {
+        let mut stack = TreeStack::new();
+        while let Some((node, i, index)) = w.next_index() {
+            match node {
+                N::Ident => stack.push(i, Type::Name(ctx.text(index))),
+                N::UpperIdent => stack.push(i, Type::Name(ctx.text(index))),
+                N::TypeName => stack.push(i, Type::Name(ctx.text(index))),
+                N::AbilityName => stack.push(i, Type::Name(ctx.text(index))),
+                N::EndTypeApply => {
+                    let mut values = stack.drain_to_index(index);
+                    let first = bump.alloc(values.next().unwrap());
+                    let args = bump.alloc_slice_fill_iter(values);
+                    stack.push(i, Type::Apply(first, args));
+                }
+                N::EndTypeLambda => {
+                    let mut values = stack.drain_to_index(index);
+                    let count = values.len() - 1;
+                    let args = bump.alloc_slice_fill_iter(values.by_ref().take(count));
+                    let body = values.next().unwrap();
+                    drop(values);
+                    stack.push(i, Type::Lambda(args, bump.alloc(body)));
+                }
+                N::EndTypeRecord => {
+                    let mut values = stack.drain_to_index(index);
+                    let mut pairs: Vec<(&'a str, &'a Type<'a>)> = Vec::new_in(bump);
+                    loop {
+                        let name = match values.next() {
+                            Some(Type::Name(name)) => name,
+                            None => break,
+                            _ => panic!("Expected name"),
+                        };
+                        let value = values.next().unwrap();
+                        pairs.push((name, bump.alloc(value)));
+                    }
+                    drop(values);
+                    stack.push(i, Type::Record(pairs.into_bump_slice()));
+                }
+                N::EndWhereClause => {
+                    let mut values = stack.drain_to_index(index);
+                    let first = bump.alloc(values.next().unwrap());
+                    let second = bump.alloc(values.next().unwrap());
+                    let third = bump.alloc(values.next().unwrap());
+                    assert_eq!(values.next(), None);
+                    drop(values);
+                    stack.push(i, Type::WhereClause(first, second, third));
+                }
+                N::InlineLambdaArrow
+                | N::InlineKwWhere
+                | N::InlineKwImplements => {}
+                N::EndTypeOrTypeAlias => {
+
+                    assert_eq!(stack.stack.len(), 1, "{:?}", stack.stack);
+            
+                    return (stack.pop().unwrap(), i, index)
+                }
+                _ => todo!("{:?}", node),
+            }
+        }
+
+        panic!("didn't find EndTypeOrTypeAlias");
     }
 
     pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: FormatCtx<'b>) -> &'a [Expr<'a>] {
         // let mut ce = CommentExtractor::new(ctx.text, ctx.toks);
 
-        let mut stack = ExprStack::new();
+        let mut stack = TreeStack::new();
 
         // dbg!(&ctx.tree.kinds);
 
-        let mut it = ctx.tree.kinds.iter().enumerate().peekable();
-        while let Some((i, &node)) = it.next() {
+        let mut w = TreeWalker::new(&ctx.tree);
+        while let Some((node, i, index)) = w.next_index() {
             // let comments = ce.consume(node);
             // if comments.len() > 0 {
             //     for comment in comments {
             //         stack.push(i, Expr::Comment(ctx.text[comment.begin..comment.end].trim()));
             //     }
             // }
-            let index = ctx.tree.paird_group_ends[i];
 
             macro_rules! binop {
                 ($op:expr) => {{
@@ -3000,17 +3116,16 @@ mod canfmt {
                 }};
             }
 
-            // eprintln!("{}: {:?}@{}: {:?}", i, node, index, stack);
             match node {
-                N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
-                N::HintExpr => {}
                 N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
-                N::TypeName => stack.push(i, Expr::TypeName(ctx.text(index))),
+                N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
+                N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
+                N::Float => stack.push(i, Expr::Float(ctx.text(index))),
+                N::DotIdent => stack.push(i, Expr::Ident(ctx.text(index))),
                 N::ModuleName => {
                     // stack.push(i, Expr::ModuleName(ctx.text(index)))
-                    if let Some((i2, &N::DotModuleLowerIdent)) = it.peek() {
-                        let index2 = ctx.tree.paird_group_ends[*i2];
-                        it.next();
+                    if let Some((N::DotModuleLowerIdent, _, index2)) = w.cur_index() {
+                        w.next();
                         // if the next node is also a module name, then this is a module name
                         stack.push(i, Expr::ModuleLowerName(ctx.text(index), ctx.text(index2)));
                     } else {
@@ -3019,10 +3134,6 @@ mod canfmt {
                         todo!();
                     }
                 }
-                N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
-                N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
-                N::Float => stack.push(i, Expr::Float(ctx.text(index))),
-                N::DotIdent => stack.push(i, Expr::Ident(ctx.text(index))),
                 N::EndFieldAccess => {
                     let mut values = stack.drain_to_index(index);
                     let value = values.next().unwrap();
@@ -3039,12 +3150,12 @@ mod canfmt {
                     let args = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Expr::Apply(first, args));
                 }
-                N::EndTypeApply => {
-                    let mut values = stack.drain_to_index(index);
-                    let first = bump.alloc(values.next().unwrap());
-                    let args = bump.alloc_slice_fill_iter(values);
-                    stack.push(i, Expr::TypeApply(first, args));
-                }
+                // N::EndTypeApply => {
+                //     let mut values = stack.drain_to_index(index);
+                //     let first = bump.alloc(values.next().unwrap());
+                //     let args = bump.alloc_slice_fill_iter(values);
+                //     stack.push(i, Expr::TypeApply(first, args));
+                // }
                 N::EndPizza => {
                     let values = stack.drain_to_index(index);
                     let args = bump.alloc_slice_fill_iter(values);
@@ -3061,7 +3172,6 @@ mod canfmt {
                 N::EndBinOpOr => binop!(BinOp::Or),
                 N::EndBinOpEquals => binop!(BinOp::Equals),
                 N::EndBinOpNotEquals => binop!(BinOp::NotEquals),
-                N::BeginLambda => {}
                 N::EndLambda => {
                     let mut values = stack.drain_to_index(index);
                     let count = values.len() - 1;
@@ -3070,7 +3180,6 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::Lambda(args, bump.alloc(body)));
                 }
-                N::BeginAssign => {}
                 N::EndAssign => {
                     let mut values = stack.drain_to_index(index);
                     assert_eq!(
@@ -3088,9 +3197,23 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::Assign(name_text, bump.alloc(value)));
                 }
-                N::BeginIf => {}
-                N::InlineKwThen => {}
-                N::InlineKwElse => {}
+                N::InlineTypeColon => {
+                    let (ty, i, index) = build_type(bump, ctx, &mut w);
+                    let mut values = stack.drain_to_index(index);
+                    assert_eq!(
+                        values.len(),
+                        1,
+                        "{:?}",
+                        values.collect::<std::vec::Vec<_>>()
+                    );
+                    let name = values.next().unwrap();
+                    let name_text = match name {
+                        Expr::Ident(name) => name,
+                        _ => panic!("Expected ident"),
+                    };
+                    drop(values);
+                    stack.push(i, Expr::TypeAlias(name_text, bump.alloc(ty)));
+                }
                 N::EndIf => {
                     // pop three elements (cond, then, else)
                     let mut values = stack.drain_to_index(index);
@@ -3113,28 +3236,15 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::If(condthenseq.into_bump_slice(), bump.alloc(els)));
                 }
-                N::BeginWhen => {}
-                N::InlineKwIs => {}
-                N::InlineWhenArrow => {}
                 N::EndWhen => {
                     let mut values = stack.drain_to_index(index);
                     let cond = values.next().unwrap();
                     let arms = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Expr::When(bump.alloc(cond), arms));
                 }
-                N::BeginTypeOrTypeAlias => {}
                 N::EndTypeOrTypeAlias => {
-                    let mut values = stack.drain_to_index(index);
-                    let name = values.next().unwrap();
-                    let name_text = match name {
-                        Expr::Ident(name) => name,
-                        _ => panic!("Expected ident"),
-                    };
-                    let value = values.next().unwrap();
-                    drop(values);
-                    stack.push(i, Expr::TypeAlias(name_text, bump.alloc(value)));
+                    panic!("should already be handled via earlier build_type call");
                 }
-                N::BeginRecord => {}
                 N::EndRecord => {
                     let mut values = stack.drain_to_index(index);
                     let mut pairs: Vec<(&'a str, &'a Expr<'a>)> = Vec::new_in(bump);
@@ -3150,23 +3260,6 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::Record(pairs.into_bump_slice()));
                 }
-                N::BeginTypeRecord => {}
-                N::EndTypeRecord => {
-                    let mut values = stack.drain_to_index(index);
-                    let mut pairs: Vec<(&'a str, &'a Expr<'a>)> = Vec::new_in(bump);
-                    loop {
-                        let name = match values.next() {
-                            Some(Expr::Ident(name)) => name,
-                            None => break,
-                            _ => panic!("Expected ident"),
-                        };
-                        let value = values.next().unwrap();
-                        pairs.push((name, bump.alloc(value)));
-                    }
-                    drop(values);
-                    stack.push(i, Expr::TypeRecord(pairs.into_bump_slice()));
-                }
-                N::BeginParens => {}
                 N::EndParens => {
                     let mut values = stack.drain_to_index(index);
                     if values.len() == 1 {
@@ -3179,6 +3272,10 @@ mod canfmt {
                         let args = bump.alloc_slice_fill_iter(values);
                         stack.push(i, Expr::Tuple(args));
                     }
+                }
+                N::EndBlock => {
+                    let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));
+                    stack.push(i, Expr::Block(values));
                 }
                 N::InlineApply
                 | N::InlineAssign
@@ -3195,12 +3292,24 @@ mod canfmt {
                 | N::InlineBinOpOr
                 | N::InlineBinOpEquals
                 | N::InlineBinOpNotEquals
-                | N::InlineLambdaArrow => {}
-                N::BeginBlock => {}
-                N::EndBlock => {
-                    let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));
-                    stack.push(i, Expr::Block(values));
-                }
+                | N::InlineLambdaArrow
+                | N::InlineKwWhere
+                | N::InlineKwImplements
+                | N::BeginBlock
+                | N::BeginParens
+                | N::BeginRecord
+                | N::BeginTypeOrTypeAlias
+                | N::BeginWhen
+                | N::InlineKwIs
+                | N::InlineWhenArrow
+                | N::BeginIf
+                | N::InlineKwThen
+                | N::InlineKwElse
+                | N::BeginLambda
+                | N::BeginAssign
+                | N::BeginTopLevelDecls
+                | N::EndTopLevelDecls
+                | N::HintExpr => {},
                 _ => todo!("{:?}", node),
             }
         }
