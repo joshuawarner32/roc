@@ -5,7 +5,7 @@ description: "foo : Int\nfoo = 4\n\n42\n"
 (BeginTopLevelDecls
     (BeginTypeOrTypeAlias
         Ident=>LowerIdent@0
-        InlineColon=>OpColon@1
+        InlineTypeColon=>OpColon@1
         TypeName=>UpperIdent@2
     EndTypeOrTypeAlias)
     (BeginAssign
@@ -18,7 +18,7 @@ description: "foo : Int\nfoo = 4\n\n42\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("foo", TypeName("Int"))
+TypeAlias("foo", Name("Int"))
 Assign("foo", IntBase10("4"))
 IntBase10("42")
 

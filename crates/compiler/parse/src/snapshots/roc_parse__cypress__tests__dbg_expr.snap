@@ -1,0 +1,22 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "dbg 1 == 1\n\n4\n\n"
+---
+(BeginTopLevelDecls
+    (BeginDbg
+        (*
+            Num=>IntBase10@1
+            InlineBinOpEquals=>OpEquals@2
+            Num=>IntBase10@3
+        EndBinOpEquals)
+    EndDbg)
+    HintExpr
+    Num=>IntBase10@4
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Dbg(BinOp(IntBase10("1"), Equals, IntBase10("1")))
+IntBase10("4")
+
+[=== formatted below ===]
+

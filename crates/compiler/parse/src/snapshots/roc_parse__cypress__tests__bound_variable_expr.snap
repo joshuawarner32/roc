@@ -5,7 +5,7 @@ description: "a:\nc 0\n"
 (BeginTopLevelDecls
     (BeginTypeOrTypeAlias
         Ident=>LowerIdent@0
-        InlineColon=>OpColon@1
+        InlineTypeColon=>OpColon@1
         Ident=>LowerIdent@2
     EndTypeOrTypeAlias)
     HintExpr
@@ -13,7 +13,7 @@ description: "a:\nc 0\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("a", Ident("c"))
+TypeAlias("a", Name("c"))
 IntBase10("0")
 
 [=== formatted below ===]

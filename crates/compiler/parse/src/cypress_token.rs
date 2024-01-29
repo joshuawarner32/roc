@@ -59,7 +59,6 @@ pub enum T {
     KwIs,
     KwAs,
     KwDbg,
-    KwExpect,
     KwCrash,
     KwHas,
     KwWhere,
@@ -77,6 +76,9 @@ pub enum T {
     KwApp,
     KwPlatform,
     KwHosted,
+    KwDebug,
+    KwExpect,
+    KwExpectFx,
 
     
     NoSpace,
@@ -117,7 +119,8 @@ impl T {
             | T::KwInterface
             | T::KwApp
             | T::KwPlatform
-            | T::KwHosted => true,
+            | T::KwHosted
+            | T::KwExpectFx => true,
             _ => false,
         }
     }
@@ -468,7 +471,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    pub(crate) fn finish(self) -> TokenenizedBuffer {
+    pub fn finish(self) -> TokenenizedBuffer {
         self.output
     }
 }
@@ -711,7 +714,6 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                 b"as" => T::KwAs,
                 b"is" => T::KwIs,
                 b"dbg" => T::KwDbg,
-                b"expect" => T::KwExpect,
                 b"crash" => T::KwCrash,
                 b"has" => T::KwHas,
                 b"where" => T::KwWhere,
@@ -729,6 +731,14 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                 b"app" => T::KwApp,
                 b"platform" => T::KwPlatform,
                 b"hosted" => T::KwHosted,
+                b"expect" => {
+                    if self.peek() == Some(b'-') && self.peek_at(1) == Some(b'f') && self.peek_at(2) == Some(b'x') {
+                        self.offset += 3;
+                        T::KwExpectFx
+                    } else {
+                        T::KwExpect
+                    }
+                },
                 _ => T::LowerIdent,
             }
         } else {

@@ -297,6 +297,13 @@ pub enum N {
     DotModuleUpperIdent,
     DotNumber,
     EndWhereClause,
+
+    BeginDbg,
+    BeginExpect,
+    BeginExpectFx,
+    EndDbg,
+    EndExpect,
+    EndExpectFx,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -336,6 +343,9 @@ impl N {
             | N::BeginImplements
             | N::BeginTypeRecord
             | N::BeginCollection
+            | N::BeginDbg
+            | N::BeginExpect
+            | N::BeginExpectFx
             | N::BeginBackpassing => NodeIndexKind::Begin,
             N::EndList
             | N::EndRecord
@@ -353,6 +363,9 @@ impl N {
             | N::EndImplements
             | N::EndTypeRecord
             | N::EndCollection
+            | N::EndDbg
+            | N::EndExpect
+            | N::EndExpectFx
             | N::EndBackpassing => NodeIndexKind::End,
             N::InlineApply
             | N::InlinePizza
@@ -688,13 +701,14 @@ enum Frame {
     ContinueRecord {
         start: bool,
     },
-    Finish(N),
+    PushEndOnly(N),
     ContinueTypeTupleOrParen,
     ContinueList,
     ContinueTypeTagUnion,
     ContinueTagUnionArgs,
     ContinueImplementsMethodDecl,
     ContinueTypeRecord,
+    PushEnd(N, N),
 }
 
 #[derive(Clone, Copy)]
@@ -1046,7 +1060,8 @@ impl State {
                 }
                 Frame::FinishLambda => self.pump_finish_lambda(subtree_start),
                 Frame::FinishBlockItem => self.pump_finish_block_item(subtree_start),
-                Frame::Finish(end) => self.pump_finish(subtree_start, end),
+                Frame::PushEndOnly(end) => self.pump_push_end_only(subtree_start, end),
+                Frame::PushEnd(begin, end) => self.pump_push_end(subtree_start, begin, end),
                 Frame::ContinueExpr {
                     min_prec,
                     cur_op,
@@ -1130,6 +1145,7 @@ impl State {
         loop {
             match self.cur() {
                 Some(T::LowerIdent) => atom!(N::Ident),
+                Some(T::KwCrash) => atom!(N::Crash),
                 // TODO: do these need to be distinguished in the node?
                 Some(T::Underscore | T::NamedUnderscore) => atom!(N::Underscore),
                 Some(T::IntBase10) => atom!(N::Num),
@@ -1228,7 +1244,7 @@ impl State {
                             num_found: 1,
                         },
                     );
-                    self.push_next_frame_starting_here(cfg, Frame::Finish(N::EndUnaryNot));
+                    self.push_next_frame_starting_here(cfg, Frame::PushEndOnly(N::EndUnaryNot));
                     self.start_expr(cfg);
                     return;
                 }
@@ -1243,11 +1259,29 @@ impl State {
                             num_found: 1,
                         },
                     );
-                    self.push_next_frame_starting_here(cfg, Frame::Finish(N::EndUnaryMinus));
+                    self.push_next_frame_starting_here(cfg, Frame::PushEndOnly(N::EndUnaryMinus));
                     self.start_expr(cfg);
                     return;
                 }
                 Some(T::OpArrow) => return, // when arrow; handled in outer scope
+                Some(T::KwDbg) => {
+                    self.bump();
+                    self.push_next_frame(subtree_start, cfg, Frame::PushEnd(N::Dummy, N::EndDbg));
+                    self.start_block_or_expr(cfg);
+                    return;
+                }
+                Some(T::KwExpect) => {
+                    self.bump();
+                    self.push_next_frame(subtree_start, cfg, Frame::PushEnd(N::Dummy, N::EndExpect));
+                    self.start_block_or_expr(cfg);
+                    return;
+                }
+                Some(T::KwExpectFx) => {
+                    self.bump();
+                    self.push_next_frame(subtree_start, cfg, Frame::PushEnd(N::Dummy, N::EndExpectFx));
+                    self.start_block_or_expr(cfg);
+                    return;
+                }
                 Some(k) if k.is_keyword() => {
                     // treat as an identifier
                     atom!(N::Ident);
@@ -1546,7 +1580,7 @@ impl State {
 
                     let clause_subtree_start = self.tree.len();
                     self.push_node(N::InlineKwWhere, Some(self.pos as u32 - 1));
-                    self.push_next_frame(subtree_start, cfg, Frame::Finish(N::EndWhereClause));
+                    self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndWhereClause));
                     self.push_next_frame(clause_subtree_start, cfg, Frame::ContinueWhereClause);
                     self.start_type(cfg, false);
                     return;
@@ -1654,6 +1688,18 @@ impl State {
             N::EndImplements => {
                 self.update_end(N::Dummy, subtree_start);
                 self.tree.kinds[subtree_start as usize] = N::BeginImplements;
+            }
+            N::EndDbg => {
+                self.update_end(N::Dummy, subtree_start);
+                self.tree.kinds[subtree_start as usize] = N::BeginDbg;
+            }
+            N::EndExpect => {
+                self.update_end(N::Dummy, subtree_start);
+                self.tree.kinds[subtree_start as usize] = N::BeginExpect;
+            }
+            N::EndExpectFx => {
+                self.update_end(N::Dummy, subtree_start);
+                self.tree.kinds[subtree_start as usize] = N::BeginExpectFx;
             }
             N::Ident
             | N::UpperIdent
@@ -2033,8 +2079,13 @@ impl State {
         }
     }
 
-    fn pump_finish(&mut self, subtree_start: u32, end: N) {
+    fn pump_push_end_only(&mut self, subtree_start: u32, end: N) {
         self.push_node(end, Some(subtree_start));
+    }
+
+    fn pump_push_end(&mut self, subtree_start: u32, begin: N, end: N) {
+        self.push_node(end, Some(subtree_start));
+        self.update_end(begin, subtree_start);
     }
 
     fn pump_continue_type_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
@@ -2048,7 +2099,7 @@ impl State {
 
             // Pseudo-token that the tokenizer produces for inputs like (a, b)c - there will be a NoSpace after the parens.
             if self.consume(T::NoSpace) {
-                self.push_next_frame(subtree_start, cfg, Frame::Finish(N::EndTypeAdendum));
+                self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndTypeAdendum));
                 self.start_type(cfg, false);
             }
         }
@@ -2201,7 +2252,7 @@ impl State {
 
     fn maybe_start_type_adendum(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::NoSpace) {
-            self.push_next_frame(subtree_start, cfg, Frame::Finish(N::EndTypeAdendum));
+            self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndTypeAdendum));
             self.start_type(cfg, false);
         }
     }
@@ -2946,6 +2997,9 @@ mod canfmt {
         Comment(&'a str),
         TypeAlias(&'a str, &'a Type<'a>),
         AbilityName(&'a str),
+        Dbg(&'a Expr<'a>),
+        Expect(&'a Expr<'a>),
+        ExpectFx(&'a Expr<'a>),
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -3277,6 +3331,27 @@ mod canfmt {
                     let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));
                     stack.push(i, Expr::Block(values));
                 }
+                N::EndDbg => {
+                    let mut values = stack.drain_to_index(index);
+                    let body = bump.alloc(values.next().unwrap());
+                    assert_eq!(values.next(), None);
+                    drop(values);
+                    stack.push(i, Expr::Dbg(body));
+                }
+                N::EndExpect => {
+                    let mut values = stack.drain_to_index(index);
+                    let body = bump.alloc(values.next().unwrap());
+                    assert_eq!(values.next(), None);
+                    drop(values);
+                    stack.push(i, Expr::Expect(body));
+                }
+                N::EndExpectFx => {
+                    let mut values = stack.drain_to_index(index);
+                    let body = bump.alloc(values.next().unwrap());
+                    assert_eq!(values.next(), None);
+                    drop(values);
+                    stack.push(i, Expr::ExpectFx(body));
+                }
                 N::InlineApply
                 | N::InlineAssign
                 | N::InlinePizza
@@ -3309,6 +3384,9 @@ mod canfmt {
                 | N::BeginAssign
                 | N::BeginTopLevelDecls
                 | N::EndTopLevelDecls
+                | N::BeginDbg
+                | N::BeginExpect
+                | N::BeginExpectFx
                 | N::HintExpr => {},
                 _ => todo!("{:?}", node),
             }

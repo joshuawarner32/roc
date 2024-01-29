@@ -1,0 +1,19 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "# expecting some effects\nexpect-fx 5 == 2\n\n"
+---
+(BeginTopLevelDecls
+    (BeginExpectFx
+        (*
+            Num=>IntBase10@1
+            InlineBinOpEquals=>OpEquals@2
+            Num=>IntBase10@3
+        EndBinOpEquals)
+    EndExpectFx)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+ExpectFx(BinOp(IntBase10("5"), Equals, IntBase10("2")))
+
+[=== formatted below ===]
+
