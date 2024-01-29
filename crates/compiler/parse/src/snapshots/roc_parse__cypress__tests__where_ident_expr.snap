@@ -5,7 +5,7 @@ description: "where : {where: I32}\nwhere = {where: 1}\n\nwhere.where\n\n"
 (BeginTopLevelDecls
     (BeginTypeOrTypeAlias
         Ident=>KwWhere@0
-        InlineColon=>OpColon@1
+        InlineTypeColon=>OpColon@1
         (BeginTypeRecord Ident=>KwWhere@3 TypeName=>UpperIdent@5 EndTypeRecord)
     EndTypeOrTypeAlias)
     (BeginAssign
@@ -22,7 +22,7 @@ description: "where : {where: I32}\nwhere = {where: 1}\n\nwhere.where\n\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("where", TypeRecord([("where", TypeName("I32"))]))
+TypeAlias("where", Record([("where", Name("I32"))]))
 Assign("where", Record([("where", IntBase10("1"))]))
 RecordAccess(Ident("where"), ".where")
 

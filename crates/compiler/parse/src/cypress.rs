@@ -3129,7 +3129,8 @@ mod canfmt {
                 }
                 N::InlineLambdaArrow
                 | N::InlineKwWhere
-                | N::InlineKwImplements => {}
+                | N::InlineKwImplements
+                | N::BeginTypeRecord => {}
                 N::EndTypeOrTypeAlias => {
 
                     assert_eq!(stack.stack.len(), 1, "{:?}", stack.stack);

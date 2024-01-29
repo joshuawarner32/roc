@@ -5,7 +5,7 @@ description: "f :\n    {}\n\n42\n"
 (BeginTopLevelDecls
     (BeginTypeOrTypeAlias
         Ident=>LowerIdent@0
-        InlineColon=>OpColon@1
+        InlineTypeColon=>OpColon@1
         (BeginTypeRecord EndTypeRecord)
     EndTypeOrTypeAlias)
     HintExpr
@@ -13,7 +13,7 @@ description: "f :\n    {}\n\n42\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("f", TypeRecord([]))
+TypeAlias("f", Record([]))
 IntBase10("42")
 
 [=== formatted below ===]
