@@ -1,0 +1,16 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "-rec1.field\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (*
+        (* Ident=>LowerIdent@1 DotIdent=>NoSpaceDotLowerIdent@2 EndFieldAccess)
+    EndUnaryMinus)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+UnaryOp(Minus, RecordAccess(Ident("rec1"), ".field"))
+
+[=== formatted below ===]
+

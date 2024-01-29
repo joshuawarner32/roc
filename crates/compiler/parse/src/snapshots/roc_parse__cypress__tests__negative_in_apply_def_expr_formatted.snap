@@ -1,0 +1,26 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "a = A\n    -g\n    a\na\n"
+---
+(BeginTopLevelDecls
+    (BeginAssign
+        Ident=>LowerIdent@0
+        InlineAssign=>OpAssign@1
+        UpperIdent=>UpperIdent@2
+    EndAssign)
+    HintExpr
+    (* Ident=>LowerIdent@4 EndUnaryMinus)
+    HintExpr
+    Ident=>LowerIdent@5
+    HintExpr
+    Ident=>LowerIdent@6
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Assign("a", UpperIdent("A"))
+UnaryOp(Minus, Ident("g"))
+Ident("a")
+Ident("a")
+
+[=== formatted below ===]
+

@@ -1260,7 +1260,13 @@ impl State {
                         },
                     );
                     self.push_next_frame_starting_here(cfg, Frame::PushEndOnly(N::EndUnaryMinus));
-                    self.start_expr(cfg);
+                    // self.start_expr(cfg);
+                    self.push_next_frame_starting_here(
+                        cfg,
+                        Frame::StartExpr {
+                            min_prec: Prec::Atom,
+                        },
+                    );
                     return;
                 }
                 Some(T::OpArrow) => return, // when arrow; handled in outer scope
@@ -2981,6 +2987,7 @@ mod canfmt {
         Float(&'a str),
         Apply(&'a Expr<'a>, &'a [Expr<'a>]),
         BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
+        UnaryOp(UnaryOp, &'a Expr<'a>),
         Pizza(&'a [Expr<'a>]),
         Lambda(&'a [Expr<'a>], &'a Expr<'a>),
         If(&'a [(&'a Expr<'a>, &'a Expr<'a>)], &'a Expr<'a>),
@@ -3000,6 +3007,12 @@ mod canfmt {
         Dbg(&'a Expr<'a>),
         Expect(&'a Expr<'a>),
         ExpectFx(&'a Expr<'a>),
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum UnaryOp {
+        Minus,
+        Not,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -3352,6 +3365,13 @@ mod canfmt {
                     assert_eq!(values.next(), None);
                     drop(values);
                     stack.push(i, Expr::ExpectFx(body));
+                }
+                N::EndUnaryMinus => {
+                    let mut values = stack.drain_to_index(index);
+                    let body = bump.alloc(values.next().unwrap());
+                    assert_eq!(values.next(), None);
+                    drop(values);
+                    stack.push(i, Expr::UnaryOp(UnaryOp::Minus, body));
                 }
                 N::InlineApply
                 | N::InlineAssign

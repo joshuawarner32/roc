@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "-foo\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (* Ident=>LowerIdent@1 EndUnaryMinus)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+UnaryOp(Minus, Ident("foo"))
+
+[=== formatted below ===]
+
