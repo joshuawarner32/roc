@@ -1978,6 +1978,7 @@ impl State {
             N::Ident
             | N::UpperIdent
             | N::Num
+            | N::Crash
             | N::String
             | N::Float
             | N::EndWhen
@@ -3306,6 +3307,7 @@ mod canfmt {
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Expr<'a> {
+        Crash,
         Ident(&'a str),
         Underscore(&'a str),
         UpperIdent(&'a str),
@@ -3530,6 +3532,7 @@ mod canfmt {
 
             match node {
                 N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
+                N::Crash => stack.push(i, Expr::Crash),
                 N::Underscore => stack.push(i, Expr::Underscore(ctx.text(index))),
                 N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
                 N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
@@ -3605,7 +3608,8 @@ mod canfmt {
                     let name = values.next().unwrap();
                     let name_text = match name {
                         Expr::Ident(name) => name,
-                        _ => panic!("Expected ident"),
+                        Expr::Underscore(name) => name, // TODO: allow patterns
+                        _ => panic!("Expected ident, found {:?}", name),
                     };
                     let value = values.next().unwrap();
                     drop(values);
