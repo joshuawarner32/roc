@@ -1245,7 +1245,12 @@ impl State {
                         },
                     );
                     self.push_next_frame_starting_here(cfg, Frame::PushEndOnly(N::EndUnaryNot));
-                    self.start_expr(cfg);
+                    self.push_next_frame_starting_here(
+                        cfg,
+                        Frame::StartExpr {
+                            min_prec: Prec::Atom,
+                        },
+                    );
                     return;
                 }
                 Some(T::OpUnaryMinus) => {
@@ -1260,7 +1265,6 @@ impl State {
                         },
                     );
                     self.push_next_frame_starting_here(cfg, Frame::PushEndOnly(N::EndUnaryMinus));
-                    // self.start_expr(cfg);
                     self.push_next_frame_starting_here(
                         cfg,
                         Frame::StartExpr {
@@ -3374,6 +3378,13 @@ mod canfmt {
                     assert_eq!(values.next(), None);
                     drop(values);
                     stack.push(i, Expr::UnaryOp(UnaryOp::Minus, body));
+                }
+                N::EndUnaryNot => {
+                    let mut values = stack.drain_to_index(index);
+                    let body = bump.alloc(values.next().unwrap());
+                    assert_eq!(values.next(), None);
+                    drop(values);
+                    stack.push(i, Expr::UnaryOp(UnaryOp::Not, body));
                 }
                 N::InlineApply
                 | N::InlineAssign
