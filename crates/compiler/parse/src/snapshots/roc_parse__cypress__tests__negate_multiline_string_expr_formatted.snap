@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "-(\n    \"\"\"\n    \"\"\")\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (* (BeginParens String=>String@2 EndParens) EndUnaryMinus)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+UnaryOp(Minus, String("\"\"\"\n    \"\"\""))
+
+[=== formatted below ===]
+

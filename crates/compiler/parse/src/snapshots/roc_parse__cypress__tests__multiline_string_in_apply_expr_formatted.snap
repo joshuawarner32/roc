@@ -1,0 +1,18 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "e\n    \"\"\"\n    \"\\\"\n    \"\"\"\n"
+---
+(BeginTopLevelDecls
+    (*
+        HintExpr
+        Ident=>LowerIdent@0
+        InlineApply=>LowerIdent@0
+        String=>String@1
+    EndApply)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Apply(Ident("e"), [String("\"\"\"\n    \"\\\"\n    \"\"\"")])
+
+[=== formatted below ===]
+

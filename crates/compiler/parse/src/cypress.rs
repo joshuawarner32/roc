@@ -2991,6 +2991,7 @@ mod canfmt {
         UpperIdent(&'a str),
         IntBase10(&'a str),
         Float(&'a str),
+        String(&'a str),
         Apply(&'a Expr<'a>, &'a [Expr<'a>]),
         BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
         UnaryOp(UnaryOp, &'a Expr<'a>),
@@ -3195,6 +3196,7 @@ mod canfmt {
                 N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
                 N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
                 N::Float => stack.push(i, Expr::Float(ctx.text(index))),
+                N::String => stack.push(i, Expr::String(ctx.text(index))),
                 N::DotIdent => stack.push(i, Expr::Ident(ctx.text(index))),
                 N::ModuleName => {
                     // stack.push(i, Expr::ModuleName(ctx.text(index)))

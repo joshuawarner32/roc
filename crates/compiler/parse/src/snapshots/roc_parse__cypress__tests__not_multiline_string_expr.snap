@@ -1,0 +1,11 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "!\"\"\"\"\"\"\n"
+---
+(BeginTopLevelDecls HintExpr (* String=>String@1 EndUnaryNot) EndTopLevelDecls)
+
+[=== canfmt below ===]
+UnaryOp(Not, String("\"\"\"\"\"\""))
+
+[=== formatted below ===]
+
