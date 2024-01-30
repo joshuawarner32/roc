@@ -1,0 +1,33 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when (1, 2) is\n (1, x) -> x\n (_, b) -> 3 + b\n\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginWhen
+        (BeginParens Num=>IntBase10@2 Num=>IntBase10@4 EndParens)
+        InlineKwIs=>KwIs@6
+        (BeginPatternParens=>OpArrow@12
+            Num=>IntBase10@8
+            Ident=>LowerIdent@10
+        EndPatternParens)
+        InlineWhenArrow=>OpArrow@12
+        Ident=>LowerIdent@13
+        (BeginPatternParens=>CloseRound@18
+            Underscore=>Underscore@15
+            Ident=>LowerIdent@17
+        EndPatternParens)
+        InlineWhenArrow=>OpArrow@19
+        (*
+            Num=>IntBase10@20
+            InlineBinOpPlus=>OpPlus@21
+            Ident=>LowerIdent@22
+        EndBinOpPlus)
+    EndWhen)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+When(Tuple([IntBase10("1"), IntBase10("2")]), [Tuple([IntBase10("1"), Ident("x")]), Ident("x"), Tuple([Underscore("_"), Ident("b")]), BinOp(IntBase10("3"), Plus, Ident("b"))])
+
+[=== formatted below ===]
+

@@ -1,0 +1,26 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when x is\n    _ ->\n        1\n\n    _ ->\n        2\n\n    Ok ->\n        3\n\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginWhen
+        Ident=>LowerIdent@1
+        InlineKwIs=>KwIs@2
+        Underscore=>Underscore@3
+        InlineWhenArrow=>OpArrow@4
+        (BeginBlock HintExpr Num=>IntBase10@5 EndBlock)
+        Underscore=>Underscore@6
+        InlineWhenArrow=>OpArrow@7
+        (BeginBlock HintExpr Num=>IntBase10@8 EndBlock)
+        UpperIdent=>UpperIdent@9
+        InlineWhenArrow=>OpArrow@10
+        (BeginBlock HintExpr Num=>IntBase10@11 EndBlock)
+    EndWhen)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+When(Ident("x"), [Underscore("_"), Block([IntBase10("1")]), Underscore("_"), Block([IntBase10("2")]), UpperIdent("Ok"), Block([IntBase10("3")])])
+
+[=== formatted below ===]
+

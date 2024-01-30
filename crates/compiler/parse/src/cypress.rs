@@ -1428,7 +1428,7 @@ impl State {
                         },
                     );
                     self.push_next_frame_starting_here(cfg, Frame::ContinuePatternTupleOrParen);
-                    self.push_node(N::BeginParens, None);
+                    self.push_node(N::BeginPatternParens, None);
                     subtree_start = self.tree.len();
                     min_prec = Prec::Outer;
                     cfg = cfg.disable_multi_backpassing();
@@ -3307,6 +3307,7 @@ mod canfmt {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Expr<'a> {
         Ident(&'a str),
+        Underscore(&'a str),
         UpperIdent(&'a str),
         IntBase10(&'a str),
         Float(&'a str),
@@ -3529,6 +3530,7 @@ mod canfmt {
 
             match node {
                 N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
+                N::Underscore => stack.push(i, Expr::Underscore(ctx.text(index))),
                 N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
                 N::Num => stack.push(i, Expr::IntBase10(ctx.text(index))),
                 N::Float => stack.push(i, Expr::Float(ctx.text(index))),
@@ -3700,6 +3702,19 @@ mod canfmt {
                         stack.push(i, Expr::Tuple(args));
                     }
                 }
+                N::EndPatternParens => {
+                    let mut values = stack.drain_to_index(index);
+                    if values.len() == 1 {
+                        // we don't create a tuple for a single element
+                        let value = values.next().unwrap();
+                        drop(values);
+                        stack.push(i, value);
+                    } else {
+                        let mut values = values.into_iter();
+                        let args = bump.alloc_slice_fill_iter(values);
+                        stack.push(i, Expr::Tuple(args));
+                    }
+                }
                 N::EndBlock => {
                     let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));
                     stack.push(i, Expr::Block(values));
@@ -3775,6 +3790,7 @@ mod canfmt {
                 | N::BeginExpect
                 | N::BeginExpectFx
                 | N::BeginPatternRecord
+                | N::BeginPatternParens
                 | N::HintExpr => {},
                 _ => todo!("{:?}", node),
             }
