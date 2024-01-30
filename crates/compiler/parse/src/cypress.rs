@@ -686,14 +686,8 @@ enum Frame {
         cur_op: Option<BinOp>,
         num_found: usize,
     },
-    StartPattern {
-        min_prec: Prec,
-    },
-    ContinuePattern {
-        min_prec: Prec,
-        cur_op: Option<BinOp>,
-        num_found: usize,
-    },
+    StartPattern,
+    ContinuePattern,
     ContinueBlock,
     ContinueExprTupleOrParen,
     ContinuePatternTupleOrParen,
@@ -823,6 +817,7 @@ enum Error {
     InconsistentIndent,
     ExpectViolation(T, Option<T>),
     ExpectedExpr(Option<T>),
+    ExpectedPattern(Option<T>),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -1095,12 +1090,8 @@ impl State {
                     cur_op,
                     num_found,
                 } => self.pump_continue_expr(subtree_start, cfg, min_prec, cur_op, num_found),
-                Frame::StartPattern { min_prec } => self.pump_start_pattern(subtree_start, cfg, min_prec),
-                Frame::ContinuePattern {
-                    min_prec,
-                    cur_op,
-                    num_found,
-                } => self.pump_continue_pattern(subtree_start, cfg, min_prec, cur_op, num_found),
+                Frame::StartPattern => self.pump_start_pattern(subtree_start, cfg),
+                Frame::ContinuePattern => self.pump_continue_pattern(subtree_start, cfg),
                 Frame::ContinueBlock => self.pump_continue_block(subtree_start, cfg),
                 Frame::FinishAssign => self.pump_finish_assign(subtree_start, cfg),
                 Frame::ContinueTopLevel { num_found } => {
@@ -1255,6 +1246,7 @@ impl State {
                     self.bump();
                     self.push_next_frame_starting_here(cfg, Frame::ContinueLambdaArgs);
                     self.push_node(N::BeginLambda, None);
+                    self.start_pattern(cfg);
                     return;
                 }
                 Some(T::KwIf) => {
@@ -1361,7 +1353,7 @@ impl State {
         }
     }
 
-    fn pump_start_pattern(&mut self, mut subtree_start: u32, mut cfg: ExprCfg, mut min_prec: Prec) {
+    fn pump_start_pattern(&mut self, mut subtree_start: u32, mut cfg: ExprCfg) {
         macro_rules! maybe_return {
             () => {
                 match self.cur() {
@@ -1372,11 +1364,7 @@ impl State {
                 self.push_next_frame(
                     subtree_start,
                     cfg,
-                    Frame::ContinuePattern {
-                        min_prec,
-                        cur_op: None,
-                        num_found: 1,
-                    },
+                    Frame::ContinuePattern,
                 );
                 return;
             };
@@ -1421,16 +1409,11 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
+                        Frame::ContinuePattern,
                     );
                     self.push_next_frame_starting_here(cfg, Frame::ContinuePatternTupleOrParen);
                     self.push_node(N::BeginPatternParens, None);
                     subtree_start = self.tree.len();
-                    min_prec = Prec::Outer;
                     cfg = cfg.disable_multi_backpassing();
                     continue;
                 }
@@ -1459,85 +1442,55 @@ impl State {
         }
     }
 
+    fn at_pattern_continue(&mut self, cfg: ExprCfg) -> bool {
+        match self.cur() {
+            // TODO: check for other things that can start an expr
+            Some(
+                T::LowerIdent
+                | T::UpperIdent
+                | T::OpenCurly
+                | T::IntBase10
+                | T::IntNonBase10
+                | T::String
+                | T::OpenRound
+                | T::OpenCurly
+                | T::OpenSquare
+                | T::OpUnaryMinus
+                | T::OpBang
+            ) => {
+                if self.at_newline() {
+                    // are we at the start of a line?
+                    if !self.buf.lines[self.line]
+                        .1
+                        .is_indented_more_than(cfg.expr_indent_floor)
+                        .expect("TODO: error handling")
+                    {
+                        return false
+                    }
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
     fn pump_continue_pattern(
         &mut self,
         subtree_start: u32,
         cfg: ExprCfg,
-        min_prec: Prec,
-        cur_op: Option<BinOp>,
-        mut num_found: usize,
     ) {
         // TODO: only allow calls / application in patterns (remove this generic op stuff)
-        if let Some(op) = self.next_op(min_prec, cfg) {
-            if let Some(cur_op) = cur_op {
-                if op != cur_op || !op.n_arity() {
-                    self.push_node(cur_op.into(), Some(subtree_start));
-                }
-            }
-
-            self.push_node(op.to_inline(), Some(self.pos as u32 - 1));
-
-            match op {
-                BinOp::Assign => {
-                    if self.at_newline() {
-                        self.push_next_frame(subtree_start, cfg, Frame::FinishAssign);
-                        self.start_block(cfg);
-                        return;
-                    }
-                }
-                BinOp::DefineTypeOrTypeAlias => {
-                    self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-                    self.start_type(cfg, true);
-                    return;
-                }
-                BinOp::DefineOtherTypeThing => {
-                    // TODO: is this correct????
-                    self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-                    self.start_type(cfg, true);
-                    return;
-                }
-                BinOp::Implements => {
-                    let cfg = cfg.set_block_indent_floor(Some(self.cur_indent()));
-                    self.continue_implements_method_decl_body(subtree_start, cfg);
-                    return;
-                }
-                _ => {}
-            }
-
-            eprintln!(
-                "{:indent$}next op {:?}",
-                "",
-                op,
-                indent = 2 * self.frames.len() + 2
-            );
-
-            let op_prec = op.prec();
-            let assoc = op.matching_assoc();
-
-            let next_min_prec = if assoc == Assoc::Left {
-                op_prec
-            } else {
-                op_prec.next()
-            };
-
+        if self.at_pattern_continue(cfg) {
             self.push_next_frame(
                 subtree_start,
                 cfg,
-                Frame::ContinuePattern {
-                    min_prec,
-                    cur_op: Some(op),
-                    num_found,
-                },
+                Frame::ContinuePattern,
             );
             self.push_next_frame_starting_here(
                 cfg,
-                Frame::StartPattern {
-                    min_prec: next_min_prec,
-                },
+                Frame::StartPattern,
             );
             return;
-        } else if let Some(cur_op) = cur_op {
-            self.push_node(cur_op.into(), Some(subtree_start));
         }
     }
 
@@ -2005,7 +1958,7 @@ impl State {
             | N::EndBinOpNotEquals => {
                 self.tree.kinds[subtree_start as usize] = N::HintExpr;
             }
-            k => todo!("{:?}", k),
+            k => todo!("{:?}: {:?}", k, self.tree.kinds),
         };
     }
 
@@ -2051,9 +2004,12 @@ impl State {
             self.push_node(N::InlineLambdaArrow, Some(self.pos as u32 - 1));
             self.push_next_frame(subtree_start, cfg, Frame::FinishLambda);
             self.start_block_or_expr(cfg);
-        } else {
+        } else if self.consume(T::Comma) {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueLambdaArgs);
-            self.start_expr(cfg);
+            self.start_pattern(cfg);
+        } else {
+            self.push_error(Error::ExpectedPattern(self.cur()));
+            self.fast_forward_past_newline();
         }
     }
 
@@ -2279,9 +2235,7 @@ impl State {
         cfg.expr_indent_floor = Some(self.cur_indent());
         self.push_next_frame_starting_here(
             cfg,
-            Frame::StartPattern {
-                min_prec: Prec::DeclSeq,
-            },
+            Frame::StartPattern,
         );
     }
 
@@ -3795,7 +3749,8 @@ mod canfmt {
                 | N::BeginExpectFx
                 | N::BeginPatternRecord
                 | N::BeginPatternParens
-                | N::HintExpr => {},
+                | N::HintExpr
+                | N::InlineMultiBackpassingComma => {},
                 _ => todo!("{:?}", node),
             }
         }
