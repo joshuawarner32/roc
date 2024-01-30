@@ -1988,6 +1988,7 @@ impl State {
             | N::EndLambda
             | N::EndRecord
             | N::EndFieldAccess
+            | N::EndIndexAccess
             | N::EndBinOpSlash
             | N::EndBinOpDoubleSlash
             | N::EndBinOpPercent
@@ -3309,6 +3310,7 @@ mod canfmt {
         IntBase10(&'a str),
         Float(&'a str),
         String(&'a str),
+        DotNumber(&'a str),
         Apply(&'a Expr<'a>, &'a [Expr<'a>]),
         BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
         UnaryOp(UnaryOp, &'a Expr<'a>),
@@ -3546,6 +3548,7 @@ mod canfmt {
 
             match node {
                 N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
+                N::DotNumber => stack.push(i, Expr::DotNumber(ctx.text(index))),
                 N::Crash => stack.push(i, Expr::Crash),
                 N::Underscore => stack.push(i, Expr::Underscore(ctx.text(index))),
                 N::UpperIdent => stack.push(i, Expr::UpperIdent(ctx.text(index))),
@@ -3574,6 +3577,16 @@ mod canfmt {
                     };
                     drop(values);
                     stack.push(i, Expr::RecordAccess(bump.alloc(value), name));
+                }
+                N::EndIndexAccess => {
+                    let mut values = stack.drain_to_index(index);
+                    let value = values.next().unwrap();
+                    let name = match values.next().unwrap() {
+                        Expr::DotNumber(name) => name,
+                        _ => panic!("Expected ident"),
+                    };
+                    drop(values);
+                    stack.push(i, Expr::TupleAccess(bump.alloc(value), name));
                 }
                 N::EndApply => {
                     let mut values = stack.drain_to_index(index);

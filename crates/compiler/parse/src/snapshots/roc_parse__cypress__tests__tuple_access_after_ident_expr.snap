@@ -1,0 +1,20 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "abc = (1, 2, 3)\nabc.0\n"
+---
+(BeginTopLevelDecls
+    (BeginAssign
+        Ident=>LowerIdent@0
+        InlineAssign=>OpAssign@1
+        (BeginParens Num=>IntBase10@3 Num=>IntBase10@5 Num=>IntBase10@7 EndParens)
+    EndAssign)
+    HintExpr
+    (* Ident=>LowerIdent@9 DotNumber=>NoSpaceDotNumber@10 EndIndexAccess)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+Assign("abc", Tuple([IntBase10("1"), IntBase10("2"), IntBase10("3")]))
+TupleAccess(Ident("abc"), ".0")
+
+[=== formatted below ===]
+
