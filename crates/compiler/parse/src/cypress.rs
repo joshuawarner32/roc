@@ -1127,7 +1127,7 @@ impl State {
                 Frame::ContinuePatternRecord { start } => {
                     self.pump_continue_pattern_record(subtree_start, cfg, start)
                 }
-                Frame::ContinueExprList => self.pump_continue_list(subtree_start, cfg),
+                Frame::ContinueExprList => self.pump_continue_expr_list(subtree_start, cfg),
                 Frame::ContinuePatternList => self.pump_continue_pattern_list(subtree_start, cfg),
                 Frame::ContinueTypeTupleOrParen => {
                     self.pump_continue_type_tuple_or_paren(subtree_start, cfg)
@@ -1224,12 +1224,30 @@ impl State {
                 }
                 Some(T::OpenCurly) => {
                     self.bump();
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueExpr {
+                            min_prec,
+                            cur_op: None,
+                            num_found: 1,
+                        },
+                    );
                     self.push_next_frame_starting_here(cfg, Frame::ContinueRecord { start: true });
                     self.push_node(N::BeginRecord, None); // index will be updated later
                     return;
                 }
                 Some(T::OpenSquare) => {
                     self.bump();
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueExpr {
+                            min_prec,
+                            cur_op: None,
+                            num_found: 1,
+                        },
+                    );
                     self.start_list(cfg);
                     return;
                 }
@@ -1906,6 +1924,7 @@ impl State {
             self.expect(T::CloseRound);
             self.push_node(N::EndParens, Some(subtree_start));
             self.update_end(N::BeginParens, subtree_start);
+            self.handle_field_access_suffix(subtree_start);
         }
     }
     
@@ -2306,6 +2325,7 @@ impl State {
             if self.consume_end(T::CloseCurly) {
                 self.push_node(N::EndRecord, Some(subtree_start));
                 self.update_end(N::BeginRecord, subtree_start);
+                self.handle_field_access_suffix(subtree_start);
                 return;
             }
 
@@ -2315,6 +2335,7 @@ impl State {
         if self.consume_end(T::CloseCurly) {
             self.push_node(N::EndRecord, Some(subtree_start));
             self.update_end(N::BeginRecord, subtree_start);
+            self.handle_field_access_suffix(subtree_start);
             return;
         }
 
@@ -2394,10 +2415,11 @@ impl State {
         }
     }
 
-    fn pump_continue_list(&mut self, subtree_start: u32, cfg: ExprCfg) {
+    fn pump_continue_expr_list(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume_end(T::CloseSquare) {
             self.push_node(N::EndList, Some(self.pos as u32 - 1));
             self.update_end(N::BeginList, subtree_start);
+            self.handle_field_access_suffix(subtree_start);
             return;
         }
 
@@ -2406,6 +2428,7 @@ impl State {
         if self.consume_end(T::CloseSquare) {
             self.push_node(N::EndList, Some(self.pos as u32 - 1));
             self.update_end(N::BeginList, subtree_start);
+            self.handle_field_access_suffix(subtree_start);
             return;
         }
 
