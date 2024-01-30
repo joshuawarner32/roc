@@ -1426,7 +1426,9 @@ impl State {
                 | T::String
                 | T::OpenRound
                 | T::OpenCurly
-                | T::OpenSquare,
+                | T::OpenSquare
+                | T::OpUnaryMinus
+                | T::OpBang
             ) => {
                 if self.at_newline() {
                     // are we at the start of a line?

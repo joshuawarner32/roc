@@ -1,6 +1,6 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: "a = A\n    -g\n    a\na\n"
+description: "a=A\n -g a\na\n"
 ---
 (BeginTopLevelDecls
     (BeginAssign
