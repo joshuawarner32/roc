@@ -2383,7 +2383,7 @@ impl State {
             self.start_type(cfg, false);
         } else {
             self.expect(T::CloseRound);
-            self.push_node(N::EndParens, Some(self.pos as u32 - 1));
+            self.push_node(N::EndParens, Some(subtree_start));
             self.update_end(N::BeginParens, subtree_start);
 
             // Pseudo-token that the tokenizer produces for inputs like (a, b)c - there will be a NoSpace after the parens.
@@ -3327,6 +3327,7 @@ mod canfmt {
         Apply(&'a Type<'a>, &'a [Type<'a>]),
         Lambda(&'a [Type<'a>], &'a Type<'a>),
         WhereClause(&'a Type<'a>, &'a Type<'a>, &'a Type<'a>),
+        Tuple(&'a [Type<'a>]),
     }
 
     struct TreeStack<V> {
@@ -3445,10 +3446,24 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Type::WhereClause(first, second, third));
                 }
+                N::EndParens => {
+                    let mut values = stack.drain_to_index(index);
+                    if values.len() == 1 {
+                        // we don't create a tuple for a single element
+                        let value = values.next().unwrap();
+                        drop(values);
+                        stack.push(i, value);
+                    } else {
+                        let mut values = values.into_iter();
+                        let args = bump.alloc_slice_fill_iter(values);
+                        stack.push(i, Type::Tuple(args));
+                    }
+                }
                 N::InlineLambdaArrow
                 | N::InlineKwWhere
                 | N::InlineKwImplements
-                | N::BeginTypeRecord => {}
+                | N::BeginTypeRecord
+                | N::BeginParens => {}
                 N::EndTypeOrTypeAlias => {
 
                     assert_eq!(stack.stack.len(), 1, "{:?}", stack.stack);
@@ -3817,8 +3832,8 @@ mod tests {
             if has_begin {
                 assert_eq!(
                     self.paird_group_ends[begin], end as u32,
-                    "begin/end mismatch at {}, with node {:?}",
-                    begin, node
+                    "begin/end mismatch at {}->{}, with node {:?}",
+                    begin, end, node
                 );
             } else {
                 res.push_front(ExpectAtom::Empty);
