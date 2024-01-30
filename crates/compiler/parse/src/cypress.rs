@@ -1761,6 +1761,46 @@ impl State {
         }
     }
 
+    fn start_type_ext(&mut self, subtree_start: u32, cfg: ExprCfg) {
+        loop {
+            match self.cur() {
+                Some(T::OpenRound) => {
+                    self.bump();
+                    self.push_node(N::BeginParens, None);
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
+                    continue;
+                }
+                Some(T::OpenSquare) => {
+                    self.bump();
+                    self.start_tag_union(subtree_start, cfg);
+                    return;
+                }
+                Some(T::OpenCurly) => {
+                    self.bump();
+                    self.start_type_record(cfg);
+                    return;
+                }
+                Some(T::LowerIdent) => {
+                    self.bump();
+                    self.push_node(N::Ident, Some(self.pos as u32 - 1));
+                    return;
+                }
+                Some(T::OpStar) => {
+                    self.bump();
+                    self.push_node(N::TypeWildcard, Some(self.pos as u32 - 1));
+                    return;
+                }
+                Some(k) if k.is_keyword() => {
+                    // treat as an identifier
+                    self.bump();
+                    self.push_node(N::Ident, Some(self.pos as u32 - 1));
+                    return;
+                }
+                k => todo!("{:?}", k),
+            }
+        }
+    }
+
     fn pump_continue_type(&mut self, subtree_start: u32, cfg: ExprCfg, in_apply: Option<bool>, allow_clauses: bool) {
         match self.cur() {
             Some(T::Comma) => {
@@ -2365,7 +2405,8 @@ impl State {
             // Pseudo-token that the tokenizer produces for inputs like (a, b)c - there will be a NoSpace after the parens.
             if self.consume(T::NoSpace) {
                 self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndTypeAdendum));
-                self.start_type(cfg, false);
+                let subtree_start = self.tree.len();
+                self.start_type_ext(subtree_start, cfg);
             }
         }
     }
@@ -3302,12 +3343,15 @@ mod canfmt {
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Type<'a> {
+        Wildcard,
         Name(&'a str),
         Record(&'a [(&'a str, &'a Type<'a>)]),
         Apply(&'a Type<'a>, &'a [Type<'a>]),
         Lambda(&'a [Type<'a>], &'a Type<'a>),
         WhereClause(&'a Type<'a>, &'a Type<'a>, &'a Type<'a>),
         Tuple(&'a [Type<'a>]),
+        TagUnion(&'a [Type<'a>]),
+        Adendum(&'a Type<'a>, &'a Type<'a>),
     }
 
     struct TreeStack<V> {
@@ -3387,6 +3431,8 @@ mod canfmt {
                 N::Ident => stack.push(i, Type::Name(ctx.text(index))),
                 N::UpperIdent => stack.push(i, Type::Name(ctx.text(index))),
                 N::TypeName => stack.push(i, Type::Name(ctx.text(index))),
+                N::TypeWildcard => stack.push(i, Type::Wildcard),
+                N::Tag => stack.push(i, Type::Name(ctx.text(index))),
                 N::AbilityName => stack.push(i, Type::Name(ctx.text(index))),
                 N::EndTypeApply => {
                     let mut values = stack.drain_to_index(index);
@@ -3401,6 +3447,14 @@ mod canfmt {
                     let body = values.next().unwrap();
                     drop(values);
                     stack.push(i, Type::Lambda(args, bump.alloc(body)));
+                }
+                N::EndTypeAdendum => {
+                    let mut values = stack.drain_to_index(index);
+                    assert_eq!(values.len(), 2);
+                    let first = values.next().unwrap();
+                    let second = values.next().unwrap();
+                    drop(values);
+                    stack.push(i, Type::Adendum(bump.alloc(first), bump.alloc(second)));
                 }
                 N::EndTypeRecord => {
                     let mut values = stack.drain_to_index(index);
@@ -3439,11 +3493,17 @@ mod canfmt {
                         stack.push(i, Type::Tuple(args));
                     }
                 }
+                N::EndTypeTagUnion => {
+                    let mut values = stack.drain_to_index(index);
+                    let args = bump.alloc_slice_fill_iter(values);
+                    stack.push(i, Type::TagUnion(args));
+                }
                 N::InlineLambdaArrow
                 | N::InlineKwWhere
                 | N::InlineKwImplements
                 | N::BeginTypeRecord
-                | N::BeginParens => {}
+                | N::BeginParens
+                | N::BeginTypeTagUnion => {}
                 N::EndTypeOrTypeAlias => {
 
                     assert_eq!(stack.stack.len(), 1, "{:?}", stack.stack);
