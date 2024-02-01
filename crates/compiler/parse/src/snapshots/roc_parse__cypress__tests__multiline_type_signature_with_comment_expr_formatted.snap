@@ -13,7 +13,7 @@ description: "f :\n    # comment\n    {}\n\n42\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("f", Record([]))
+TypeAlias(Ident("f"), Record([]))
 IntBase10("42")
 
 [=== formatted below ===]

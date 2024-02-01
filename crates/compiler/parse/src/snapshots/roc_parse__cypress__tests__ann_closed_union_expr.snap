@@ -22,7 +22,7 @@ description: "foo : [True, Perhaps Thing]\nfoo = True\n\n42\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("foo", TagUnion([Name("True"), Name("Perhaps"), Name("Thing")]))
+TypeAlias(Ident("foo"), TagUnion([Name("True"), Name("Perhaps"), Name("Thing")]))
 Assign("foo", UpperIdent("True"))
 IntBase10("42")
 

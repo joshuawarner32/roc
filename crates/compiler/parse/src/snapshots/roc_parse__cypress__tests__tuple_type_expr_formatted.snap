@@ -30,7 +30,7 @@ description: "f : (Str, Str) -> (Str, Str)\nf = \\x -> x\n\nf (1, 2)\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("f", Lambda([Tuple([Name("Str"), Name("Str")])], Tuple([Name("Str"), Name("Str")])))
+TypeAlias(Ident("f"), Lambda([Tuple([Name("Str"), Name("Str")])], Tuple([Name("Str"), Name("Str")])))
 Assign("f", Lambda([Ident("x")], Ident("x")))
 Apply(Ident("f"), [Tuple([IntBase10("1"), IntBase10("2")])])
 

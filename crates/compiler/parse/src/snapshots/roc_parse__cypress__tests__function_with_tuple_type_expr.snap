@@ -37,7 +37,7 @@ description: "f : I64 -> (I64, I64)\nf = \\x -> (x, x + 1)\n\nf 42\n\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("f", Lambda([Name("I64")], Tuple([Name("I64"), Name("I64")])))
+TypeAlias(Ident("f"), Lambda([Name("I64")], Tuple([Name("I64"), Name("I64")])))
 Assign("f", Lambda([Ident("x")], Tuple([Ident("x"), BinOp(Ident("x"), Plus, IntBase10("1"))])))
 Apply(Ident("f"), [IntBase10("42")])
 

@@ -26,7 +26,7 @@ description: "table : {\n    height : Pixels\n    } -> Table\ntable = \\{height}
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("table", Lambda([Record([("height", Name("Pixels"))])], Name("Table")))
+TypeAlias(Ident("table"), Lambda([Record([("height", Name("Pixels"))])], Name("Table")))
 Assign("table", Lambda([PatternRecord(["height"])], Apply(Crash, [String("\"not implemented\"")])))
 Ident("table")
 

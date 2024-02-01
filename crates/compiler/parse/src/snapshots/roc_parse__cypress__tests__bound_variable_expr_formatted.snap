@@ -13,7 +13,7 @@ description: "a :\n    c\n0\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("a", Name("c"))
+TypeAlias(Ident("a"), Name("c"))
 IntBase10("0")
 
 [=== formatted below ===]

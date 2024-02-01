@@ -19,7 +19,7 @@ description: "f : a where a implements A\n\nf\n\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("f", WhereClause(Name("a"), Name("a"), Name("A")))
+TypeAlias(Ident("f"), WhereClause(Name("a"), Name("a"), Name("A")))
 Ident("f")
 
 [=== formatted below ===]

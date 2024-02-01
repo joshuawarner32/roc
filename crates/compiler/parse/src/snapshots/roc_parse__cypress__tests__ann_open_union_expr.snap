@@ -25,7 +25,7 @@ description: "foo : [True, Perhaps Thing]*\nfoo = True\n\n42\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("foo", Adendum(TagUnion([Name("True"), Name("Perhaps"), Name("Thing")]), Wildcard))
+TypeAlias(Ident("foo"), Adendum(TagUnion([Name("True"), Name("Perhaps"), Name("Thing")]), Wildcard))
 Assign("foo", UpperIdent("True"))
 IntBase10("42")
 

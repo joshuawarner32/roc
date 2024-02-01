@@ -22,7 +22,7 @@ description: "where : { where : I32 }\nwhere = { where: 1 }\n\nwhere.where\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("where", Record([("where", Name("I32"))]))
+TypeAlias(Ident("where"), Record([("where", Name("I32"))]))
 Assign("where", Record([("where", IntBase10("1"))]))
 RecordAccess(Ident("where"), ".where")
 

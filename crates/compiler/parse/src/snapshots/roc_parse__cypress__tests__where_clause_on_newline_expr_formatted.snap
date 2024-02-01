@@ -23,7 +23,7 @@ description: "f : a -> U64 where a implements Hash\n\nf\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("f", WhereClause(Lambda([Name("a")], Name("U64")), Name("a"), Name("Hash")))
+TypeAlias(Ident("f"), WhereClause(Lambda([Name("a")], Name("U64")), Name("a"), Name("Hash")))
 Ident("f")
 
 [=== formatted below ===]

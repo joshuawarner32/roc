@@ -36,7 +36,7 @@ description: "f : (Str)a -> (Str)a\nf = \\x -> x\n\nf (\"Str\", 42)\n\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("f", Lambda([Adendum(Name("Str"), Name("a"))], Adendum(Name("Str"), Name("a"))))
+TypeAlias(Ident("f"), Lambda([Adendum(Name("Str"), Name("a"))], Adendum(Name("Str"), Name("a"))))
 Assign("f", Lambda([Ident("x")], Ident("x")))
 Apply(Ident("f"), [Tuple([String("\"Str\""), IntBase10("42")])])
 

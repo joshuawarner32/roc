@@ -13,7 +13,7 @@ description: "a : b\ni\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("a", Name("b"))
+TypeAlias(Ident("a"), Name("b"))
 Ident("i")
 
 [=== formatted below ===]

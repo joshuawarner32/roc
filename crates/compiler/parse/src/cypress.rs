@@ -1187,6 +1187,12 @@ impl State {
                     if self.consume(T::NoSpaceDotLowerIdent) {
                         self.push_node(N::ModuleName, Some(self.pos as u32 - 2));
                         self.push_node(N::DotModuleLowerIdent, Some(self.pos as u32 - 1));
+                    } else if self.consume(T::NoSpaceDotUpperIdent) {
+                        self.push_node(N::ModuleName, Some(self.pos as u32 - 2));
+                        self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
+                        if self.consume(T::NoSpaceDotUpperIdent) {
+                            self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
+                        }
                     } else {
                         // TODO: this is probably wrong
                         self.push_node(N::UpperIdent, Some(self.pos as u32 - 1));
@@ -1735,8 +1741,16 @@ impl State {
                 }
                 Some(T::UpperIdent) => {
                     self.bump();
-                    self.push_node(N::TypeName, Some(self.pos as u32 - 1));
-
+                    let subtree_start = self.tree.len();
+                    if self.consume(T::NoSpaceDotUpperIdent) {
+                        self.push_node(N::ModuleName, Some(self.pos as u32 - 2));
+                        self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
+                        if self.consume(T::NoSpaceDotUpperIdent) {
+                            self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
+                        }
+                    } else {
+                        self.push_node(N::TypeName, Some(self.pos as u32 - 1));
+                    }
                     self.push_next_frame(
                         subtree_start,
                         cfg,
@@ -3328,7 +3342,7 @@ mod canfmt {
         // Not really expressions, but considering them as such to make the formatter as error tolerant as possible
         Assign(&'a str, &'a Expr<'a>),
         Comment(&'a str),
-        TypeAlias(&'a str, &'a Type<'a>),
+        TypeAlias(&'a Expr<'a>, &'a Type<'a>),
         AbilityName(&'a str),
         Dbg(&'a Expr<'a>),
         Expect(&'a Expr<'a>),
@@ -3354,6 +3368,7 @@ mod canfmt {
         Tuple(&'a [Type<'a>]),
         TagUnion(&'a [Type<'a>]),
         Adendum(&'a Type<'a>, &'a Type<'a>),
+        ModuleType(&'a str, &'a str),
     }
 
     struct TreeStack<V> {
@@ -3433,9 +3448,19 @@ mod canfmt {
                 N::Ident => stack.push(i, Type::Name(ctx.text(index))),
                 N::UpperIdent => stack.push(i, Type::Name(ctx.text(index))),
                 N::TypeName => stack.push(i, Type::Name(ctx.text(index))),
+                N::ModuleName => stack.push(i, Type::Name(ctx.text(index))), // TODO!
                 N::TypeWildcard => stack.push(i, Type::Wildcard),
-                N::Tag => stack.push(i, Type::Name(ctx.text(index))),
-                N::AbilityName => stack.push(i, Type::Name(ctx.text(index))),
+                N::Tag => stack.push(i, Type::Name(ctx.text(index))), // TODO
+                N::AbilityName => stack.push(i, Type::Name(ctx.text(index))), // TODO
+                N::DotModuleUpperIdent => {
+                    let last = stack.pop().unwrap();
+                    let name = match last {
+                        Type::Name(name) => ctx.text(index),
+                        Type::ModuleType(name, _) => name, // TODO! THIS IS WRONG
+                        _ => panic!("Expected name"),
+                    };
+                    stack.push(i, Type::ModuleType(name, ctx.text(index)));
+                }
                 N::EndTypeApply => {
                     let mut values = stack.drain_to_index(index);
                     let first = bump.alloc(values.next().unwrap());
@@ -3652,12 +3677,8 @@ mod canfmt {
                         values.collect::<std::vec::Vec<_>>()
                     );
                     let name = values.next().unwrap();
-                    let name_text = match name {
-                        Expr::Ident(name) => name,
-                        _ => panic!("Expected ident"),
-                    };
                     drop(values);
-                    stack.push(i, Expr::TypeAlias(name_text, bump.alloc(ty)));
+                    stack.push(i, Expr::TypeAlias(bump.alloc(name), bump.alloc(ty)));
                 }
                 N::EndIf => {
                     // pop three elements (cond, then, else)
@@ -3877,7 +3898,17 @@ mod tests {
                     return (end - 1, ExpectAtom::Unit(node));
                 }
                 NodeIndexKind::End => true,
-                NodeIndexKind::EndOnly | NodeIndexKind::EndSingleToken => false,
+                NodeIndexKind::EndOnly => false,
+
+                NodeIndexKind::EndSingleToken => {
+                    let mut res = VecDeque::new();
+                    res.push_front(ExpectAtom::Unit(node));
+                    let (new_i, atom) = self.expect_atom(end - 1, buf);
+                    assert!(new_i < end - 1);
+                    res.push_front(atom);
+                    res.push_front(ExpectAtom::Empty);
+                    return (new_i, ExpectAtom::Seq(res.into()));
+                }
             };
 
             let mut res = VecDeque::new();

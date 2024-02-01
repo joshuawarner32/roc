@@ -1,0 +1,30 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when x is\n    1 ->\n        Num.neg\n            2\n\n    _ -> 4\n"
+---
+(BeginTopLevelDecls
+    HintExpr
+    (BeginWhen
+        Ident=>LowerIdent@1
+        InlineKwIs=>KwIs@2
+        Num=>IntBase10@3
+        InlineWhenArrow=>OpArrow@4
+        (BeginBlock
+            (*
+                HintExpr
+                (* ModuleName=>UpperIdent@5 DotModuleLowerIdent)
+                InlineApply=>NoSpaceDotLowerIdent@6
+                Num=>IntBase10@7
+            EndApply)
+        EndBlock)
+        Underscore=>Underscore@8
+        InlineWhenArrow=>OpArrow@9
+        Num=>IntBase10@10
+    EndWhen)
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+When(Ident("x"), [IntBase10("1"), Block([Apply(ModuleLowerName("Num", ".neg"), [IntBase10("2")])]), Underscore("_"), IntBase10("4")])
+
+[=== formatted below ===]
+

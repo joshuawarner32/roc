@@ -29,7 +29,7 @@ description: "f : a -> (b -> c) where a implements A\n\nf\n\n"
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias("f", WhereClause(Lambda([Name("a")], Lambda([Name("b")], Name("c"))), Name("a"), Name("A")))
+TypeAlias(Ident("f"), WhereClause(Lambda([Name("a")], Lambda([Name("b")], Name("c"))), Name("a"), Name("A")))
 Ident("f")
 
 [=== formatted below ===]

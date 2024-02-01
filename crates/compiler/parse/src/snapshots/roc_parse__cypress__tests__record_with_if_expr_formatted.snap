@@ -7,7 +7,8 @@ description: "{ x: if Bool.true then 1 else 2, y: 3 }\n"
     (BeginRecord
         Ident=>LowerIdent@1
         InlineColon=>OpColon@2
-        ((* BeginIf ModuleName=>UpperIdent@4 DotModuleLowerIdent)
+        (BeginIf
+            (* ModuleName=>UpperIdent@4 DotModuleLowerIdent)
             InlineKwThen=>KwThen@6
             Num=>IntBase10@7
             InlineKwElse=>KwElse@8
