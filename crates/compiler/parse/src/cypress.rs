@@ -243,6 +243,10 @@ pub enum N {
     InlineKwElse,
     EndIf,
 
+    /// As expression, e.g. `x as y`
+    InlineKwAs,
+    EndTypeAs,
+
     /// A when expression, e.g. `when x is y -> z` (you need a newline after the 'is')
     BeginWhen,
     InlineKwIs,
@@ -385,6 +389,7 @@ impl N {
             | N::InlineKwThen
             | N::InlineKwElse
             | N::InlineKwWhere
+            | N::InlineKwAs
             | N::InlineKwImplements
             | N::InlineKwIs
             | N::InlineLambdaArrow
@@ -447,6 +452,7 @@ impl N {
             | N::EndMultiBackpassingArgs
             | N::EndFieldAccess
             | N::EndIndexAccess
+            | N::EndTypeAs
             | N::EndWhereClause
             | N::EndTypeApply => NodeIndexKind::EndOnly,
             N::DotModuleLowerIdent | N::DotModuleUpperIdent => NodeIndexKind::EndSingleToken,
@@ -895,7 +901,30 @@ impl State {
     }
 
     fn bump(&mut self) {
+        // eprintln!(
+        //     "{:indent$}@{} consuming {:?}",
+        //     "",
+        //     self.pos,
+        //     self.cur().unwrap(),
+        //     indent = 2 * self.frames.len() + 2
+        // );
+
+        // Making that red for now:
+        eprintln!(
+            "{:indent$}@{} consuming \x1b[31m{:?}\x1b[0m",
+            "",
+            self.pos,
+            self.cur().unwrap(),
+            indent = 2 * self.frames.len() + 2
+        );
+
         self.pos += 1;
+    }
+
+    fn bump_n(&mut self, n: usize) {
+        for _ in 0..n {
+            self.bump();
+        }
     }
 
     fn push_error(&mut self, kind: Error) {
@@ -1754,7 +1783,7 @@ impl State {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
-                        Frame::ContinueType { in_apply: None, allow_clauses, },
+                        Frame::ContinueType { in_apply: Some(false), allow_clauses, },
                     );
                     return;
                 }
@@ -1855,21 +1884,34 @@ impl State {
                     return;
                 }
             }
+            Some(T::KwAs) if allow_clauses => {
+                self.bump();
+
+                if in_apply == Some(true) {
+                    self.push_node(N::EndTypeApply, Some(subtree_start));
+                }
+
+                self.push_node(N::InlineKwAs, Some(self.pos as u32 - 1));
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueType { in_apply: None, allow_clauses });
+                self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndTypeAs));
+                self.start_type(cfg, false);
+            }
             // TODO: check for other things that can start an expr
             Some(T::LowerIdent | T::UpperIdent | T::OpenCurly | T::OpenSquare | T::OpenRound)
                 if in_apply.is_some() =>
             {
-                if self.at_newline() {
+                if dbg!(self.at_newline()) {
                     // are we at the start of a line?
-                    if !self.buf.lines[self.line]
+                    if !dbg!(self.buf.lines[self.line]
                         .1
                         .is_indented_more_than(cfg.expr_indent_floor)
-                        .expect("TODO: error handling")
+                        .expect("TODO: error handling"))
                     {
                         // Not indented enough; we're done.
                         if in_apply == Some(true) {
                             self.push_node(N::EndTypeApply, Some(subtree_start));
                         }
+                        return;
                     }
                 }
 
@@ -2009,6 +2051,7 @@ impl State {
             | N::EndBinOpCaret
             | N::EndBinOpAnd
             | N::EndBinOpOr
+            | N::EndTypeAs
             | N::EndBinOpEquals
             | N::EndBinOpNotEquals => {
                 self.tree.kinds[subtree_start as usize] = N::HintExpr;
@@ -3369,6 +3412,8 @@ mod canfmt {
         TagUnion(&'a [Type<'a>]),
         Adendum(&'a Type<'a>, &'a Type<'a>),
         ModuleType(&'a str, &'a str),
+        As(&'a Type<'a>, &'a Type<'a>),
+        
     }
 
     struct TreeStack<V> {
@@ -3507,6 +3552,14 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Type::WhereClause(first, second, third));
                 }
+                N::EndTypeAs => {
+                    let mut values = stack.drain_to_index(index);
+                    let first = bump.alloc(values.next().unwrap());
+                    let second = bump.alloc(values.next().unwrap());
+                    assert_eq!(values.next(), None);
+                    drop(values);
+                    stack.push(i, Type::As(first, second));
+                }
                 N::EndParens => {
                     let mut values = stack.drain_to_index(index);
                     if values.len() == 1 {
@@ -3530,6 +3583,7 @@ mod canfmt {
                 | N::InlineKwImplements
                 | N::BeginTypeRecord
                 | N::BeginParens
+                | N::InlineKwAs
                 | N::BeginTypeTagUnion => {}
                 N::EndTypeOrTypeAlias => {
 

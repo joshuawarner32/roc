@@ -6,17 +6,14 @@ description: "A : A\n    A\np\n"
     (BeginTypeOrTypeAlias
         UpperIdent=>UpperIdent@0
         InlineTypeColon=>OpColon@1
-        TypeName=>UpperIdent@2
+        (* TypeName=>UpperIdent@2 TypeName=>UpperIdent@3 EndTypeApply)
     EndTypeOrTypeAlias)
-    HintExpr
-    UpperIdent=>UpperIdent@3
     HintExpr
     Ident=>LowerIdent@4
 EndTopLevelDecls)
 
 [=== canfmt below ===]
-TypeAlias(UpperIdent("A"), Name("A"))
-UpperIdent("A")
+TypeAlias(UpperIdent("A"), Apply(Name("A"), [Name("A")]))
 Ident("p")
 
 [=== formatted below ===]
