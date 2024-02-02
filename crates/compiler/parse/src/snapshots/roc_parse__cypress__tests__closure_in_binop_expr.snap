@@ -1,0 +1,25 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "a && \\x->x\n8\n"
+---
+(BeginTopLevelDecls
+    (*
+        HintExpr
+        Ident=>LowerIdent@0
+        InlineBinOpAnd=>OpAnd@1
+        (BeginLambda
+            Ident=>LowerIdent@3
+            InlineLambdaArrow=>OpArrow@4
+            Ident=>LowerIdent@5
+        EndLambda)
+    EndBinOpAnd)
+    HintExpr
+    Num=>IntBase10@6
+EndTopLevelDecls)
+
+[=== canfmt below ===]
+BinOp(Ident("a"), And, Lambda([Ident("x")], Ident("x")))
+IntBase10("8")
+
+[=== formatted below ===]
+

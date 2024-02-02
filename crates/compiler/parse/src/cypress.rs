@@ -1699,6 +1699,8 @@ impl State {
             Some(T::OpLessThanOrEq) => (BinOp::LessThanOrEq, 1),
             Some(T::OpGreaterThan) => (BinOp::GreaterThan, 1),
             Some(T::OpGreaterThanOrEq) => (BinOp::GreaterThanOrEq, 1),
+            Some(T::OpAnd) => (BinOp::And, 1),
+            Some(T::OpOr) => (BinOp::Or, 1),
             Some(T::Comma) if cfg.allow_multi_backpassing => (BinOp::MultiBackpassingComma, 1),
             _ => return None,
         };
