@@ -3381,6 +3381,7 @@ mod canfmt {
         TupleAccess(&'a Expr<'a>, &'a str),
         ModuleLowerName(&'a str, &'a str),
         Tuple(&'a [Expr<'a>]),
+        List(&'a [Expr<'a>]),
 
         // Not really expressions, but considering them as such to make the formatter as error tolerant as possible
         Assign(&'a str, &'a Expr<'a>),
@@ -3673,6 +3674,11 @@ mod canfmt {
                     let args = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Expr::Apply(first, args));
                 }
+                N::EndList => {
+                    let mut values = stack.drain_to_index(index);
+                    let args = bump.alloc_slice_fill_iter(values);
+                    stack.push(i, Expr::List(args));
+                }
                 // N::EndTypeApply => {
                 //     let mut values = stack.drain_to_index(index);
                 //     let first = bump.alloc(values.next().unwrap());
@@ -3883,6 +3889,7 @@ mod canfmt {
                 | N::BeginRecord
                 | N::BeginTypeOrTypeAlias
                 | N::BeginWhen
+                | N::BeginList
                 | N::InlineKwIs
                 | N::InlineWhenArrow
                 | N::BeginIf

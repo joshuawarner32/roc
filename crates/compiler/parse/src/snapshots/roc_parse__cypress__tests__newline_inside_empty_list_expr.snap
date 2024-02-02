@@ -1,0 +1,11 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "[\n]\n"
+---
+(BeginTopLevelDecls HintExpr (BeginList EndList) EndTopLevelDecls)
+
+[=== canfmt below ===]
+List([])
+
+[=== formatted below ===]
+
