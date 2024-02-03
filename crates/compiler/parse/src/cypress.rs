@@ -2351,7 +2351,9 @@ impl State {
                         T::CloseCurly,
                         N::EndCollection,
                         |s| {
-                            s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                            s.expect_and_push_node(T::LowerIdent, N::Ident);
+                            s.expect(T::OpColon);
+                            s.expect_and_push_node(T::String, N::String);
                         },
                     );
                 } else {
@@ -2364,7 +2366,18 @@ impl State {
                         T::CloseSquare,
                         N::EndCollection,
                         |s| {
-                            s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                            s.expect_and_push_node(T::LowerIdent, N::Ident);
+                            match s.cur() {
+                                Some(T::NoSpaceDotLowerIdent) => {
+                                    s.bump();
+                                    s.push_node(N::DotIdent, Some(s.pos as u32 - 1));
+                                }
+                                Some(T::NoSpaceDotUpperIdent) => {
+                                    s.bump();
+                                    s.push_node(N::DotIdent, Some(s.pos as u32 - 1));
+                                }
+                                _ => {}
+                            }
                         },
                     );
                 } else {
@@ -2377,7 +2390,7 @@ impl State {
                     T::CloseSquare,
                     N::EndCollection,
                     |s| {
-                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                        s.expect_and_push_node(T::LowerIdent, N::Ident);
                     },
                 );
                 self.expect(T::KwTo);

@@ -1,0 +1,32 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "app \"example\"\n    packages { pf : \"path\" }\n    imports [ pf.Stdout ]\n    provides [ main ] to pf\n\nmain = Stdout.line \"Hello\"\n"
+---
+(BeginFile
+    (BeginHeaderApp
+        String=>String@1
+        (BeginCollection Ident=>LowerIdent@4 String=>String@6 EndCollection)
+        (BeginCollection
+            Ident=>LowerIdent@10
+            DotIdent=>NoSpaceDotUpperIdent@11
+        EndCollection)
+        (BeginCollection Ident=>LowerIdent@15 EndCollection)
+    EndHeaderApp)
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@19
+            InlineAssign=>OpAssign@20
+            (*
+                (* ModuleName=>UpperIdent@21 DotModuleLowerIdent)
+                InlineApply=>NoSpaceDotLowerIdent@22
+                String=>String@23
+            EndApply)
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign("main", Apply(ModuleLowerName("Stdout", ".line"), [String("\"Hello\"")]))
+
+[=== formatted below ===]
+

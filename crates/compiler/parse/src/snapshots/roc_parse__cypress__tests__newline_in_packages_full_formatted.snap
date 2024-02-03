@@ -1,0 +1,35 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "app \"hello\"\n    packages {\n        pf:\n        \"https://github.com/roc-lang/basic-cli/releases/download/0.7.0/bkGby8jb0tmZYsy2hg1E_B2QrCgcSTxdUlHtETwm5m4.tar.br\",\n    }\n    imports [pf.Stdout]\n    provides [main] to pf\n\nmain =\n    Stdout.line \"I'm a Roc application!\"\n\n"
+---
+(BeginFile
+    (BeginHeaderApp
+        String=>String@1
+        (BeginCollection Ident=>LowerIdent@4 String=>String@6 EndCollection)
+        (BeginCollection
+            Ident=>LowerIdent@11
+            DotIdent=>NoSpaceDotUpperIdent@12
+        EndCollection)
+        (BeginCollection Ident=>LowerIdent@16 EndCollection)
+    EndHeaderApp)
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@20
+            InlineAssign=>OpAssign@21
+            (BeginBlock
+                (*
+                    HintExpr
+                    (* ModuleName=>UpperIdent@22 DotModuleLowerIdent)
+                    InlineApply=>NoSpaceDotLowerIdent@23
+                    String=>String@24
+                EndApply)
+            EndBlock)
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign("main", Block([Apply(ModuleLowerName("Stdout", ".line"), [String("\"I'm a Roc application!\"")])]))
+
+[=== formatted below ===]
+
