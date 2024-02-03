@@ -2540,13 +2540,72 @@ impl State {
             Some(T::KwInterface) => {
                 self.bump();
                 let subtree_start = self.push_node_begin(N::BeginHeaderInterface);
-                todo!();
+
+                self.expect(T::KwExposes);
+                self.expect_collection(
+                    T::OpenSquare,
+                    N::BeginCollection,
+                    T::CloseSquare,
+                    N::EndCollection,
+                    |s| {
+                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                    },
+                );
+
+                self.expect(T::KwImports);
+                self.expect_collection(
+                    T::OpenSquare,
+                    N::BeginCollection,
+                    T::CloseSquare,
+                    N::EndCollection,
+                    |s| {
+                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                    },
+                );
+
                 self.push_node_end(N::BeginHeaderInterface, N::EndHeaderInterface, subtree_start);
             }
             Some(T::KwPackage) => {
                 self.bump();
                 let subtree_start = self.push_node_begin(N::BeginHeaderPackage);
-                todo!();
+                self.expect_and_push_node(T::String, N::String);
+                self.expect(T::KwExposes);
+                self.expect_collection(
+                    T::OpenSquare,
+                    N::BeginCollection,
+                    T::CloseSquare,
+                    N::EndCollection,
+                    |s| {
+                        match s.cur() {
+                            Some(T::LowerIdent) => {
+                                s.bump();
+                                s.push_node(N::Ident, Some(s.pos as u32 - 1));
+                            }
+                            Some(T::UpperIdent) => {
+                                s.bump();
+                                s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+                            }
+                            t => {
+                                s.push_error(Error::ExpectViolation(T::LowerIdent, t));
+                                s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
+                            }
+                        }
+                    },
+                );
+                self.expect(T::KwPackages);
+                self.expect_collection(
+                    T::OpenCurly,
+                    N::BeginCollection,
+                    T::CloseCurly,
+                    N::EndCollection,
+                    |s| {
+                        s.expect(T::LowerIdent);
+                        s.expect(T::OpColon);
+                        s.expect(T::String);
+                    },
+                );
+
+
                 self.push_node_end(N::BeginHeaderPackage, N::EndHeaderPackage, subtree_start);
             }
             _ => {}
