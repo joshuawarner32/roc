@@ -2,15 +2,17 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "\\_, _name -> 42\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (BeginLambda
-        Underscore=>Underscore@1
-        Underscore=>NamedUnderscore@3
-        InlineLambdaArrow=>OpArrow@4
-        Num=>IntBase10@5
-    EndLambda)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginLambda
+            Underscore=>Underscore@1
+            Underscore=>NamedUnderscore@3
+            InlineLambdaArrow=>OpArrow@4
+            Num=>IntBase10@5
+        EndLambda)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Lambda([Underscore("_"), Underscore("_name")], IntBase10("42"))

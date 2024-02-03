@@ -1,0 +1,20 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "[\n    K,\n]\n- i\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            (BeginList UpperIdent=>UpperIdent@1 EndList)
+            InlineBinOpMinus=>OpBinaryMinus@4
+            Ident=>LowerIdent@5
+        EndBinOpMinus)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+BinOp(List([UpperIdent("K")]), Minus, Ident("i"))
+
+[=== formatted below ===]
+

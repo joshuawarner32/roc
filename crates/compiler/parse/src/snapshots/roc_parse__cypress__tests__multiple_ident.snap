@@ -2,16 +2,18 @@
 source: crates/compiler/parse/src/cypress.rs
 description: abc def ghi
 ---
-(BeginTopLevelDecls
-    (*
-        HintExpr
-        Ident=>LowerIdent@0
-        InlineApply=>LowerIdent@0
-        Ident=>LowerIdent@1
-        InlineApply=>LowerIdent@1
-        Ident=>LowerIdent@2
-    EndApply)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineApply=>LowerIdent@0
+            Ident=>LowerIdent@1
+            InlineApply=>LowerIdent@1
+            Ident=>LowerIdent@2
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Apply(Ident("abc"), [Ident("def"), Ident("ghi")])

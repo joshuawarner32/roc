@@ -2,10 +2,12 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "-\"\"\"\"<\"\"\"\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (* String=>String@1 EndUnaryMinus)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (* String=>String@1 EndUnaryMinus)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 UnaryOp(Minus, String("\"\"\"\"<\"\"\""))

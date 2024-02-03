@@ -2,15 +2,17 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "### not docs!\n## docs, but with a problem\n## (namely that this is a mix of docs and regular comments)\n# not docs\nx = 5\n\n42\n\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        Num=>IntBase10@2
-    EndAssign)
-    HintExpr
-    Num=>IntBase10@3
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            Num=>IntBase10@2
+        EndAssign)
+        HintExpr
+        Num=>IntBase10@3
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("x", IntBase10("5"))

@@ -2,16 +2,18 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "\\a, b, c -> 42\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (BeginLambda
-        Ident=>LowerIdent@1
-        Ident=>LowerIdent@3
-        Ident=>LowerIdent@5
-        InlineLambdaArrow=>OpArrow@6
-        Num=>IntBase10@7
-    EndLambda)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginLambda
+            Ident=>LowerIdent@1
+            Ident=>LowerIdent@3
+            Ident=>LowerIdent@5
+            InlineLambdaArrow=>OpArrow@6
+            Num=>IntBase10@7
+        EndLambda)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Lambda([Ident("a"), Ident("b"), Ident("c")], IntBase10("42"))

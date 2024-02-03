@@ -2,14 +2,16 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "\\abc -> def"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (BeginLambda
-        Ident=>LowerIdent@1
-        InlineLambdaArrow=>OpArrow@2
-        Ident=>LowerIdent@3
-    EndLambda)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginLambda
+            Ident=>LowerIdent@1
+            InlineLambdaArrow=>OpArrow@2
+            Ident=>LowerIdent@3
+        EndLambda)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Lambda([Ident("abc")], Ident("def"))

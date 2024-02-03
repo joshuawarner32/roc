@@ -2,20 +2,22 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "expect\n    1 == 1\n\n4\n"
 ---
-(BeginTopLevelDecls
-    (BeginExpect
-        (BeginBlock
-            (*
-                HintExpr
-                Num=>IntBase10@1
-                InlineBinOpEquals=>OpEquals@2
-                Num=>IntBase10@3
-            EndBinOpEquals)
-        EndBlock)
-    EndExpect)
-    HintExpr
-    Num=>IntBase10@4
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginExpect
+            (BeginBlock
+                (*
+                    HintExpr
+                    Num=>IntBase10@1
+                    InlineBinOpEquals=>OpEquals@2
+                    Num=>IntBase10@3
+                EndBinOpEquals)
+            EndBlock)
+        EndExpect)
+        HintExpr
+        Num=>IntBase10@4
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Expect(Block([BinOp(IntBase10("1"), Equals, IntBase10("1"))]))

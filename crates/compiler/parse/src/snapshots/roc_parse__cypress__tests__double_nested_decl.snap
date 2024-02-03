@@ -2,21 +2,23 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "a =\n    b =\n        c\n    d\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        (BeginBlock
-            (BeginAssign
-                Ident=>LowerIdent@2
-                InlineAssign=>OpAssign@3
-                (BeginBlock HintExpr Ident=>LowerIdent@4 EndBlock)
-            EndAssign)
-            HintExpr
-            Ident=>LowerIdent@5
-        EndBlock)
-    EndAssign)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock
+                (BeginAssign
+                    Ident=>LowerIdent@2
+                    InlineAssign=>OpAssign@3
+                    (BeginBlock HintExpr Ident=>LowerIdent@4 EndBlock)
+                EndAssign)
+                HintExpr
+                Ident=>LowerIdent@5
+            EndBlock)
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("a", Block([Assign("b", Block([Ident("c")])), Ident("d")]))

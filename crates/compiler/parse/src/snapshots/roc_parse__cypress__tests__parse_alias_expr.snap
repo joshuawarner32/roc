@@ -2,25 +2,27 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "Blah a b : Foo.Bar.Baz x y\n\n42\n\n"
 ---
-(BeginTopLevelDecls
-    ((*
-            BeginTypeOrTypeAlias
-            UpperIdent=>UpperIdent@0
-            InlineApply=>UpperIdent@0
-            Ident=>LowerIdent@1
-            InlineApply=>LowerIdent@1
-            Ident=>LowerIdent@2
-        EndApply)
-        InlineTypeColon=>OpColon@3
-        (*
-            (* (* ModuleName=>UpperIdent@4 DotModuleUpperIdent) DotModuleUpperIdent)
-            Ident=>LowerIdent@7
-            Ident=>LowerIdent@8
-        EndTypeApply)
-    EndTypeOrTypeAlias)
-    HintExpr
-    Num=>IntBase10@9
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        ((*
+                BeginTypeOrTypeAlias
+                UpperIdent=>UpperIdent@0
+                InlineApply=>UpperIdent@0
+                Ident=>LowerIdent@1
+                InlineApply=>LowerIdent@1
+                Ident=>LowerIdent@2
+            EndApply)
+            InlineTypeColon=>OpColon@3
+            (*
+                (* (* ModuleName=>UpperIdent@4 DotModuleUpperIdent) DotModuleUpperIdent)
+                Ident=>LowerIdent@7
+                Ident=>LowerIdent@8
+            EndTypeApply)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Num=>IntBase10@9
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Apply(UpperIdent("Blah"), [Ident("a"), Ident("b")]), Apply(ModuleType(".Bar", ".Baz"), [Name("x"), Name("y")]))

@@ -2,20 +2,22 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "dbg\n    1 == 1\n\n4\n"
 ---
-(BeginTopLevelDecls
-    (BeginDbg
-        (BeginBlock
-            (*
-                HintExpr
-                Num=>IntBase10@1
-                InlineBinOpEquals=>OpEquals@2
-                Num=>IntBase10@3
-            EndBinOpEquals)
-        EndBlock)
-    EndDbg)
-    HintExpr
-    Num=>IntBase10@4
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginDbg
+            (BeginBlock
+                (*
+                    HintExpr
+                    Num=>IntBase10@1
+                    InlineBinOpEquals=>OpEquals@2
+                    Num=>IntBase10@3
+                EndBinOpEquals)
+            EndBlock)
+        EndDbg)
+        HintExpr
+        Num=>IntBase10@4
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Dbg(Block([BinOp(IntBase10("1"), Equals, IntBase10("1"))]))

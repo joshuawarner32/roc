@@ -2,10 +2,12 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "(\nA)\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (BeginParens UpperIdent=>UpperIdent@1 EndParens)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginParens UpperIdent=>UpperIdent@1 EndParens)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 UpperIdent("A")

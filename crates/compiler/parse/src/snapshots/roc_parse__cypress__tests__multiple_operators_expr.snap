@@ -2,18 +2,20 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "31*42+534\n"
 ---
-(BeginTopLevelDecls
-    (*
+(BeginFile
+    (BeginTopLevelDecls
         (*
-            HintExpr
-            Num=>IntBase10@0
-            InlineBinOpStar=>OpStar@1
-            Num=>IntBase10@2
-        EndBinOpStar)
-        InlineBinOpPlus=>OpPlus@3
-        Num=>IntBase10@4
-    EndBinOpPlus)
-EndTopLevelDecls)
+            (*
+                HintExpr
+                Num=>IntBase10@0
+                InlineBinOpStar=>OpStar@1
+                Num=>IntBase10@2
+            EndBinOpStar)
+            InlineBinOpPlus=>OpPlus@3
+            Num=>IntBase10@4
+        EndBinOpPlus)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 BinOp(BinOp(IntBase10("31"), Star, IntBase10("42")), Plus, IntBase10("534"))

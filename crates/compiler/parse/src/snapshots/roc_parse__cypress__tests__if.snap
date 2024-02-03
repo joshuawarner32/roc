@@ -2,16 +2,18 @@
 source: crates/compiler/parse/src/cypress.rs
 description: if abc then def else ghi
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (BeginIf
-        Ident=>LowerIdent@1
-        InlineKwThen=>KwThen@2
-        Ident=>LowerIdent@3
-        InlineKwElse=>KwElse@4
-        Ident=>LowerIdent@5
-    EndIf)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginIf
+            Ident=>LowerIdent@1
+            InlineKwThen=>KwThen@2
+            Ident=>LowerIdent@3
+            InlineKwElse=>KwElse@4
+            Ident=>LowerIdent@5
+        EndIf)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 If([(Ident("abc"), Ident("def"))], Ident("ghi"))

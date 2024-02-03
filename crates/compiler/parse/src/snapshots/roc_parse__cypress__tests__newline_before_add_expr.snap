@@ -2,14 +2,16 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "3\n+ 4\n"
 ---
-(BeginTopLevelDecls
-    (*
-        HintExpr
-        Num=>IntBase10@0
-        InlineBinOpPlus=>OpPlus@1
-        Num=>IntBase10@2
-    EndBinOpPlus)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Num=>IntBase10@0
+            InlineBinOpPlus=>OpPlus@1
+            Num=>IntBase10@2
+        EndBinOpPlus)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 BinOp(IntBase10("3"), Plus, IntBase10("4"))

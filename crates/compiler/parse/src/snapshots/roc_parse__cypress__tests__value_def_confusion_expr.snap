@@ -2,20 +2,22 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "a:F\nF\n:h\nabc\n"
 ---
-(BeginTopLevelDecls
-    (BeginTypeOrTypeAlias
-        Ident=>LowerIdent@0
-        InlineTypeColon=>OpColon@1
-        TypeName=>UpperIdent@2
-    EndTypeOrTypeAlias)
-    (BeginTypeOrTypeAlias
-        UpperIdent=>UpperIdent@3
-        InlineTypeColon=>OpColon@4
-        Ident=>LowerIdent@5
-    EndTypeOrTypeAlias)
-    HintExpr
-    Ident=>LowerIdent@6
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            TypeName=>UpperIdent@2
+        EndTypeOrTypeAlias)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@3
+            InlineTypeColon=>OpColon@4
+            Ident=>LowerIdent@5
+        EndTypeOrTypeAlias)
+        HintExpr
+        Ident=>LowerIdent@6
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("a"), Name("F"))

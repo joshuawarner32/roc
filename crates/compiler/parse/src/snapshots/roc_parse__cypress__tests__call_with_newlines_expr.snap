@@ -2,14 +2,16 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "f\n-5\n2\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    Ident=>LowerIdent@0
-    HintExpr
-    Num=>IntBase10@1
-    HintExpr
-    Num=>IntBase10@2
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        Ident=>LowerIdent@0
+        HintExpr
+        Num=>IntBase10@1
+        HintExpr
+        Num=>IntBase10@2
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Ident("f")

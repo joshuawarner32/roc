@@ -2,7 +2,9 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "inf\n"
 ---
-(BeginTopLevelDecls HintExpr Ident=>LowerIdent@0 EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls HintExpr Ident=>LowerIdent@0 EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Ident("inf")

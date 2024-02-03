@@ -2,14 +2,16 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "\\x ->\n  1\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (BeginLambda
-        Ident=>LowerIdent@1
-        InlineLambdaArrow=>OpArrow@2
-        (BeginBlock HintExpr Num=>IntBase10@3 EndBlock)
-    EndLambda)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginLambda
+            Ident=>LowerIdent@1
+            InlineLambdaArrow=>OpArrow@2
+            (BeginBlock HintExpr Num=>IntBase10@3 EndBlock)
+        EndLambda)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Lambda([Ident("x")], Block([IntBase10("1")]))

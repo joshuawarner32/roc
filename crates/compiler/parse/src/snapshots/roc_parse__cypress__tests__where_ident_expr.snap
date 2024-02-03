@@ -2,24 +2,26 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "where : {where: I32}\nwhere = {where: 1}\n\nwhere.where\n\n"
 ---
-(BeginTopLevelDecls
-    (BeginTypeOrTypeAlias
-        Ident=>KwWhere@0
-        InlineTypeColon=>OpColon@1
-        (BeginTypeRecord Ident=>KwWhere@3 TypeName=>UpperIdent@5 EndTypeRecord)
-    EndTypeOrTypeAlias)
-    (BeginAssign
-        Ident=>KwWhere@7
-        InlineAssign=>OpAssign@8
-        (BeginRecord
-            Ident=>KwWhere@10
-            InlineColon=>OpColon@11
-            Num=>IntBase10@12
-        EndRecord)
-    EndAssign)
-    HintExpr
-    (* Ident=>KwWhere@14 DotIdent=>NoSpaceDotLowerIdent@15 EndFieldAccess)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>KwWhere@0
+            InlineTypeColon=>OpColon@1
+            (BeginTypeRecord Ident=>KwWhere@3 TypeName=>UpperIdent@5 EndTypeRecord)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>KwWhere@7
+            InlineAssign=>OpAssign@8
+            (BeginRecord
+                Ident=>KwWhere@10
+                InlineColon=>OpColon@11
+                Num=>IntBase10@12
+            EndRecord)
+        EndAssign)
+        HintExpr
+        (* Ident=>KwWhere@14 DotIdent=>NoSpaceDotLowerIdent@15 EndFieldAccess)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("where"), Record([("where", Name("I32"))]))

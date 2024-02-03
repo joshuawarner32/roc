@@ -2,22 +2,24 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "when x is\n { y } -> 2\n { z, w } -> 4\n\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (BeginWhen
-        Ident=>LowerIdent@1
-        InlineKwIs=>KwIs@2
-        (BeginPatternRecord=>OpenCurly@8 Ident=>LowerIdent@4 EndPatternRecord)
-        InlineWhenArrow=>OpArrow@6
-        Num=>IntBase10@7
-        (BeginPatternRecord=>IntBase10@14
-            Ident=>LowerIdent@9
-            Ident=>LowerIdent@11
-        EndPatternRecord)
-        InlineWhenArrow=>OpArrow@13
-        Num=>IntBase10@14
-    EndWhen)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            (BeginPatternRecord=>LowerIdent@9 Ident=>LowerIdent@4 EndPatternRecord)
+            InlineWhenArrow=>OpArrow@6
+            Num=>IntBase10@7
+            (BeginPatternRecord=>?broken?@15
+                Ident=>LowerIdent@9
+                Ident=>LowerIdent@11
+            EndPatternRecord)
+            InlineWhenArrow=>OpArrow@13
+            Num=>IntBase10@14
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 When(Ident("x"), [PatternRecord(["y"]), IntBase10("2"), PatternRecord(["z", "w"]), IntBase10("4")])

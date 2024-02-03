@@ -2,13 +2,15 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "foo = 1 # comment after\n\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        Num=>IntBase10@2
-    EndAssign)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            Num=>IntBase10@2
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("foo", IntBase10("1"))

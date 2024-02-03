@@ -2,7 +2,9 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "[\n]\n"
 ---
-(BeginTopLevelDecls HintExpr (BeginList EndList) EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls HintExpr (BeginList EndList) EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 List([])

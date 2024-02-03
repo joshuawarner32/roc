@@ -1,0 +1,30 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "hosted Foo\n    exposes\n    [\n        Stuff,\n        Things,\n        somethingElse,\n    ]\n    imports\n    [\n        Blah,\n        Baz.{ stuff, things },\n    ]\n    generates Bar with\n    [\n        map,\n        after,\n        loop,\n    ]\n\n"
+---
+(BeginFile
+    (BeginHeaderHosted
+        (BeginCollection
+            TypeName=>UpperIdent@4
+            TypeName=>UpperIdent@6
+            Ident=>LowerIdent@8
+        EndCollection)
+        (BeginCollection
+            Ident=>UpperIdent@13
+            Ident=>UpperIdent@15
+            (BeginCollection Ident=>LowerIdent@18 Ident=>LowerIdent@20 EndCollection)
+        EndCollection)
+        (BeginCollection
+            Ident=>LowerIdent@28
+            Ident=>LowerIdent@30
+            Ident=>LowerIdent@32
+        EndCollection)
+    EndHeaderHosted)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+

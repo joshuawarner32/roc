@@ -2,32 +2,34 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "f : (Str, Str) -> (Str, Str)\nf = \\x -> x\n\nf (1, 2)\n"
 ---
-(BeginTopLevelDecls
-    (BeginTypeOrTypeAlias
-        Ident=>LowerIdent@0
-        InlineTypeColon=>OpColon@1
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (BeginParens TypeName=>UpperIdent@3 TypeName=>UpperIdent@5 EndParens)
+                InlineLambdaArrow=>OpArrow@7
+                (BeginParens TypeName=>UpperIdent@9 TypeName=>UpperIdent@11 EndParens)
+            EndTypeLambda)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@13
+            InlineAssign=>OpAssign@14
+            (BeginLambda
+                Ident=>LowerIdent@16
+                InlineLambdaArrow=>OpArrow@17
+                Ident=>LowerIdent@18
+            EndLambda)
+        EndAssign)
         (*
-            (BeginParens TypeName=>UpperIdent@3 TypeName=>UpperIdent@5 EndParens)
-            InlineLambdaArrow=>OpArrow@7
-            (BeginParens TypeName=>UpperIdent@9 TypeName=>UpperIdent@11 EndParens)
-        EndTypeLambda)
-    EndTypeOrTypeAlias)
-    (BeginAssign
-        Ident=>LowerIdent@13
-        InlineAssign=>OpAssign@14
-        (BeginLambda
-            Ident=>LowerIdent@16
-            InlineLambdaArrow=>OpArrow@17
-            Ident=>LowerIdent@18
-        EndLambda)
-    EndAssign)
-    (*
-        HintExpr
-        Ident=>LowerIdent@19
-        InlineApply=>LowerIdent@19
-        (BeginParens Num=>IntBase10@21 Num=>IntBase10@23 EndParens)
-    EndApply)
-EndTopLevelDecls)
+            HintExpr
+            Ident=>LowerIdent@19
+            InlineApply=>LowerIdent@19
+            (BeginParens Num=>IntBase10@21 Num=>IntBase10@23 EndParens)
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("f"), Lambda([Tuple([Name("Str"), Name("Str")])], Tuple([Name("Str"), Name("Str")])))

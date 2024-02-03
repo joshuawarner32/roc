@@ -2,28 +2,30 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "table : {\n    height : Pixels\n    } -> Table\ntable = \\{height} -> crash \"not implemented\"\ntable\n"
 ---
-(BeginTopLevelDecls
-    (BeginTypeOrTypeAlias
-        Ident=>LowerIdent@0
-        InlineTypeColon=>OpColon@1
-        (*
-            (BeginTypeRecord Ident=>LowerIdent@3 TypeName=>UpperIdent@5 EndTypeRecord)
-            InlineLambdaArrow=>OpArrow@7
-            TypeName=>UpperIdent@8
-        EndTypeLambda)
-    EndTypeOrTypeAlias)
-    (BeginAssign
-        Ident=>LowerIdent@9
-        InlineAssign=>OpAssign@10
-        (BeginLambda
-            (BeginPatternRecord=>?broken?@19 Ident=>LowerIdent@13 EndPatternRecord)
-            InlineLambdaArrow=>OpArrow@15
-            (* Crash=>KwCrash@16 InlineApply=>KwCrash@16 String=>String@17 EndApply)
-        EndLambda)
-    EndAssign)
-    HintExpr
-    Ident=>LowerIdent@18
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (BeginTypeRecord Ident=>LowerIdent@3 TypeName=>UpperIdent@5 EndTypeRecord)
+                InlineLambdaArrow=>OpArrow@7
+                TypeName=>UpperIdent@8
+            EndTypeLambda)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@9
+            InlineAssign=>OpAssign@10
+            (BeginLambda
+                (BeginPatternRecord=>?broken?@20 Ident=>LowerIdent@13 EndPatternRecord)
+                InlineLambdaArrow=>OpArrow@15
+                (* Crash=>KwCrash@16 InlineApply=>KwCrash@16 String=>String@17 EndApply)
+            EndLambda)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@18
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("table"), Lambda([Record([("height", Name("Pixels"))])], Name("Table")))

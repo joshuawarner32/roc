@@ -2,24 +2,26 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "x =\n    when n is\n        0 -> 0\n42\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        (BeginBlock
-            HintExpr
-            (BeginWhen
-                Ident=>LowerIdent@3
-                InlineKwIs=>KwIs@4
-                Num=>IntBase10@5
-                InlineWhenArrow=>OpArrow@6
-                Num=>IntBase10@7
-            EndWhen)
-        EndBlock)
-    EndAssign)
-    HintExpr
-    Num=>IntBase10@8
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock
+                HintExpr
+                (BeginWhen
+                    Ident=>LowerIdent@3
+                    InlineKwIs=>KwIs@4
+                    Num=>IntBase10@5
+                    InlineWhenArrow=>OpArrow@6
+                    Num=>IntBase10@7
+                EndWhen)
+            EndBlock)
+        EndAssign)
+        HintExpr
+        Num=>IntBase10@8
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("x", Block([When(Ident("n"), [IntBase10("0"), IntBase10("0")])]))

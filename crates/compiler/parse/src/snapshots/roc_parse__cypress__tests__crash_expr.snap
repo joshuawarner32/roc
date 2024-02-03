@@ -2,71 +2,73 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "_ = crash \"\"\n_ = crash \"\" \"\"\n_ = crash 15 123\n_ = try foo (\\_ -> crash \"\")\n_ =\n  _ = crash \"\"\n  crash\n\n{ f: crash \"\" }\n\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Underscore=>Underscore@0
-        InlineAssign=>OpAssign@1
-        (* Crash=>KwCrash@2 InlineApply=>KwCrash@2 String=>String@3 EndApply)
-    EndAssign)
-    (BeginAssign
-        Underscore=>Underscore@4
-        InlineAssign=>OpAssign@5
-        (*
-            Crash=>KwCrash@6
-            InlineApply=>KwCrash@6
-            String=>String@7
-            InlineApply=>String@7
-            String=>String@8
-        EndApply)
-    EndAssign)
-    (BeginAssign
-        Underscore=>Underscore@9
-        InlineAssign=>OpAssign@10
-        (*
-            Crash=>KwCrash@11
-            InlineApply=>KwCrash@11
-            Num=>IntBase10@12
-            InlineApply=>IntBase10@12
-            Num=>IntBase10@13
-        EndApply)
-    EndAssign)
-    (BeginAssign
-        Underscore=>Underscore@14
-        InlineAssign=>OpAssign@15
-        (*
-            Ident=>LowerIdent@16
-            InlineApply=>LowerIdent@16
-            Ident=>LowerIdent@17
-            InlineApply=>LowerIdent@17
-            (BeginParens
-                (BeginLambda
-                    Underscore=>Underscore@20
-                    InlineLambdaArrow=>OpArrow@21
-                    (* Crash=>KwCrash@22 InlineApply=>KwCrash@22 String=>String@23 EndApply)
-                EndLambda)
-            EndParens)
-        EndApply)
-    EndAssign)
-    (BeginAssign
-        Underscore=>Underscore@25
-        InlineAssign=>OpAssign@26
-        (BeginBlock
-            (BeginAssign
-                Underscore=>Underscore@27
-                InlineAssign=>OpAssign@28
-                (* Crash=>KwCrash@29 InlineApply=>KwCrash@29 String=>String@30 EndApply)
-            EndAssign)
-            HintExpr
-            Crash=>KwCrash@31
-        EndBlock)
-    EndAssign)
-    HintExpr
-    (BeginRecord
-        Ident=>LowerIdent@33
-        InlineColon=>OpColon@34
-        (* Crash=>KwCrash@35 InlineApply=>KwCrash@35 String=>String@36 EndApply)
-    EndRecord)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Underscore=>Underscore@0
+            InlineAssign=>OpAssign@1
+            (* Crash=>KwCrash@2 InlineApply=>KwCrash@2 String=>String@3 EndApply)
+        EndAssign)
+        (BeginAssign
+            Underscore=>Underscore@4
+            InlineAssign=>OpAssign@5
+            (*
+                Crash=>KwCrash@6
+                InlineApply=>KwCrash@6
+                String=>String@7
+                InlineApply=>String@7
+                String=>String@8
+            EndApply)
+        EndAssign)
+        (BeginAssign
+            Underscore=>Underscore@9
+            InlineAssign=>OpAssign@10
+            (*
+                Crash=>KwCrash@11
+                InlineApply=>KwCrash@11
+                Num=>IntBase10@12
+                InlineApply=>IntBase10@12
+                Num=>IntBase10@13
+            EndApply)
+        EndAssign)
+        (BeginAssign
+            Underscore=>Underscore@14
+            InlineAssign=>OpAssign@15
+            (*
+                Ident=>LowerIdent@16
+                InlineApply=>LowerIdent@16
+                Ident=>LowerIdent@17
+                InlineApply=>LowerIdent@17
+                (BeginParens
+                    (BeginLambda
+                        Underscore=>Underscore@20
+                        InlineLambdaArrow=>OpArrow@21
+                        (* Crash=>KwCrash@22 InlineApply=>KwCrash@22 String=>String@23 EndApply)
+                    EndLambda)
+                EndParens)
+            EndApply)
+        EndAssign)
+        (BeginAssign
+            Underscore=>Underscore@25
+            InlineAssign=>OpAssign@26
+            (BeginBlock
+                (BeginAssign
+                    Underscore=>Underscore@27
+                    InlineAssign=>OpAssign@28
+                    (* Crash=>KwCrash@29 InlineApply=>KwCrash@29 String=>String@30 EndApply)
+                EndAssign)
+                HintExpr
+                Crash=>KwCrash@31
+            EndBlock)
+        EndAssign)
+        HintExpr
+        (BeginRecord
+            Ident=>LowerIdent@33
+            InlineColon=>OpColon@34
+            (* Crash=>KwCrash@35 InlineApply=>KwCrash@35 String=>String@36 EndApply)
+        EndRecord)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("_", Apply(Crash, [String("\"\"")]))

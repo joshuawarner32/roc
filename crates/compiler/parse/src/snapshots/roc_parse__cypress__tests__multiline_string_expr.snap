@@ -2,25 +2,27 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "a = \"Hello,\\n\\nWorld!\"\nb = \"\"\"Hello,\\n\\nWorld!\"\"\"\nc =\n    \"\"\"\n    Hello,\n\n    World!\n    \"\"\"\n42\n\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        String=>String@2
-    EndAssign)
-    (BeginAssign
-        Ident=>LowerIdent@3
-        InlineAssign=>OpAssign@4
-        String=>String@5
-    EndAssign)
-    (BeginAssign
-        Ident=>LowerIdent@6
-        InlineAssign=>OpAssign@7
-        (BeginBlock HintExpr String=>String@8 EndBlock)
-    EndAssign)
-    HintExpr
-    Num=>IntBase10@9
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            String=>String@2
+        EndAssign)
+        (BeginAssign
+            Ident=>LowerIdent@3
+            InlineAssign=>OpAssign@4
+            String=>String@5
+        EndAssign)
+        (BeginAssign
+            Ident=>LowerIdent@6
+            InlineAssign=>OpAssign@7
+            (BeginBlock HintExpr String=>String@8 EndBlock)
+        EndAssign)
+        HintExpr
+        Num=>IntBase10@9
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("a", String("\"Hello,\\n\\nWorld!\""))

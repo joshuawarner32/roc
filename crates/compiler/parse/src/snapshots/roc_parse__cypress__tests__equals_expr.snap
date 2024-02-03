@@ -2,14 +2,16 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "x==y\n"
 ---
-(BeginTopLevelDecls
-    (*
-        HintExpr
-        Ident=>LowerIdent@0
-        InlineBinOpEquals=>OpEquals@1
-        Ident=>LowerIdent@2
-    EndBinOpEquals)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineBinOpEquals=>OpEquals@1
+            Ident=>LowerIdent@2
+        EndBinOpEquals)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 BinOp(Ident("x"), Equals, Ident("y"))

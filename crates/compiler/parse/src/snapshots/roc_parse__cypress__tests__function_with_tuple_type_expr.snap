@@ -2,39 +2,41 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "f : I64 -> (I64, I64)\nf = \\x -> (x, x + 1)\n\nf 42\n\n"
 ---
-(BeginTopLevelDecls
-    (BeginTypeOrTypeAlias
-        Ident=>LowerIdent@0
-        InlineTypeColon=>OpColon@1
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                TypeName=>UpperIdent@2
+                InlineLambdaArrow=>OpArrow@3
+                (BeginParens TypeName=>UpperIdent@5 TypeName=>UpperIdent@7 EndParens)
+            EndTypeLambda)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@9
+            InlineAssign=>OpAssign@10
+            (BeginLambda
+                Ident=>LowerIdent@12
+                InlineLambdaArrow=>OpArrow@13
+                (BeginParens
+                    Ident=>LowerIdent@15
+                    (*
+                        Ident=>LowerIdent@17
+                        InlineBinOpPlus=>OpPlus@18
+                        Num=>IntBase10@19
+                    EndBinOpPlus)
+                EndParens)
+            EndLambda)
+        EndAssign)
         (*
-            TypeName=>UpperIdent@2
-            InlineLambdaArrow=>OpArrow@3
-            (BeginParens TypeName=>UpperIdent@5 TypeName=>UpperIdent@7 EndParens)
-        EndTypeLambda)
-    EndTypeOrTypeAlias)
-    (BeginAssign
-        Ident=>LowerIdent@9
-        InlineAssign=>OpAssign@10
-        (BeginLambda
-            Ident=>LowerIdent@12
-            InlineLambdaArrow=>OpArrow@13
-            (BeginParens
-                Ident=>LowerIdent@15
-                (*
-                    Ident=>LowerIdent@17
-                    InlineBinOpPlus=>OpPlus@18
-                    Num=>IntBase10@19
-                EndBinOpPlus)
-            EndParens)
-        EndLambda)
-    EndAssign)
-    (*
-        HintExpr
-        Ident=>LowerIdent@21
-        InlineApply=>LowerIdent@21
-        Num=>IntBase10@22
-    EndApply)
-EndTopLevelDecls)
+            HintExpr
+            Ident=>LowerIdent@21
+            InlineApply=>LowerIdent@21
+            Num=>IntBase10@22
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("f"), Lambda([Name("I64")], Tuple([Name("I64"), Name("I64")])))

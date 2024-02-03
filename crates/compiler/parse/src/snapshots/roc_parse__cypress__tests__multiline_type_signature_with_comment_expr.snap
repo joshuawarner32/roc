@@ -2,15 +2,17 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "f :# comment\n    {}\n\n42\n"
 ---
-(BeginTopLevelDecls
-    (BeginTypeOrTypeAlias
-        Ident=>LowerIdent@0
-        InlineTypeColon=>OpColon@1
-        (BeginTypeRecord EndTypeRecord)
-    EndTypeOrTypeAlias)
-    HintExpr
-    Num=>IntBase10@4
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (BeginTypeRecord EndTypeRecord)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Num=>IntBase10@4
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("f"), Record([]))

@@ -2,27 +2,29 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "({ a: 0 }, { b: 1 }).0.a\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (*
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
         (*
-            (BeginParens
-                (BeginRecord
-                    Ident=>LowerIdent@2
-                    InlineColon=>OpColon@3
-                    Num=>IntBase10@4
-                EndRecord)
-                (BeginRecord
-                    Ident=>LowerIdent@8
-                    InlineColon=>OpColon@9
-                    Num=>IntBase10@10
-                EndRecord)
-            EndParens)
-            DotNumber=>NoSpaceDotNumber@13
-        EndIndexAccess)
-        DotIdent=>NoSpaceDotLowerIdent@14
-    EndFieldAccess)
-EndTopLevelDecls)
+            (*
+                (BeginParens
+                    (BeginRecord
+                        Ident=>LowerIdent@2
+                        InlineColon=>OpColon@3
+                        Num=>IntBase10@4
+                    EndRecord)
+                    (BeginRecord
+                        Ident=>LowerIdent@8
+                        InlineColon=>OpColon@9
+                        Num=>IntBase10@10
+                    EndRecord)
+                EndParens)
+                DotNumber=>NoSpaceDotNumber@13
+            EndIndexAccess)
+            DotIdent=>NoSpaceDotLowerIdent@14
+        EndFieldAccess)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 RecordAccess(TupleAccess(Tuple([Record([("a", IntBase10("0"))]), Record([("b", IntBase10("1"))])]), ".0"), ".a")

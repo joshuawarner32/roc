@@ -2,19 +2,21 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "when x is\n 1 -> 2\n -3 -> 4\n\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (BeginWhen
-        Ident=>LowerIdent@1
-        InlineKwIs=>KwIs@2
-        Num=>IntBase10@3
-        InlineWhenArrow=>OpArrow@4
-        Num=>IntBase10@5
-        Num=>IntBase10@6
-        InlineWhenArrow=>OpArrow@7
-        Num=>IntBase10@8
-    EndWhen)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            Num=>IntBase10@3
+            InlineWhenArrow=>OpArrow@4
+            Num=>IntBase10@5
+            Num=>IntBase10@6
+            InlineWhenArrow=>OpArrow@7
+            Num=>IntBase10@8
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 When(Ident("x"), [IntBase10("1"), IntBase10("2"), IntBase10("-3"), IntBase10("4")])

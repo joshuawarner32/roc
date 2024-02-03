@@ -2,17 +2,19 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "abc = \\def ->\n    ghi\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        (BeginLambda
-            Ident=>LowerIdent@3
-            InlineLambdaArrow=>OpArrow@4
-            (BeginBlock HintExpr Ident=>LowerIdent@5 EndBlock)
-        EndLambda)
-    EndAssign)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginLambda
+                Ident=>LowerIdent@3
+                InlineLambdaArrow=>OpArrow@4
+                (BeginBlock HintExpr Ident=>LowerIdent@5 EndBlock)
+            EndLambda)
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("abc", Lambda([Ident("def")], Block([Ident("ghi")])))

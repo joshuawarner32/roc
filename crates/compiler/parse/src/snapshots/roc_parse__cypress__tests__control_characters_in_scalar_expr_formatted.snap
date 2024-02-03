@@ -2,7 +2,9 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "'\\u(7)'\n"
 ---
-(BeginTopLevelDecls HintExpr String=>String@0 EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls HintExpr String=>String@0 EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 String("'\\u(7)'")

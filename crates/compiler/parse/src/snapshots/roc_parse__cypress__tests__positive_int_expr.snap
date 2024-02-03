@@ -2,7 +2,9 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "42\n"
 ---
-(BeginTopLevelDecls HintExpr Num=>IntBase10@0 EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls HintExpr Num=>IntBase10@0 EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 IntBase10("42")

@@ -2,20 +2,22 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "# leading comment\nx = 5\ny = 6\n\n42\n\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        Num=>IntBase10@2
-    EndAssign)
-    (BeginAssign
-        Ident=>LowerIdent@3
-        InlineAssign=>OpAssign@4
-        Num=>IntBase10@5
-    EndAssign)
-    HintExpr
-    Num=>IntBase10@6
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            Num=>IntBase10@2
+        EndAssign)
+        (BeginAssign
+            Ident=>LowerIdent@3
+            InlineAssign=>OpAssign@4
+            Num=>IntBase10@5
+        EndAssign)
+        HintExpr
+        Num=>IntBase10@6
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("x", IntBase10("5"))

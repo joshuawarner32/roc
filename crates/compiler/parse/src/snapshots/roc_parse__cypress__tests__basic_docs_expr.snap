@@ -2,15 +2,17 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "## first line of docs\n##     second line\n##  third line\n## fourth line\n##\n## sixth line after doc new line\nx = 5\n\n42\n\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        Num=>IntBase10@2
-    EndAssign)
-    HintExpr
-    Num=>IntBase10@3
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            Num=>IntBase10@2
+        EndAssign)
+        HintExpr
+        Num=>IntBase10@3
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("x", IntBase10("5"))

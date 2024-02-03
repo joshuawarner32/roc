@@ -2,16 +2,18 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "whee 12 -foo\n"
 ---
-(BeginTopLevelDecls
-    (*
-        HintExpr
-        Ident=>LowerIdent@0
-        InlineApply=>LowerIdent@0
-        Num=>IntBase10@1
-        InlineApply=>IntBase10@1
-        (* Ident=>LowerIdent@3 EndUnaryMinus)
-    EndApply)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineApply=>LowerIdent@0
+            Num=>IntBase10@1
+            InlineApply=>IntBase10@1
+            (* Ident=>LowerIdent@3 EndUnaryMinus)
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Apply(Ident("whee"), [IntBase10("12"), UnaryOp(Minus, Ident("foo"))])

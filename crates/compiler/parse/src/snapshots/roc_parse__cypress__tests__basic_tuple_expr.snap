@@ -2,10 +2,12 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "(1, 2, 3)\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (BeginParens Num=>IntBase10@1 Num=>IntBase10@3 Num=>IntBase10@5 EndParens)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginParens Num=>IntBase10@1 Num=>IntBase10@3 Num=>IntBase10@5 EndParens)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Tuple([IntBase10("1"), IntBase10("2"), IntBase10("3")])

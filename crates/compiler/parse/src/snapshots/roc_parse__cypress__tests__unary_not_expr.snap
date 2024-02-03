@@ -2,10 +2,12 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "!blah\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (* Ident=>LowerIdent@1 EndUnaryNot)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (* Ident=>LowerIdent@1 EndUnaryNot)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 UnaryOp(Not, Ident("blah"))

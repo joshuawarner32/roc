@@ -2,27 +2,29 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "foo : [True, Perhaps Thing]*\nfoo = True\n\n42\n"
 ---
-(BeginTopLevelDecls
-    (BeginTypeOrTypeAlias
-        Ident=>LowerIdent@0
-        InlineTypeColon=>OpColon@1
-        (*
-            (BeginTypeTagUnion
-                Tag=>UpperIdent@3
-                Tag=>UpperIdent@5
-                TypeName=>UpperIdent@6
-            EndTypeTagUnion)
-            TypeWildcard=>OpStar@9
-        EndTypeAdendum)
-    EndTypeOrTypeAlias)
-    (BeginAssign
-        Ident=>LowerIdent@10
-        InlineAssign=>OpAssign@11
-        UpperIdent=>UpperIdent@12
-    EndAssign)
-    HintExpr
-    Num=>IntBase10@13
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (BeginTypeTagUnion
+                    Tag=>UpperIdent@3
+                    Tag=>UpperIdent@5
+                    TypeName=>UpperIdent@6
+                EndTypeTagUnion)
+                TypeWildcard=>OpStar@9
+            EndTypeAdendum)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@10
+            InlineAssign=>OpAssign@11
+            UpperIdent=>UpperIdent@12
+        EndAssign)
+        HintExpr
+        Num=>IntBase10@13
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("foo"), Adendum(TagUnion([Name("True"), Name("Perhaps"), Name("Thing")]), Wildcard))

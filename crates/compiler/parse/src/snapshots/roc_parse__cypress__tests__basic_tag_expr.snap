@@ -2,7 +2,9 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "Whee\n"
 ---
-(BeginTopLevelDecls HintExpr UpperIdent=>UpperIdent@0 EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls HintExpr UpperIdent=>UpperIdent@0 EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 UpperIdent("Whee")

@@ -2,23 +2,25 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "1\n+\nwhen Foo is\n    Foo -> 2\n    Bar -> 3\n"
 ---
-(BeginTopLevelDecls
-    (*
-        HintExpr
-        Num=>IntBase10@0
-        InlineBinOpPlus=>OpPlus@1
-        (BeginWhen
-            UpperIdent=>UpperIdent@3
-            InlineKwIs=>KwIs@4
-            UpperIdent=>UpperIdent@5
-            InlineWhenArrow=>OpArrow@6
-            Num=>IntBase10@7
-            UpperIdent=>UpperIdent@8
-            InlineWhenArrow=>OpArrow@9
-            Num=>IntBase10@10
-        EndWhen)
-    EndBinOpPlus)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Num=>IntBase10@0
+            InlineBinOpPlus=>OpPlus@1
+            (BeginWhen
+                UpperIdent=>UpperIdent@3
+                InlineKwIs=>KwIs@4
+                UpperIdent=>UpperIdent@5
+                InlineWhenArrow=>OpArrow@6
+                Num=>IntBase10@7
+                UpperIdent=>UpperIdent@8
+                InlineWhenArrow=>OpArrow@9
+                Num=>IntBase10@10
+            EndWhen)
+        EndBinOpPlus)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 BinOp(IntBase10("1"), Plus, When(UpperIdent("Foo"), [UpperIdent("Foo"), IntBase10("2"), UpperIdent("Bar"), IntBase10("3")]))

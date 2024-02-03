@@ -1,0 +1,16 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "[\n    1,\n]\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginList Num=>IntBase10@1 EndList)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+List([IntBase10("1")])
+
+[=== formatted below ===]
+

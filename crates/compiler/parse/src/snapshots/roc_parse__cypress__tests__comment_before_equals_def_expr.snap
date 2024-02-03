@@ -2,15 +2,17 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "t#\n=3\ne\n"
 ---
-(BeginTopLevelDecls
-    (BeginAssign
-        Ident=>LowerIdent@0
-        InlineAssign=>OpAssign@1
-        Num=>IntBase10@2
-    EndAssign)
-    HintExpr
-    Ident=>LowerIdent@3
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            Num=>IntBase10@2
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@3
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 Assign("t", IntBase10("3"))

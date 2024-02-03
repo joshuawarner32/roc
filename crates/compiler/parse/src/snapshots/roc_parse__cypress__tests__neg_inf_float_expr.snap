@@ -2,10 +2,12 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "-inf\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (* Ident=>LowerIdent@1 EndUnaryMinus)
-EndTopLevelDecls)
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (* Ident=>LowerIdent@1 EndUnaryMinus)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
 UnaryOp(Minus, Ident("inf"))
