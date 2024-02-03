@@ -11,6 +11,7 @@ description: "app \"example\"\n    packages { pf : \"path\" }\n    imports [ pf.
             DotIdent=>NoSpaceDotUpperIdent@11
         EndCollection)
         (BeginCollection Ident=>LowerIdent@15 EndCollection)
+        Ident=>LowerIdent@18
     EndHeaderApp)
     (BeginTopLevelDecls
         (BeginAssign

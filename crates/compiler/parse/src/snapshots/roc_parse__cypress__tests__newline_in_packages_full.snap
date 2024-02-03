@@ -11,6 +11,7 @@ description: "app \"hello\"\n    packages { pf:\n\"https://github.com/roc-lang/b
             DotIdent=>NoSpaceDotUpperIdent@11
         EndCollection)
         (BeginCollection Ident=>LowerIdent@15 EndCollection)
+        Ident=>LowerIdent@18
     EndHeaderApp)
     (BeginTopLevelDecls
         (BeginAssign

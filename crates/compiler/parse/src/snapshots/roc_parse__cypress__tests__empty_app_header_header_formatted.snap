@@ -8,6 +8,7 @@ description: "app \"test-app\" packages {} imports [] provides [] to blah\n\n"
         (BeginCollection EndCollection)
         (BeginCollection EndCollection)
         (BeginCollection EndCollection)
+        Ident=>LowerIdent@12
     EndHeaderApp)
     (BeginTopLevelDecls EndTopLevelDecls)
 EndFile)

@@ -11,6 +11,7 @@ description: "app \"hello\"\n    packages {\n        pf:\n        \"https://gith
             DotIdent=>NoSpaceDotUpperIdent@12
         EndCollection)
         (BeginCollection Ident=>LowerIdent@16 EndCollection)
+        Ident=>LowerIdent@19
     EndHeaderApp)
     (BeginTopLevelDecls
         (BeginAssign

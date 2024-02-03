@@ -2394,7 +2394,20 @@ impl State {
                     },
                 );
                 self.expect(T::KwTo);
-                self.expect(T::LowerIdent);
+                match self.cur() {
+                    Some(T::LowerIdent) => {
+                        self.bump();
+                        self.push_node(N::Ident, Some(self.pos as u32 - 1));
+                    }
+                    Some(T::String) => {
+                        self.bump();
+                        self.push_node(N::String, Some(self.pos as u32 - 1));
+                    }
+                    _ => {
+                        self.push_error(Error::ExpectViolation(T::LowerIdent, self.cur()));
+                        self.fast_forward_past_newline();
+                    }
+                }
                 self.push_node_end(N::BeginHeaderApp, N::EndHeaderApp, subtree_start);
             }
             Some(T::KwPlatform) => {

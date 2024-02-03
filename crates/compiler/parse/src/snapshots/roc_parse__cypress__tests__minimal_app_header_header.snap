@@ -1,6 +1,6 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: "app \"test-app\" packages {} imports [] provides [] to blah\n\n"
+description: "app \"test-app\" provides [] to \"./blah\"\n\n"
 ---
 (BeginFile
     (BeginHeaderApp
@@ -8,7 +8,7 @@ description: "app \"test-app\" packages {} imports [] provides [] to blah\n\n"
         (BeginCollection EndCollection)
         (BeginCollection EndCollection)
         (BeginCollection EndCollection)
-        Ident=>LowerIdent@12
+        String=>String@6
     EndHeaderApp)
     (BeginTopLevelDecls EndTopLevelDecls)
 EndFile)
