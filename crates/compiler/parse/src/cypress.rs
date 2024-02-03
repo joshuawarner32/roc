@@ -273,6 +273,9 @@ pub enum N {
 
     PatternAny, // special pattern that we use if the user didn't put anything after the ':' in a record pattern
 
+    /// A pattern used in a list indicating missing elements, e.g. [.., a]
+    PatternDoubleDot,
+
     BeginHeaderApp,
     BeginHeaderHosted,
     BeginHeaderInterface,
@@ -485,7 +488,7 @@ impl N {
             | N::EndTypeApply => NodeIndexKind::EndOnly,
             N::DotModuleLowerIdent | N::DotModuleUpperIdent => NodeIndexKind::EndSingleToken,
             N::Float | N::SingleQuote | N::Underscore | N::TypeWildcard | N::Crash | N::Dbg
-            | N::PatternAny => {
+            | N::PatternAny | N::PatternDoubleDot => {
                 NodeIndexKind::Token
             }
         }
@@ -1145,7 +1148,7 @@ impl State {
             self._pump_single_frame(subtree_start, cfg, frame);
             // debug_assert!(self.pos > start, "pump didn't advance the cursor");
             i += 1;
-            debug_assert!(i < 100, "pump looped too many times");
+            debug_assert!(i < 1000, "pump looped too many times");
         }
     }
 
@@ -1178,7 +1181,7 @@ impl State {
                 let mut start = self.pos;
                 self._pump_single_frame(subtree_start, cfg, frame);
                 i += 1;
-                debug_assert!(i < 100, "pump looped too many times");
+                debug_assert!(i < 1000, "pump looped too many times");
             }
         }
     }
@@ -1502,6 +1505,7 @@ impl State {
 
         loop {
             match self.cur() {
+                Some(T::DoubleDot) => atom!(N::PatternDoubleDot),
                 Some(T::LowerIdent) => atom!(N::Ident),
                 Some(T::KwCrash) => atom!(N::Crash),
                 // TODO: do these need to be distinguished in the node?
@@ -2858,7 +2862,7 @@ impl State {
         }
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinuePatternList);
-        self.start_expr(cfg.disable_multi_backpassing());
+        self.start_pattern(cfg.disable_multi_backpassing());
     }
 
     fn start_tag_union(&mut self, subtree_start: u32, cfg: ExprCfg) {
@@ -3744,8 +3748,10 @@ mod canfmt {
         Expect(&'a Expr<'a>),
         ExpectFx(&'a Expr<'a>),
 
+        PatternList(&'a [Expr<'a>]),
         PatternRecord(&'a [(&'a str, &'a Expr<'a>)]),
         PatternAny,
+        PatternDoubleDot,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -4069,6 +4075,11 @@ mod canfmt {
                     let args = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Expr::List(args));
                 }
+                N::EndPatternList => {
+                    let mut values = stack.drain_to_index(index);
+                    let args = bump.alloc_slice_fill_iter(values);
+                    stack.push(i, Expr::PatternList(args));
+                }
                 // N::EndTypeApply => {
                 //     let mut values = stack.drain_to_index(index);
                 //     let first = bump.alloc(values.next().unwrap());
@@ -4177,6 +4188,7 @@ mod canfmt {
                     stack.push(i, Expr::Record(pairs.into_bump_slice()));
                 }
                 N::PatternAny => stack.push(i, Expr::PatternAny),
+                N::PatternDoubleDot => stack.push(i, Expr::PatternDoubleDot),
                 N::EndPatternRecord => {
                     let mut values = stack.drain_to_index(index);
                     let mut pairs: Vec<(&'a str, &'a Expr<'a>)> = Vec::new_in(bump);
@@ -4298,6 +4310,7 @@ mod canfmt {
                 | N::BeginExpectFx
                 | N::BeginPatternRecord
                 | N::BeginPatternParens
+                | N::BeginPatternList
                 | N::HintExpr
                 | N::InlineMultiBackpassingComma => {}
                 _ => todo!("{:?}", node),

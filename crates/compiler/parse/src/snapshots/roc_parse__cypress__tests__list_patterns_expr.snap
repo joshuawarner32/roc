@@ -1,0 +1,74 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when [] is\n  [] -> {}\n  [..] -> {}\n  [_, .., _, ..] -> {}\n  [a, b, c, d] -> {}\n  [a, b, ..] -> {}\n  [.., c, d] -> {}\n  [[A], [..], [a]] -> {}\n  [[[], []], [[], x]] -> {}\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            (BeginList EndList)
+            InlineKwIs=>KwIs@3
+            (BeginPatternList EndPatternList)
+            InlineWhenArrow=>OpArrow@6
+            (BeginRecord EndRecord)
+            (BeginPatternList PatternDoubleDot=>DoubleDot@10 EndPatternList)
+            InlineWhenArrow=>OpArrow@12
+            (BeginRecord EndRecord)
+            (BeginPatternList
+                Underscore=>Underscore@16
+                PatternDoubleDot=>DoubleDot@18
+                Underscore=>Underscore@20
+                PatternDoubleDot=>DoubleDot@22
+            EndPatternList)
+            InlineWhenArrow=>OpArrow@24
+            (BeginRecord EndRecord)
+            (BeginPatternList
+                Ident=>LowerIdent@28
+                Ident=>LowerIdent@30
+                Ident=>LowerIdent@32
+                Ident=>LowerIdent@34
+            EndPatternList)
+            InlineWhenArrow=>OpArrow@36
+            (BeginRecord EndRecord)
+            (BeginPatternList
+                Ident=>LowerIdent@40
+                Ident=>LowerIdent@42
+                PatternDoubleDot=>DoubleDot@44
+            EndPatternList)
+            InlineWhenArrow=>OpArrow@46
+            (BeginRecord EndRecord)
+            (BeginPatternList
+                PatternDoubleDot=>DoubleDot@50
+                Ident=>LowerIdent@52
+                Ident=>LowerIdent@54
+            EndPatternList)
+            InlineWhenArrow=>OpArrow@56
+            (BeginRecord EndRecord)
+            (BeginPatternList
+                (BeginPatternList UpperIdent=>UpperIdent@61 EndPatternList)
+                (BeginPatternList PatternDoubleDot=>DoubleDot@65 EndPatternList)
+                (BeginPatternList Ident=>LowerIdent@69 EndPatternList)
+            EndPatternList)
+            InlineWhenArrow=>OpArrow@72
+            (BeginRecord EndRecord)
+            (BeginPatternList
+                (BeginPatternList
+                    (BeginPatternList EndPatternList)
+                    (BeginPatternList EndPatternList)
+                EndPatternList)
+                (BeginPatternList
+                    (BeginPatternList EndPatternList)
+                    Ident=>LowerIdent@88
+                EndPatternList)
+            EndPatternList)
+            InlineWhenArrow=>OpArrow@91
+            (BeginRecord EndRecord)
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(List([]), [PatternList([]), Record([]), PatternList([PatternDoubleDot]), Record([]), PatternList([Underscore("_"), PatternDoubleDot, Underscore("_"), PatternDoubleDot]), Record([]), PatternList([Ident("a"), Ident("b"), Ident("c"), Ident("d")]), Record([]), PatternList([Ident("a"), Ident("b"), PatternDoubleDot]), Record([]), PatternList([PatternDoubleDot, Ident("c"), Ident("d")]), Record([]), PatternList([PatternList([UpperIdent("A")]), PatternList([PatternDoubleDot]), PatternList([Ident("a")])]), Record([]), PatternList([PatternList([PatternList([]), PatternList([])]), PatternList([PatternList([]), Ident("x")])]), Record([])])
+
+[=== formatted below ===]
+

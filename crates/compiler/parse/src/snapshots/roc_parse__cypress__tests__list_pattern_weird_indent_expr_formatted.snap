@@ -1,0 +1,26 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when [] is\n    [1, 2, 3] -> \"\"\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            (BeginList EndList)
+            InlineKwIs=>KwIs@3
+            (BeginPatternList
+                Num=>IntBase10@5
+                Num=>IntBase10@7
+                Num=>IntBase10@9
+            EndPatternList)
+            InlineWhenArrow=>OpArrow@11
+            String=>String@12
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(List([]), [PatternList([IntBase10("1"), IntBase10("2"), IntBase10("3")]), String("\"\"")])
+
+[=== formatted below ===]
+
