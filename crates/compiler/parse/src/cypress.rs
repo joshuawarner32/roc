@@ -1044,8 +1044,7 @@ impl State {
     #[track_caller]
     fn consume_and_push_node_end(&mut self, tok: T, begin: N, end: N, subtree_start: u32) -> bool {
         if self.consume(tok) {
-            self.push_node(end, Some(subtree_start));
-            self.update_end(begin, subtree_start);
+            self.push_node_end(begin, end, subtree_start);
             true
         } else {
             false
@@ -2096,8 +2095,7 @@ impl State {
             self.start_expr(cfg.disable_multi_backpassing());
         } else {
             self.expect(T::CloseRound);
-            self.push_node(N::EndParens, Some(subtree_start));
-            self.update_end(N::BeginParens, subtree_start);
+            self.push_node_end(N::BeginParens, N::EndParens, subtree_start);
             self.handle_field_access_suffix(subtree_start);
         }
     }
@@ -2108,14 +2106,12 @@ impl State {
             self.start_expr(cfg.disable_multi_backpassing());
         } else {
             self.expect(T::CloseRound);
-            self.push_node(N::EndPatternParens, Some(subtree_start));
-            self.update_end(N::BeginPatternParens, subtree_start);
+            self.push_node_end(N::BeginPatternParens, N::EndPatternParens, subtree_start);
         }
     }
 
     fn pump_finish_lambda(&mut self, subtree_start: u32) {
-        self.push_node(N::EndLambda, Some(subtree_start));
-        self.update_end(N::BeginLambda, subtree_start);
+        self.push_node_end(N::BeginLambda, N::EndLambda, subtree_start);
     }
 
     fn pump_finish_block_item(&mut self, subtree_start: u32) {
@@ -2192,8 +2188,7 @@ impl State {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueBlock);
             self.start_block_item(cfg);
         } else {
-            self.push_node(N::EndBlock, Some(subtree_start));
-            self.update_end(N::BeginBlock, subtree_start);
+            self.push_node_end(N::BeginBlock, N::EndBlock, subtree_start);
         }
     }
 
@@ -2217,8 +2212,7 @@ impl State {
             );
             self.start_top_level_item();
         } else {
-            self.push_node(N::EndTopLevelDecls, Some(subtree_start as u32));
-            self.update_end(N::BeginTopLevelDecls, subtree_start);
+            self.push_node_end(N::BeginTopLevelDecls, N::EndTopLevelDecls, subtree_start);
         }
     }
 
@@ -2262,8 +2256,7 @@ impl State {
                 self.start_block_or_expr(cfg);
             }
             IfState::End => {
-                self.push_node(N::EndIf, Some(subtree_start));
-                self.update_end(N::BeginIf, subtree_start);
+                self.push_node_end(N::BeginIf, N::EndIf, subtree_start);
             }
         }
     }
@@ -2300,8 +2293,7 @@ impl State {
                     self.start_pattern(cfg);
                     return;
                 }
-                self.push_node(N::EndWhen, Some(subtree_start));
-                self.update_end(N::BeginWhen, subtree_start);
+                self.push_node_end(N::BeginWhen, N::EndWhen, subtree_start);
             }
             WhenState::BranchArrow(indent) => {
                 self.expect_and_push_node(T::OpArrow, N::InlineWhenArrow);
@@ -2334,9 +2326,7 @@ impl State {
     fn start_top_level_decls(&mut self) {
         if self.pos == self.buf.kinds.len() {
             let subtree_start = self.tree.len();
-            self.push_node(N::BeginTopLevelDecls, None);
-            self.push_node(N::EndTopLevelDecls, Some(subtree_start as u32));
-            self.update_end(N::BeginTopLevelDecls, subtree_start);
+            self.push_node_begin_end(N::BeginTopLevelDecls, N::EndTopLevelDecls);
         } else {
             self.push_next_frame_starting_here(
                 ExprCfg::default(),
@@ -2761,8 +2751,7 @@ impl State {
             self.start_type(cfg, false);
         } else {
             self.expect(T::CloseRound);
-            self.push_node(N::EndParens, Some(subtree_start));
-            self.update_end(N::BeginParens, subtree_start);
+            self.push_node_end(N::BeginParens, N::EndParens, subtree_start);
 
             // Pseudo-token that the tokenizer produces for inputs like (a, b)c - there will be a NoSpace after the parens.
             if self.consume(T::NoSpace) {
