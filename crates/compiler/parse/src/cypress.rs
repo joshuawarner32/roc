@@ -2416,7 +2416,9 @@ impl State {
                     N::EndCollection,
                     |s| {
                         // This needs to be key:value pairs for lower ident keys and type values
-                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                        s.expect_and_push_node(T::LowerIdent, N::Ident); // TODO: correct node type
+                        s.expect(T::OpColon);
+                        while s.consume(T::UpperIdent) {}
                     },
                 );
                 self.expect(T::KwExposes);
@@ -2456,7 +2458,7 @@ impl State {
                     T::CloseSquare,
                     N::EndCollection,
                     |s| {
-                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                        s.expect_and_push_node(T::LowerIdent, N::Ident); // TODO: correct node type
                     },
                 );
                 self.push_node_end(N::BeginHeaderPlatform, N::EndHeaderPlatform, subtree_start);
