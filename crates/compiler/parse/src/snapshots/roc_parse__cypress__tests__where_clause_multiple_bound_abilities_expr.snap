@@ -1,0 +1,64 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "f : a -> b where a implements Hash & Eq, b implements Eq & Hash & Display\n\nf : a -> b\n  where a implements Hash & Eq,\n    b implements Hash & Display & Eq\n\nf\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (*
+                    (*
+                        Ident=>LowerIdent@2
+                        InlineLambdaArrow=>OpArrow@3
+                        Ident=>LowerIdent@4
+                    EndTypeLambda)
+                    InlineKwWhere=>KwWhere@5
+                    Ident=>LowerIdent@6
+                    InlineKwImplements=>KwImplements@7
+                    AbilityName=>UpperIdent@8
+                    AbilityName=>UpperIdent@10
+                EndWhereClause)
+                Ident=>LowerIdent@12
+                InlineKwImplements=>KwImplements@13
+                AbilityName=>UpperIdent@14
+                AbilityName=>UpperIdent@16
+                AbilityName=>UpperIdent@18
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@19
+            InlineTypeColon=>OpColon@20
+            (*
+                (*
+                    (*
+                        Ident=>LowerIdent@21
+                        InlineLambdaArrow=>OpArrow@22
+                        Ident=>LowerIdent@23
+                    EndTypeLambda)
+                    InlineKwWhere=>KwWhere@24
+                    Ident=>LowerIdent@25
+                    InlineKwImplements=>KwImplements@26
+                    AbilityName=>UpperIdent@27
+                    AbilityName=>UpperIdent@29
+                EndWhereClause)
+                Ident=>LowerIdent@31
+                InlineKwImplements=>KwImplements@32
+                AbilityName=>UpperIdent@33
+                AbilityName=>UpperIdent@35
+                AbilityName=>UpperIdent@37
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Ident=>LowerIdent@38
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("f"), WhereClause(WhereClause(Lambda([Name("a")], Name("b")), Name("a"), ["Hash", "Eq"]), Name("b"), ["Eq", "Hash", "Display"]))
+TypeAlias(Ident("f"), WhereClause(WhereClause(Lambda([Name("a")], Name("b")), Name("a"), ["Hash", "Eq"]), Name("b"), ["Hash", "Display", "Eq"]))
+Ident("f")
+
+[=== formatted below ===]
+

@@ -1991,10 +1991,8 @@ impl State {
                         self.push_node(N::EndTypeApply, Some(subtree_start));
                     }
 
-                    let clause_subtree_start = self.tree.len();
                     self.push_node(N::InlineKwWhere, Some(self.pos as u32 - 1));
-                    self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndWhereClause));
-                    self.push_next_frame(clause_subtree_start, cfg, Frame::ContinueWhereClause);
+                    self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
                     self.start_type(cfg, false);
                     return;
                 }
@@ -2091,7 +2089,13 @@ impl State {
         // ... or we might be after the following , and type (e.g. as in the following:)
         //    where a implements Hash, b implements Eq, c implements Ord
         self.expect_and_push_node(T::KwImplements, N::InlineKwImplements);
-        self.expect_and_push_node(T::UpperIdent, N::AbilityName);
+        loop {
+            self.expect_and_push_node(T::UpperIdent, N::AbilityName);
+            if !self.consume(T::OpAmpersand) {
+                break;
+            }
+        }
+        self.push_node(N::EndWhereClause, Some(subtree_start));
         if self.consume(T::Comma) {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
             self.start_type(cfg, false);
@@ -3734,7 +3738,7 @@ mod canfmt {
         Record(&'a [(&'a str, &'a Type<'a>)]),
         Apply(&'a Type<'a>, &'a [Type<'a>]),
         Lambda(&'a [Type<'a>], &'a Type<'a>),
-        WhereClause(&'a Type<'a>, &'a [(&'a Type<'a>, &'a Type<'a>)]),
+        WhereClause(&'a Type<'a>, &'a Type<'a>, &'a [&'a str]),
         Tuple(&'a [Type<'a>]),
         TagUnion(&'a [Type<'a>]),
         Adendum(&'a Type<'a>, &'a Type<'a>),
@@ -3875,15 +3879,17 @@ mod canfmt {
                 }
                 N::EndWhereClause => {
                     let mut values = stack.drain_to_index(index);
-                    let first = bump.alloc(values.next().unwrap());
-                    let mut pairs: Vec<(&'a Type<'a>, &'a Type<'a>)> = Vec::new_in(bump);
+                    let first = bump.alloc(dbg!(values.next().unwrap()));
+                    let second = bump.alloc(values.next().unwrap());
+                    let mut rest: Vec<&'a str> = Vec::new_in(bump);
                     while let Some(a) = values.next() {
-                        let b = values.next().unwrap();
-                        pairs.push((bump.alloc(a), bump.alloc(b)));
+                        match a {
+                            Type::Name(name) => rest.push(name),
+                            _ => panic!("Expected ability name"),
+                        }
                     }
-                    assert_eq!(values.next(), None);
                     drop(values);
-                    stack.push(i, Type::WhereClause(first, pairs.into_bump_slice()));
+                    stack.push(i, Type::WhereClause(first, second, rest.into_bump_slice()));
                 }
                 N::EndTypeAs => {
                     let mut values = stack.drain_to_index(index);

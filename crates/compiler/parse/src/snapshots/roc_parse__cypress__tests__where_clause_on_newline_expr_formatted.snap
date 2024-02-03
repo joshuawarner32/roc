@@ -25,7 +25,7 @@ description: "f : a -> U64 where a implements Hash\n\nf\n"
 EndFile)
 
 [=== canfmt below ===]
-TypeAlias(Ident("f"), WhereClause(Lambda([Name("a")], Name("U64")), [(Name("a"), Name("Hash"))]))
+TypeAlias(Ident("f"), WhereClause(Lambda([Name("a")], Name("U64")), Name("a"), ["Hash"]))
 Ident("f")
 
 [=== formatted below ===]
