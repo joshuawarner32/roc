@@ -4102,6 +4102,10 @@ mod canfmt {
                 N::EndBinOpOr => binop!(BinOp::Or),
                 N::EndBinOpEquals => binop!(BinOp::Equals),
                 N::EndBinOpNotEquals => binop!(BinOp::NotEquals),
+                N::EndBinOpLessThan => binop!(BinOp::LessThan),
+                N::EndBinOpGreaterThan => binop!(BinOp::GreaterThan),
+                N::EndBinOpLessThanOrEq => binop!(BinOp::LessThanOrEq),
+                N::EndBinOpGreaterThanOrEq => binop!(BinOp::GreaterThanOrEq),
                 N::EndLambda => {
                     let mut values = stack.drain_to_index(index);
                     let count = values.len() - 1;
@@ -4287,6 +4291,10 @@ mod canfmt {
                 | N::InlineBinOpOr
                 | N::InlineBinOpEquals
                 | N::InlineBinOpNotEquals
+                | N::InlineBinOpLessThan
+                | N::InlineBinOpGreaterThan
+                | N::InlineBinOpLessThanOrEq
+                | N::InlineBinOpGreaterThanOrEq
                 | N::InlineLambdaArrow
                 | N::InlineKwWhere
                 | N::InlineKwImplements
