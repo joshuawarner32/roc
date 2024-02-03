@@ -1032,6 +1032,17 @@ impl State {
         }
     }
 
+    fn consume_comma_terminator(&mut self, close: T) -> bool {
+        if self.consume_end(close) {
+            return true;
+        }
+        self.expect(T::Comma);
+        if self.consume_end(close) {
+            return true;
+        }
+        false
+    }
+
     #[track_caller]
     fn consume_and_push_node_end(&mut self, tok: T, begin: N, end: N, subtree_start: u32) -> bool {
         if self.consume(tok) {
@@ -2077,8 +2088,14 @@ impl State {
 
     fn pump_continue_where_clause(&mut self, subtree_start: u32, cfg: ExprCfg) {
         // We should have just parsed the `where` followed by a type.
+        // ... or we might be after the following , and type (e.g. as in the following:)
+        //    where a implements Hash, b implements Eq, c implements Ord
         self.expect_and_push_node(T::KwImplements, N::InlineKwImplements);
         self.expect_and_push_node(T::UpperIdent, N::AbilityName);
+        if self.consume(T::Comma) {
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
+            self.start_type(cfg, false);
+        }
     }
 
     fn pump_finish_type_function(&mut self, subtree_start: u32, cfg: ExprCfg) {
@@ -2086,23 +2103,21 @@ impl State {
     }
 
     fn pump_continue_expr_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        if self.consume(T::Comma) {
-            self.push_next_frame(subtree_start, cfg, Frame::ContinueExprTupleOrParen);
-            self.start_expr(cfg.disable_multi_backpassing());
-        } else {
-            self.expect(T::CloseRound);
+        if self.consume_comma_terminator(T::CloseRound) {
             self.push_node_end(N::BeginParens, N::EndParens, subtree_start);
             self.handle_field_access_suffix(subtree_start);
+        } else {
+            self.push_next_frame(subtree_start, cfg, Frame::ContinueExprTupleOrParen);
+            self.start_expr(cfg.disable_multi_backpassing());
         }
     }
 
     fn pump_continue_pattern_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        if self.consume(T::Comma) {
+        if self.consume_comma_terminator(T::CloseRound) {
+            self.push_node_end(N::BeginPatternParens, N::EndPatternParens, subtree_start);
+        } else {
             self.push_next_frame(subtree_start, cfg, Frame::ContinuePatternTupleOrParen);
             self.start_expr(cfg.disable_multi_backpassing());
-        } else {
-            self.expect(T::CloseRound);
-            self.push_node_end(N::BeginPatternParens, N::EndPatternParens, subtree_start);
         }
     }
 
@@ -3719,7 +3734,7 @@ mod canfmt {
         Record(&'a [(&'a str, &'a Type<'a>)]),
         Apply(&'a Type<'a>, &'a [Type<'a>]),
         Lambda(&'a [Type<'a>], &'a Type<'a>),
-        WhereClause(&'a Type<'a>, &'a Type<'a>, &'a Type<'a>),
+        WhereClause(&'a Type<'a>, &'a [(&'a Type<'a>, &'a Type<'a>)]),
         Tuple(&'a [Type<'a>]),
         TagUnion(&'a [Type<'a>]),
         Adendum(&'a Type<'a>, &'a Type<'a>),
@@ -3861,11 +3876,14 @@ mod canfmt {
                 N::EndWhereClause => {
                     let mut values = stack.drain_to_index(index);
                     let first = bump.alloc(values.next().unwrap());
-                    let second = bump.alloc(values.next().unwrap());
-                    let third = bump.alloc(values.next().unwrap());
+                    let mut pairs: Vec<(&'a Type<'a>, &'a Type<'a>)> = Vec::new_in(bump);
+                    while let Some(a) = values.next() {
+                        let b = values.next().unwrap();
+                        pairs.push((bump.alloc(a), bump.alloc(b)));
+                    }
                     assert_eq!(values.next(), None);
                     drop(values);
-                    stack.push(i, Type::WhereClause(first, second, third));
+                    stack.push(i, Type::WhereClause(first, pairs.into_bump_slice()));
                 }
                 N::EndTypeAs => {
                     let mut values = stack.drain_to_index(index);

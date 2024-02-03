@@ -1,6 +1,6 @@
 ---
 source: crates/compiler/parse/src/cypress.rs
-description: "f : a -> (b -> c) where a implements A\n\nf\n\n"
+description: "f : a -> (b -> c) where a implements Hash, b implements Eq, c implements Ord\n\nf\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
@@ -23,15 +23,21 @@ description: "f : a -> (b -> c) where a implements A\n\nf\n\n"
                 Ident=>LowerIdent@10
                 InlineKwImplements=>KwImplements@11
                 AbilityName=>UpperIdent@12
+                Ident=>LowerIdent@14
+                InlineKwImplements=>KwImplements@15
+                AbilityName=>UpperIdent@16
+                Ident=>LowerIdent@18
+                InlineKwImplements=>KwImplements@19
+                AbilityName=>UpperIdent@20
             EndWhereClause)
         EndTypeOrTypeAlias)
         HintExpr
-        Ident=>LowerIdent@13
+        Ident=>LowerIdent@21
     EndTopLevelDecls)
 EndFile)
 
 [=== canfmt below ===]
-TypeAlias(Ident("f"), WhereClause(Lambda([Name("a")], Lambda([Name("b")], Name("c"))), [(Name("a"), Name("A"))]))
+TypeAlias(Ident("f"), WhereClause(Lambda([Name("a")], Lambda([Name("b")], Name("c"))), [(Name("a"), Name("Hash")), (Name("b"), Name("Eq")), (Name("c"), Name("Ord"))]))
 Ident("f")
 
 [=== formatted below ===]
