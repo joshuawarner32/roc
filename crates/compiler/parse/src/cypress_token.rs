@@ -597,35 +597,42 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         }
 
         let tok = if b == b'0' {
-            match self.peek() {
-                Some(b'x' | b'X') => {
-                    maybe_message_for_uppercase_base!(b);
-                    self.offset += 1;
-                    self.chomp_integer_base16()
-                }
-                Some(b'o' | b'O') => {
-                    maybe_message_for_uppercase_base!(b);
-                    self.offset += 1;
-                    self.chomp_integer_base8()
-                }
-                Some(b'b' | b'B') => {
-                    maybe_message_for_uppercase_base!(b);
-                    self.offset += 1;
-                    self.chomp_integer_base2()
-                }
-                Some(b'0'..=b'9') => {
-                    self.messages.push(Message {
-                        kind: MessageKind::LeadingZero,
-                        offset: self.offset as u32,
-                    });
-                    self.chomp_number_base10()
-                }
-                Some(b'.') => {
-                    self.offset += 1;
-                    self.chomp_integer_base10();
-                    T::Float
-                }
-                _ => T::IntBase10,
+            loop {
+                let res = match self.peek() {
+                    Some(b'x' | b'X') => {
+                        maybe_message_for_uppercase_base!(b);
+                        self.offset += 1;
+                        self.chomp_integer_base16()
+                    }
+                    Some(b'o' | b'O') => {
+                        maybe_message_for_uppercase_base!(b);
+                        self.offset += 1;
+                        self.chomp_integer_base8()
+                    }
+                    Some(b'b' | b'B') => {
+                        maybe_message_for_uppercase_base!(b);
+                        self.offset += 1;
+                        self.chomp_integer_base2()
+                    }
+                    Some(b'0'..=b'9') => {
+                        self.messages.push(Message {
+                            kind: MessageKind::LeadingZero,
+                            offset: self.offset as u32,
+                        });
+                        self.chomp_number_base10()
+                    }
+                    Some(b'_') => {
+                        self.offset += 1;
+                        continue;
+                    }
+                    Some(b'.') => {
+                        self.offset += 1;
+                        self.chomp_integer_base10();
+                        T::Float
+                    }
+                    _ => T::IntBase10,
+                };
+                break res
             }
         } else {
             self.chomp_number_base10()
@@ -651,6 +658,9 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         while let Some(b) = self.peek() {
             match b {
                 b'0'..=b'9' => self.offset += 1,
+                b'_' => {
+                    self.offset += 1;
+                }
                 _ => break,
             }
         }
@@ -660,6 +670,9 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         while let Some(b) = self.peek() {
             match b {
                 b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => self.offset += 1,
+                b'_' => {
+                    self.offset += 1;
+                }
                 _ => break,
             }
         }
@@ -671,6 +684,9 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         while let Some(b) = self.peek() {
             match b {
                 b'0'..=b'7' => self.offset += 1,
+                b'_' => {
+                    self.offset += 1;
+                }
                 _ => break,
             }
         }
@@ -682,6 +698,9 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         while let Some(b) = self.peek() {
             match b {
                 b'0' | b'1' => self.offset += 1,
+                b'_' => {
+                    self.offset += 1;
+                }
                 _ => break,
             }
         }

@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "1__23\n"
+---
+(BeginFile
+    (BeginTopLevelDecls HintExpr Num=>IntBase10@0 EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+IntBase10("1__23")
+
+[=== formatted below ===]
+
