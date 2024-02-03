@@ -6,10 +6,7 @@ description: "app \"hello\"\n    packages {\n        pf:\n        \"https://gith
     (BeginHeaderApp
         String=>String@1
         (BeginCollection Ident=>LowerIdent@4 String=>String@6 EndCollection)
-        (BeginCollection
-            Ident=>LowerIdent@11
-            DotIdent=>NoSpaceDotUpperIdent@12
-        EndCollection)
+        (BeginCollection (* Ident=>LowerIdent@11 DotModuleUpperIdent) EndCollection)
         (BeginCollection Ident=>LowerIdent@16 EndCollection)
         Ident=>LowerIdent@19
     EndHeaderApp)

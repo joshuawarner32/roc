@@ -10,8 +10,8 @@ description: "hosted Foo\n    exposes\n        [\n            Stuff,\n          
             Ident=>LowerIdent@8
         EndCollection)
         (BeginCollection
-            Ident=>UpperIdent@13
-            Ident=>UpperIdent@15
+            TypeName=>UpperIdent@13
+            TypeName=>UpperIdent@15
             (BeginCollection Ident=>LowerIdent@18 Ident=>LowerIdent@20 EndCollection)
         EndCollection)
         (BeginCollection

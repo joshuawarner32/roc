@@ -7,9 +7,7 @@ description: "app \"quicksort\"\n    packages { pf: \"./platform\" }\n    import
         String=>String@1
         (BeginCollection Ident=>LowerIdent@4 String=>String@6 EndCollection)
         (BeginCollection
-            Ident=>LowerIdent@10
-            DotIdent=>NoSpaceDotUpperIdent@11
-            DotIdent=>NoSpaceDotUpperIdent@12
+            (* (* Ident=>LowerIdent@10 DotModuleUpperIdent) DotModuleUpperIdent)
         EndCollection)
         (BeginCollection Ident=>LowerIdent@16 EndCollection)
         Ident=>LowerIdent@19

@@ -931,17 +931,8 @@ impl State {
     }
 
     fn bump(&mut self) {
-        // eprintln!(
-        //     "{:indent$}@{} consuming {:?}",
-        //     "",
-        //     self.pos,
-        //     self.cur().unwrap(),
-        //     indent = 2 * self.frames.len() + 2
-        // );
-
-        // Making that red for now:
         eprintln!(
-            "{:indent$}@{} consuming \x1b[31m{:?}\x1b[0m",
+            "{:indent$}@{} consuming \x1b[32m{:?}\x1b[0m",
             "",
             self.pos,
             self.cur().unwrap(),
@@ -959,7 +950,7 @@ impl State {
 
     fn push_error(&mut self, kind: Error) {
         eprintln!(
-            "{:indent$}@{} pushing error {:?}",
+            "{:indent$}@{} pushing error \x1b[31m{:?}\x1b[0m",
             "",
             self.pos,
             kind,
@@ -2359,34 +2350,7 @@ impl State {
                 } else {
                     self.push_node_begin_end(N::BeginCollection, N::EndCollection);
                 }
-                if self.consume(T::KwImports) {
-                    self.expect_collection(
-                        T::OpenSquare,
-                        N::BeginCollection,
-                        T::CloseSquare,
-                        N::EndCollection,
-                        |s| {
-                            s.expect_and_push_node(T::LowerIdent, N::Ident);
-                            match s.cur() {
-                                Some(T::NoSpaceDotLowerIdent) => {
-                                    s.bump();
-                                    s.push_node(N::DotIdent, Some(s.pos as u32 - 1));
-                                }
-                                Some(T::NoSpaceDotUpperIdent) => {
-                                    s.bump();
-                                    s.push_node(N::DotIdent, Some(s.pos as u32 - 1));
-
-                                    if s.consume(T::NoSpaceDotUpperIdent) {
-                                        s.push_node(N::DotIdent, Some(s.pos as u32 - 1));
-                                    }
-                                }
-                                _ => {}
-                            }
-                        },
-                    );
-                } else {
-                    self.push_node_begin_end(N::BeginCollection, N::EndCollection);
-                }
+                self.expect_header_imports();
                 self.expect(T::KwProvides);
                 self.expect_collection(
                     T::OpenSquare,
@@ -2510,41 +2474,7 @@ impl State {
                         }
                     },
                 );
-                self.expect(T::KwImports);
-                self.expect_collection(
-                    T::OpenSquare,
-                    N::BeginCollection,
-                    T::CloseSquare,
-                    N::EndCollection,
-                    |s| {
-                        s.expect_and_push_node(T::UpperIdent, N::Ident);
-                        
-                        if s.consume(T::Dot) {
-                            s.expect_collection(
-                                T::OpenCurly,
-                                N::BeginCollection,
-                                T::CloseCurly,
-                                N::EndCollection,
-                                |s| {
-                                    match s.cur() {
-                                        Some(T::LowerIdent) => {
-                                            s.bump();
-                                            s.push_node(N::Ident, Some(s.pos as u32 - 1));
-                                        }
-                                        Some(T::UpperIdent) => {
-                                            s.bump();
-                                            s.push_node(N::TypeName, Some(s.pos as u32 - 1));
-                                        }
-                                        t => {
-                                            s.push_error(Error::ExpectViolation(T::LowerIdent, t));
-                                            s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
-                                        }
-                                    }
-                                },
-                            );
-                        }
-                    },
-                );
+                self.expect_header_imports();
                 self.expect(T::KwGenerates);
                 self.expect(T::UpperIdent);
                 self.expect(T::KwWith);
@@ -2574,16 +2504,7 @@ impl State {
                     },
                 );
 
-                self.expect(T::KwImports);
-                self.expect_collection(
-                    T::OpenSquare,
-                    N::BeginCollection,
-                    T::CloseSquare,
-                    N::EndCollection,
-                    |s| {
-                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
-                    },
-                );
+                self.expect_header_imports();
 
                 self.push_node_end(N::BeginHeaderInterface, N::EndHeaderInterface, subtree_start);
             }
@@ -2636,6 +2557,59 @@ impl State {
         self.push_next_frame(subtree_start, ExprCfg::default(), Frame::PushEnd(N::BeginFile, N::EndFile));
 
         self.start_top_level_decls();
+    }
+
+    fn expect_header_imports(&mut self) {
+        self.expect(T::KwImports);
+        self.expect_collection(
+            T::OpenSquare,
+            N::BeginCollection,
+            T::CloseSquare,
+            N::EndCollection,
+            |s| {
+                match s.cur() {
+                    Some(T::LowerIdent) => {
+                        s.bump();
+                        s.push_node(N::Ident, Some(s.pos as u32 - 1));
+                        s.consume_and_push_node(T::NoSpaceDotUpperIdent, N::DotModuleUpperIdent);
+                        s.consume_and_push_node(T::NoSpaceDotUpperIdent, N::DotModuleUpperIdent);
+                    }
+                    Some(T::UpperIdent) => {
+                        s.bump();
+                        s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+                    }
+                    t => {
+                        s.push_error(Error::ExpectViolation(T::LowerIdent, t));
+                        s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
+                    }
+                }
+        
+                if s.consume(T::Dot) {
+                    s.expect_collection(
+                        T::OpenCurly,
+                        N::BeginCollection,
+                        T::CloseCurly,
+                        N::EndCollection,
+                        |s| {
+                            match s.cur() {
+                                Some(T::LowerIdent) => {
+                                    s.bump();
+                                    s.push_node(N::Ident, Some(s.pos as u32 - 1));
+                                }
+                                Some(T::UpperIdent) => {
+                                    s.bump();
+                                    s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+                                }
+                                t => {
+                                    s.push_error(Error::ExpectViolation(T::LowerIdent, t));
+                                    s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
+                                }
+                            }
+                        },
+                    );
+                }
+            },
+        );
     }
 
     fn start_block_or_expr(&mut self, cfg: ExprCfg) {

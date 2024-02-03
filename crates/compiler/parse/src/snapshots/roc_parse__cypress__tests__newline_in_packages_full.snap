@@ -6,10 +6,7 @@ description: "app \"hello\"\n    packages { pf:\n\"https://github.com/roc-lang/b
     (BeginHeaderApp
         String=>String@1
         (BeginCollection Ident=>LowerIdent@4 String=>String@6 EndCollection)
-        (BeginCollection
-            Ident=>LowerIdent@10
-            DotIdent=>NoSpaceDotUpperIdent@11
-        EndCollection)
+        (BeginCollection (* Ident=>LowerIdent@10 DotModuleUpperIdent) EndCollection)
         (BeginCollection Ident=>LowerIdent@15 EndCollection)
         Ident=>LowerIdent@18
     EndHeaderApp)

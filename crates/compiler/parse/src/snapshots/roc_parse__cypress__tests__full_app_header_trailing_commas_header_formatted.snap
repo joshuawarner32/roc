@@ -1,0 +1,23 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "app \"quicksort\"\n    packages { pf: \"./platform\" }\n    imports [foo.Bar.{\n        Baz,\n        FortyTwo,\n        # I'm a happy comment\n    }]\n    provides [quicksort] to pf\n\n"
+---
+(BeginFile
+    (BeginHeaderApp
+        String=>String@1
+        (BeginCollection Ident=>LowerIdent@4 String=>String@6 EndCollection)
+        (BeginCollection
+            (* Ident=>LowerIdent@10 DotModuleUpperIdent)
+            (BeginCollection TypeName=>UpperIdent@14 TypeName=>UpperIdent@16 EndCollection)
+        EndCollection)
+        (BeginCollection Ident=>LowerIdent@22 EndCollection)
+        Ident=>LowerIdent@25
+    EndHeaderApp)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+
