@@ -2339,7 +2339,7 @@ impl State {
 
     fn start_file(&mut self) {
         let subtree_start = self.push_node_begin(N::BeginFile);
-        match dbg!(self.cur()) {
+        match self.cur() {
             Some(T::KwApp) => {
                 self.bump();
                 let subtree_start = self.push_node_begin(N::BeginHeaderApp);
@@ -2375,6 +2375,10 @@ impl State {
                                 Some(T::NoSpaceDotUpperIdent) => {
                                     s.bump();
                                     s.push_node(N::DotIdent, Some(s.pos as u32 - 1));
+
+                                    if s.consume(T::NoSpaceDotUpperIdent) {
+                                        s.push_node(N::DotIdent, Some(s.pos as u32 - 1));
+                                    }
                                 }
                                 _ => {}
                             }
