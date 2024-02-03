@@ -2507,6 +2507,7 @@ impl State {
             Some(T::KwInterface) => {
                 self.bump();
                 let subtree_start = self.push_node_begin(N::BeginHeaderInterface);
+                self.expect_and_push_node(T::UpperIdent, N::ModuleName);
 
                 self.expect(T::KwExposes);
                 self.expect_collection(
