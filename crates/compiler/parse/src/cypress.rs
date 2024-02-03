@@ -2361,6 +2361,17 @@ impl State {
                         s.expect_and_push_node(T::LowerIdent, N::Ident);
                     },
                 );
+                if self.cur() == Some(T::OpenCurly) {
+                    self.expect_collection(
+                        T::OpenCurly,
+                        N::BeginCollection,
+                        T::CloseCurly,
+                        N::EndCollection,
+                        |s| {
+                            s.expect_and_push_node(T::UpperIdent, N::Ident);
+                        },
+                    );
+                }
                 self.expect(T::KwTo);
                 match self.cur() {
                     Some(T::LowerIdent) => {
@@ -2509,6 +2520,10 @@ impl State {
                 let subtree_start = self.push_node_begin(N::BeginHeaderInterface);
                 self.expect_and_push_node(T::UpperIdent, N::ModuleName);
 
+                while self.consume(T::NoSpaceDotUpperIdent) {
+                    self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
+                }
+
                 self.expect(T::KwExposes);
                 self.expect_collection(
                     T::OpenSquare,
@@ -2576,56 +2591,59 @@ impl State {
     }
 
     fn expect_header_imports(&mut self) {
-        self.expect(T::KwImports);
-        self.expect_collection(
-            T::OpenSquare,
-            N::BeginCollection,
-            T::CloseSquare,
-            N::EndCollection,
-            |s| {
-                match s.cur() {
-                    Some(T::LowerIdent) => {
-                        s.bump();
-                        s.push_node(N::Ident, Some(s.pos as u32 - 1));
-                        s.consume_and_push_node(T::NoSpaceDotUpperIdent, N::DotModuleUpperIdent);
-                        s.consume_and_push_node(T::NoSpaceDotUpperIdent, N::DotModuleUpperIdent);
+        if self.consume(T::KwImports) {
+            self.expect_collection(
+                T::OpenSquare,
+                N::BeginCollection,
+                T::CloseSquare,
+                N::EndCollection,
+                |s| {
+                    match s.cur() {
+                        Some(T::LowerIdent) => {
+                            s.bump();
+                            s.push_node(N::Ident, Some(s.pos as u32 - 1));
+                            s.consume_and_push_node(T::NoSpaceDotUpperIdent, N::DotModuleUpperIdent);
+                            s.consume_and_push_node(T::NoSpaceDotUpperIdent, N::DotModuleUpperIdent);
+                        }
+                        Some(T::UpperIdent) => {
+                            s.bump();
+                            s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+                        }
+                        t => {
+                            s.push_error(Error::ExpectViolation(T::LowerIdent, t));
+                            s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
+                        }
                     }
-                    Some(T::UpperIdent) => {
-                        s.bump();
-                        s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+            
+                    if s.consume(T::Dot) {
+                        s.expect_collection(
+                            T::OpenCurly,
+                            N::BeginCollection,
+                            T::CloseCurly,
+                            N::EndCollection,
+                            |s| {
+                                match s.cur() {
+                                    Some(T::LowerIdent) => {
+                                        s.bump();
+                                        s.push_node(N::Ident, Some(s.pos as u32 - 1));
+                                    }
+                                    Some(T::UpperIdent) => {
+                                        s.bump();
+                                        s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+                                    }
+                                    t => {
+                                        s.push_error(Error::ExpectViolation(T::LowerIdent, t));
+                                        s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
+                                    }
+                                }
+                            },
+                        );
                     }
-                    t => {
-                        s.push_error(Error::ExpectViolation(T::LowerIdent, t));
-                        s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
-                    }
-                }
-        
-                if s.consume(T::Dot) {
-                    s.expect_collection(
-                        T::OpenCurly,
-                        N::BeginCollection,
-                        T::CloseCurly,
-                        N::EndCollection,
-                        |s| {
-                            match s.cur() {
-                                Some(T::LowerIdent) => {
-                                    s.bump();
-                                    s.push_node(N::Ident, Some(s.pos as u32 - 1));
-                                }
-                                Some(T::UpperIdent) => {
-                                    s.bump();
-                                    s.push_node(N::TypeName, Some(s.pos as u32 - 1));
-                                }
-                                t => {
-                                    s.push_error(Error::ExpectViolation(T::LowerIdent, t));
-                                    s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
-                                }
-                            }
-                        },
-                    );
-                }
-            },
-        );
+                },
+            );
+        } else {
+            self.push_node_begin_end(N::BeginCollection, N::EndCollection);
+        }
     }
 
     fn start_block_or_expr(&mut self, cfg: ExprCfg) {
@@ -4443,7 +4461,7 @@ mod tests {
             state.pump();
             state.assert_end();
             if state.messages.len() > 0 {
-                for msg in &state.messages {
+                for msg in state.messages.iter().take(3) {
                     eprintln!("{}", format_message(text, &state.buf, msg));
                 }
 

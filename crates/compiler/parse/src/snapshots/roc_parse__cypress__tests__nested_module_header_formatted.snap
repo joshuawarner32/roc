@@ -1,0 +1,18 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "interface Foo.Bar.Baz exposes [] imports []\n\n"
+---
+(BeginFile
+    (BeginHeaderInterface
+        (* (* ModuleName=>UpperIdent@1 DotModuleUpperIdent) DotModuleUpperIdent)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+    EndHeaderInterface)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+

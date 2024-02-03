@@ -1,0 +1,23 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "app \"test\"\n    packages { pf: \"./platform\" }\n    imports [foo.Bar.Baz]\n    provides [quicksort] { Flags, Model } to pf\n\n"
+---
+(BeginFile
+    (BeginHeaderApp
+        String=>String@1
+        (BeginCollection Ident=>LowerIdent@4 String=>String@6 EndCollection)
+        (BeginCollection
+            (* (* Ident=>LowerIdent@10 DotModuleUpperIdent) DotModuleUpperIdent)
+        EndCollection)
+        (BeginCollection Ident=>LowerIdent@16 EndCollection)
+        (BeginCollection Ident=>UpperIdent@19 Ident=>UpperIdent@21 EndCollection)
+        Ident=>LowerIdent@24
+    EndHeaderApp)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+
