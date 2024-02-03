@@ -7,9 +7,10 @@ description: "platform \"test/types\"\n    requires { Flags, Model } { main : Ap
         (BeginCollection Ident=>UpperIdent@4 Ident=>UpperIdent@6 EndCollection)
         (BeginCollection
             Ident=>LowerIdent@9
-            TypeName=>UpperIdent@11
-            TypeName=>UpperIdent@12
-            TypeName=>UpperIdent@13
+            (*
+                TypeName=>UpperIdent@11
+                (* TypeName=>UpperIdent@12 TypeName=>UpperIdent@13 EndTypeApply)
+            EndTypeApply)
         EndCollection)
         (BeginCollection EndCollection)
         (BeginCollection EndCollection)

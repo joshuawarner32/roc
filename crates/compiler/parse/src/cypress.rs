@@ -1935,7 +1935,7 @@ impl State {
     ) {
         match self.cur() {
             Some(T::Comma) => {
-                if self.peek_at(1) != Some(T::LowerIdent) || self.peek_at(2) != Some(T::OpColon) {
+                if (self.peek_at(1) != Some(T::LowerIdent) || self.peek_at(2) != Some(T::OpColon)) && self.peek_at(1) != Some(T::CloseCurly) {
                     self.bump();
                     if in_apply == Some(true) {
                         self.push_node(N::EndTypeApply, Some(subtree_start));
@@ -1948,6 +1948,11 @@ impl State {
                     self.start_type(cfg, false);
                     return;
                 }
+
+                if in_apply == Some(true) {
+                    self.push_node(N::EndTypeApply, Some(subtree_start));
+                }
+                return;
             }
             Some(T::OpArrow) => {
                 self.bump();
@@ -2400,7 +2405,7 @@ impl State {
                     T::CloseCurly,
                     N::EndCollection,
                     |s| {
-                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                        s.expect_and_push_node(T::UpperIdent, N::Ident);
                     },
                 );
                 self.consume(T::NoSpace);
@@ -2413,20 +2418,8 @@ impl State {
                         // This needs to be key:value pairs for lower ident keys and type values
                         s.expect_and_push_node(T::LowerIdent, N::Ident); // TODO: correct node type
                         s.expect(T::OpColon);
-                        loop {
-                            match s.cur() {
-                                Some(T::UpperIdent) => {
-                                    s.bump();
-                                    s.push_node(N::TypeName, Some(s.pos as u32 - 1));
-                                }
-                                Some(T::OpenCurly) => {
-                                    s.bump();
-                                    // TODO: stuff in the middle here...
-                                    s.expect(T::CloseCurly);
-                                }
-                                _ => break,
-                            }
-                        }
+                        let subtree_start = s.tree.len();
+                        s.force_pump_single_frame(subtree_start, ExprCfg::default(), Frame::StartType { allow_clauses: false });
                     },
                 );
                 self.expect(T::KwExposes);
@@ -2451,16 +2444,7 @@ impl State {
                         s.expect_and_push_node(T::String, N::String);
                     },
                 );
-                self.expect(T::KwImports);
-                self.expect_collection(
-                    T::OpenSquare,
-                    N::BeginCollection,
-                    T::CloseSquare,
-                    N::EndCollection,
-                    |s| {
-                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
-                    },
-                );
+                self.expect_header_imports();
                 self.expect(T::KwProvides);
                 self.expect_collection(
                     T::OpenSquare,

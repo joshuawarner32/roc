@@ -5,7 +5,10 @@ description: "platform \"rtfeldman/blah\" requires {} { main : {} } exposes [] p
 (BeginFile
     (BeginHeaderPlatform
         (BeginCollection EndCollection)
-        (BeginCollection Ident=>LowerIdent@6 EndCollection)
+        (BeginCollection
+            Ident=>LowerIdent@6
+            (BeginTypeRecord EndTypeRecord)
+        EndCollection)
         (BeginCollection EndCollection)
         (BeginCollection EndCollection)
         (BeginCollection EndCollection)

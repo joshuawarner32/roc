@@ -5,7 +5,10 @@ description: "platform \"foo/barbaz\"\n    requires { Model } { main : {} }\n   
 (BeginFile
     (BeginHeaderPlatform
         (BeginCollection Ident=>UpperIdent@4 EndCollection)
-        (BeginCollection Ident=>LowerIdent@7 EndCollection)
+        (BeginCollection
+            Ident=>LowerIdent@7
+            (BeginTypeRecord EndTypeRecord)
+        EndCollection)
         (BeginCollection EndCollection)
         (BeginCollection Ident=>LowerIdent@17 String=>String@19 EndCollection)
         (BeginCollection EndCollection)
