@@ -21,7 +21,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("foo"), Name("Int"))
-Assign("foo", IntBase10("4"))
+Assign(Ident("foo"), IntBase10("4"))
 IntBase10("42")
 
 [=== formatted below ===]

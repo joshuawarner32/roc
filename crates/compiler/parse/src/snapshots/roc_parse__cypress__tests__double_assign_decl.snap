@@ -18,8 +18,8 @@ description: "abc = def\nghi = jkl\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("abc", Ident("def"))
-Assign("ghi", Ident("jkl"))
+Assign(Ident("abc"), Ident("def"))
+Assign(Ident("ghi"), Ident("jkl"))
 
 [=== formatted below ===]
 

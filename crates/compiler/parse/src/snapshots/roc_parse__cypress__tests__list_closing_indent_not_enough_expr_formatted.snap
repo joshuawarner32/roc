@@ -19,7 +19,7 @@ description: "myList = [\n    0,\n    [\n        a,\n        b,\n    ],\n    1,\
 EndFile)
 
 [=== canfmt below ===]
-Assign("myList", List([IntBase10("0"), List([Ident("a"), Ident("b")]), IntBase10("1")]))
+Assign(Ident("myList"), List([IntBase10("0"), List([Ident("a"), Ident("b")]), IntBase10("1")]))
 IntBase10("42")
 
 [=== formatted below ===]

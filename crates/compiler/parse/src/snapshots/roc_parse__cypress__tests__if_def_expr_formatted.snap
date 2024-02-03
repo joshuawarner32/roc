@@ -15,7 +15,7 @@ description: "iffy = 5\n\n42\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("iffy", IntBase10("5"))
+Assign(Ident("iffy"), IntBase10("5"))
 IntBase10("42")
 
 [=== formatted below ===]

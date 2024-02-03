@@ -21,7 +21,7 @@ description: "x = when n is\n     0 -> 0\n42\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("x", When(Ident("n"), [IntBase10("0"), IntBase10("0")]))
+Assign(Ident("x"), When(Ident("n"), [IntBase10("0"), IntBase10("0")]))
 IntBase10("42")
 
 [=== formatted below ===]

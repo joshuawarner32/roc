@@ -15,7 +15,7 @@ description: "#######\n### not docs!\n##still not docs\n######\nx = 5\n\n42\n\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("x", IntBase10("5"))
+Assign(Ident("x"), IntBase10("5"))
 IntBase10("42")
 
 [=== formatted below ===]

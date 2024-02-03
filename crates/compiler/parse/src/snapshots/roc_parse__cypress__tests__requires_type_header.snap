@@ -36,7 +36,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("mainForHost"), Apply(Name("App"), [Apply(Name("Flags"), [Name("Model")])]))
-Assign("mainForHost", Ident("main"))
+Assign(Ident("mainForHost"), Ident("main"))
 
 [=== formatted below ===]
 

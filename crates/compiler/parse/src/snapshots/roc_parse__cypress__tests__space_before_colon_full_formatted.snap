@@ -24,7 +24,7 @@ description: "app \"example\"\n    packages { pf: \"path\" }\n    imports [pf.St
 EndFile)
 
 [=== canfmt below ===]
-Assign("main", Apply(ModuleLowerName("Stdout", ".line"), [String("\"Hello\"")]))
+Assign(Ident("main"), Apply(ModuleLowerName("Stdout", ".line"), [String("\"Hello\"")]))
 
 [=== formatted below ===]
 

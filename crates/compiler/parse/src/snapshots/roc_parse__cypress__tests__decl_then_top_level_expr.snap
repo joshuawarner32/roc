@@ -15,7 +15,7 @@ description: "abc =\n    def\nghi\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("abc", Block([Ident("def")]))
+Assign(Ident("abc"), Block([Ident("def")]))
 Ident("ghi")
 
 [=== formatted below ===]

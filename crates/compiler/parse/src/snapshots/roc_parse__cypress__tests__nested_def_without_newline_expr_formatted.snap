@@ -23,7 +23,7 @@ description: "x =\n    a : n\n    4\n_\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("x", Block([TypeAlias(Ident("a"), Name("n")), IntBase10("4")]))
+Assign(Ident("x"), Block([TypeAlias(Ident("a"), Name("n")), IntBase10("4")]))
 Underscore("_")
 
 [=== formatted below ===]

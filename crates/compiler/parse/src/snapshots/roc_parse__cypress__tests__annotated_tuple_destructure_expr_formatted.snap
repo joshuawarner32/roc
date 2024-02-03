@@ -1,0 +1,28 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "(x, y) : Foo\n(x, y) = (\"foo\", 3.14)\n\nx\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            (BeginParens Ident=>LowerIdent@1 Ident=>LowerIdent@3 EndParens)
+            InlineTypeColon=>OpColon@5
+            TypeName=>UpperIdent@6
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            (BeginParens Ident=>LowerIdent@8 Ident=>LowerIdent@10 EndParens)
+            InlineAssign=>OpAssign@12
+            (BeginParens String=>String@14 Float=>Float@16 EndParens)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@18
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Tuple([Ident("x"), Ident("y")]), Name("Foo"))
+Assign(Tuple([Ident("x"), Ident("y")]), Tuple([String("\"foo\""), Float("3.14")]))
+Ident("x")
+
+[=== formatted below ===]
+

@@ -1,0 +1,30 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "Email str = Email \"blah@example.com\"\nstr\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        ((*
+                BeginAssign
+                UpperIdent=>UpperIdent@0
+                InlineApply=>UpperIdent@0
+                Ident=>LowerIdent@1
+            EndApply)
+            InlineAssign=>OpAssign@2
+            (*
+                UpperIdent=>UpperIdent@3
+                InlineApply=>UpperIdent@3
+                String=>String@4
+            EndApply)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@5
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Apply(UpperIdent("Email"), [Ident("str")]), Apply(UpperIdent("Email"), [String("\"blah@example.com\"")]))
+Ident("str")
+
+[=== formatted below ===]
+

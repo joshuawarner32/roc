@@ -13,7 +13,7 @@ description: "foo = 1 # comment after\n\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("foo", IntBase10("1"))
+Assign(Ident("foo"), IntBase10("1"))
 
 [=== formatted below ===]
 

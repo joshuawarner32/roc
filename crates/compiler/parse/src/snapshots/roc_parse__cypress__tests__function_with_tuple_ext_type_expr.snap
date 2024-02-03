@@ -39,7 +39,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("f"), Lambda([Adendum(Name("Str"), Name("a"))], Adendum(Name("Str"), Name("a"))))
-Assign("f", Lambda([Ident("x")], Ident("x")))
+Assign(Ident("f"), Lambda([Ident("x")], Ident("x")))
 Apply(Ident("f"), [Tuple([String("\"Str\""), IntBase10("42")])])
 
 [=== formatted below ===]

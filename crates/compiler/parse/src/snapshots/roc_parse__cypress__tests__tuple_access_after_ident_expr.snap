@@ -15,7 +15,7 @@ description: "abc = (1, 2, 3)\nabc.0\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("abc", Tuple([IntBase10("1"), IntBase10("2"), IntBase10("3")]))
+Assign(Ident("abc"), Tuple([IntBase10("1"), IntBase10("2"), IntBase10("3")]))
 TupleAccess(Ident("abc"), ".0")
 
 [=== formatted below ===]

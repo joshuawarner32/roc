@@ -21,7 +21,7 @@ description: "main =\n    i = 64\n\n    i\n\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("main", Block([Assign("i", IntBase10("64")), Ident("i")]))
+Assign(Ident("main"), Block([Assign(Ident("i"), IntBase10("64")), Ident("i")]))
 
 [=== formatted below ===]
 

@@ -13,7 +13,7 @@ description: "abc = def\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("abc", Ident("def"))
+Assign(Ident("abc"), Ident("def"))
 
 [=== formatted below ===]
 

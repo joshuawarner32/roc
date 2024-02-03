@@ -19,7 +19,7 @@ description: "x = 1\n    < 2\n\n42\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("x", BinOp(IntBase10("1"), LessThan, IntBase10("2")))
+Assign(Ident("x"), BinOp(IntBase10("1"), LessThan, IntBase10("2")))
 IntBase10("42")
 
 [=== formatted below ===]

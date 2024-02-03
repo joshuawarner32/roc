@@ -23,9 +23,9 @@ description: "# comment 1\nfoo = 1\n\n# comment 2\nbar = \"hi\"\nbaz = \"stuff\"
 EndFile)
 
 [=== canfmt below ===]
-Assign("foo", IntBase10("1"))
-Assign("bar", String("\"hi\""))
-Assign("baz", String("\"stuff\""))
+Assign(Ident("foo"), IntBase10("1"))
+Assign(Ident("bar"), String("\"hi\""))
+Assign(Ident("baz"), String("\"stuff\""))
 
 [=== formatted below ===]
 

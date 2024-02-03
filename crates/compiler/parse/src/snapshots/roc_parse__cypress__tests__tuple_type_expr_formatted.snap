@@ -33,7 +33,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("f"), Lambda([Tuple([Name("Str"), Name("Str")])], Tuple([Name("Str"), Name("Str")])))
-Assign("f", Lambda([Ident("x")], Ident("x")))
+Assign(Ident("f"), Lambda([Ident("x")], Ident("x")))
 Apply(Ident("f"), [Tuple([IntBase10("1"), IntBase10("2")])])
 
 [=== formatted below ===]

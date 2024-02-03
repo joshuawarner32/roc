@@ -15,7 +15,7 @@ description: "### not docs!\n## docs, but with a problem\n## (namely that this i
 EndFile)
 
 [=== canfmt below ===]
-Assign("x", IntBase10("5"))
+Assign(Ident("x"), IntBase10("5"))
 IntBase10("42")
 
 [=== formatted below ===]

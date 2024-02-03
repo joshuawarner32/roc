@@ -40,7 +40,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("f"), Lambda([Name("I64")], Tuple([Name("I64"), Name("I64")])))
-Assign("f", Lambda([Ident("x")], Tuple([Ident("x"), BinOp(Ident("x"), Plus, IntBase10("1"))])))
+Assign(Ident("f"), Lambda([Ident("x")], Tuple([Ident("x"), BinOp(Ident("x"), Plus, IntBase10("1"))])))
 Apply(Ident("f"), [IntBase10("42")])
 
 [=== formatted below ===]

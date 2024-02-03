@@ -25,7 +25,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("foo"), TagUnion([Name("True"), Name("Perhaps"), Name("Thing")]))
-Assign("foo", UpperIdent("True"))
+Assign(Ident("foo"), UpperIdent("True"))
 IntBase10("42")
 
 [=== formatted below ===]

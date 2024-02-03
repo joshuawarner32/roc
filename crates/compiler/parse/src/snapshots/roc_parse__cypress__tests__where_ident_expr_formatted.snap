@@ -25,7 +25,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("where"), Record([("where", Name("I32"))]))
-Assign("where", Record([("where", IntBase10("1"))]))
+Assign(Ident("where"), Record([("where", IntBase10("1"))]))
 RecordAccess(Ident("where"), ".where")
 
 [=== formatted below ===]

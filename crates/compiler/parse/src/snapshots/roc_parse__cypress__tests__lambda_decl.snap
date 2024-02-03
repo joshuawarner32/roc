@@ -17,7 +17,7 @@ description: "abc = \\def ->\n    ghi\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("abc", Lambda([Ident("def")], Block([Ident("ghi")])))
+Assign(Ident("abc"), Lambda([Ident("def")], Block([Ident("ghi")])))
 
 [=== formatted below ===]
 

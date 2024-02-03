@@ -15,7 +15,7 @@ description: "t#\n=3\ne\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("t", IntBase10("3"))
+Assign(Ident("t"), IntBase10("3"))
 Ident("e")
 
 [=== formatted below ===]

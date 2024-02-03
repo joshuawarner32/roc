@@ -1,0 +1,132 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "Pair x _ = Pair 0 1\nPair _ y = Pair 0 1\nPair _ _ = Pair 0 1\n_ = Pair 0 1\nPair (Pair x _) (Pair _ y) = Pair (Pair 0 1) (Pair 2 3)\n\n0\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        ((*
+                BeginAssign
+                UpperIdent=>UpperIdent@0
+                InlineApply=>UpperIdent@0
+                Ident=>LowerIdent@1
+                InlineApply=>LowerIdent@1
+                Underscore=>Underscore@2
+            EndApply)
+            InlineAssign=>OpAssign@3
+            (*
+                UpperIdent=>UpperIdent@4
+                InlineApply=>UpperIdent@4
+                Num=>IntBase10@5
+                InlineApply=>IntBase10@5
+                Num=>IntBase10@6
+            EndApply)
+        EndAssign)
+        ((*
+                BeginAssign
+                UpperIdent=>UpperIdent@7
+                InlineApply=>UpperIdent@7
+                Underscore=>Underscore@8
+                InlineApply=>Underscore@8
+                Ident=>LowerIdent@9
+            EndApply)
+            InlineAssign=>OpAssign@10
+            (*
+                UpperIdent=>UpperIdent@11
+                InlineApply=>UpperIdent@11
+                Num=>IntBase10@12
+                InlineApply=>IntBase10@12
+                Num=>IntBase10@13
+            EndApply)
+        EndAssign)
+        ((*
+                BeginAssign
+                UpperIdent=>UpperIdent@14
+                InlineApply=>UpperIdent@14
+                Underscore=>Underscore@15
+                InlineApply=>Underscore@15
+                Underscore=>Underscore@16
+            EndApply)
+            InlineAssign=>OpAssign@17
+            (*
+                UpperIdent=>UpperIdent@18
+                InlineApply=>UpperIdent@18
+                Num=>IntBase10@19
+                InlineApply=>IntBase10@19
+                Num=>IntBase10@20
+            EndApply)
+        EndAssign)
+        (BeginAssign
+            Underscore=>Underscore@21
+            InlineAssign=>OpAssign@22
+            (*
+                UpperIdent=>UpperIdent@23
+                InlineApply=>UpperIdent@23
+                Num=>IntBase10@24
+                InlineApply=>IntBase10@24
+                Num=>IntBase10@25
+            EndApply)
+        EndAssign)
+        ((*
+                BeginAssign
+                UpperIdent=>UpperIdent@26
+                InlineApply=>UpperIdent@26
+                (BeginParens
+                    (*
+                        UpperIdent=>UpperIdent@28
+                        InlineApply=>UpperIdent@28
+                        Ident=>LowerIdent@29
+                        InlineApply=>LowerIdent@29
+                        Underscore=>Underscore@30
+                    EndApply)
+                EndParens)
+                InlineApply=>CloseRound@31
+                (BeginParens
+                    (*
+                        UpperIdent=>UpperIdent@33
+                        InlineApply=>UpperIdent@33
+                        Underscore=>Underscore@34
+                        InlineApply=>Underscore@34
+                        Ident=>LowerIdent@35
+                    EndApply)
+                EndParens)
+            EndApply)
+            InlineAssign=>OpAssign@37
+            (*
+                UpperIdent=>UpperIdent@38
+                InlineApply=>UpperIdent@38
+                (BeginParens
+                    (*
+                        UpperIdent=>UpperIdent@40
+                        InlineApply=>UpperIdent@40
+                        Num=>IntBase10@41
+                        InlineApply=>IntBase10@41
+                        Num=>IntBase10@42
+                    EndApply)
+                EndParens)
+                InlineApply=>CloseRound@43
+                (BeginParens
+                    (*
+                        UpperIdent=>UpperIdent@45
+                        InlineApply=>UpperIdent@45
+                        Num=>IntBase10@46
+                        InlineApply=>IntBase10@46
+                        Num=>IntBase10@47
+                    EndApply)
+                EndParens)
+            EndApply)
+        EndAssign)
+        HintExpr
+        Num=>IntBase10@49
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Apply(UpperIdent("Pair"), [Ident("x"), Underscore("_")]), Apply(UpperIdent("Pair"), [IntBase10("0"), IntBase10("1")]))
+Assign(Apply(UpperIdent("Pair"), [Underscore("_"), Ident("y")]), Apply(UpperIdent("Pair"), [IntBase10("0"), IntBase10("1")]))
+Assign(Apply(UpperIdent("Pair"), [Underscore("_"), Underscore("_")]), Apply(UpperIdent("Pair"), [IntBase10("0"), IntBase10("1")]))
+Assign(Underscore("_"), Apply(UpperIdent("Pair"), [IntBase10("0"), IntBase10("1")]))
+Assign(Apply(UpperIdent("Pair"), [Apply(UpperIdent("Pair"), [Ident("x"), Underscore("_")]), Apply(UpperIdent("Pair"), [Underscore("_"), Ident("y")])]), Apply(UpperIdent("Pair"), [Apply(UpperIdent("Pair"), [IntBase10("0"), IntBase10("1")]), Apply(UpperIdent("Pair"), [IntBase10("2"), IntBase10("3")])]))
+IntBase10("0")
+
+[=== formatted below ===]
+

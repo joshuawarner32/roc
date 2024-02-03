@@ -20,8 +20,8 @@ description: "# leading comment\nx = 5\ny = 6\n\n42\n\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("x", IntBase10("5"))
-Assign("y", IntBase10("6"))
+Assign(Ident("x"), IntBase10("5"))
+Assign(Ident("y"), IntBase10("6"))
 IntBase10("42")
 
 [=== formatted below ===]

@@ -25,9 +25,9 @@ description: "a = \"Hello,\\n\\nWorld!\"\nb =\n    \"\"\"\n    Hello,\\n\\nWorld
 EndFile)
 
 [=== canfmt below ===]
-Assign("a", String("\"Hello,\\n\\nWorld!\""))
-Assign("b", Block([String("\"\"\"\n    Hello,\\n\\nWorld!\n    \"\"\"")]))
-Assign("c", Block([String("\"\"\"\n    Hello,\n\n    World!\n    \"\"\"")]))
+Assign(Ident("a"), String("\"Hello,\\n\\nWorld!\""))
+Assign(Ident("b"), Block([String("\"\"\"\n    Hello,\\n\\nWorld!\n    \"\"\"")]))
+Assign(Ident("c"), Block([String("\"\"\"\n    Hello,\n\n    World!\n    \"\"\"")]))
 IntBase10("42")
 
 [=== formatted below ===]

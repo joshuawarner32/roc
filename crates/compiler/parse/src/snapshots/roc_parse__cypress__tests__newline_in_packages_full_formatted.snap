@@ -27,7 +27,7 @@ description: "app \"hello\"\n    packages {\n        pf:\n        \"https://gith
 EndFile)
 
 [=== canfmt below ===]
-Assign("main", Block([Apply(ModuleLowerName("Stdout", ".line"), [String("\"I'm a Roc application!\"")])]))
+Assign(Ident("main"), Block([Apply(ModuleLowerName("Stdout", ".line"), [String("\"I'm a Roc application!\"")])]))
 
 [=== formatted below ===]
 

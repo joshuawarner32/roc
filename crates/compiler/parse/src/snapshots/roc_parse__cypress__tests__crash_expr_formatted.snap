@@ -71,11 +71,11 @@ description: "_ = crash \"\"\n_ = crash \"\" \"\"\n_ = crash 15 123\n_ = try foo
 EndFile)
 
 [=== canfmt below ===]
-Assign("_", Apply(Crash, [String("\"\"")]))
-Assign("_", Apply(Crash, [String("\"\""), String("\"\"")]))
-Assign("_", Apply(Crash, [IntBase10("15"), IntBase10("123")]))
-Assign("_", Apply(Ident("try"), [Ident("foo"), Lambda([Underscore("_")], Apply(Crash, [String("\"\"")]))]))
-Assign("_", Block([Assign("_", Apply(Crash, [String("\"\"")])), Crash]))
+Assign(Underscore("_"), Apply(Crash, [String("\"\"")]))
+Assign(Underscore("_"), Apply(Crash, [String("\"\""), String("\"\"")]))
+Assign(Underscore("_"), Apply(Crash, [IntBase10("15"), IntBase10("123")]))
+Assign(Underscore("_"), Apply(Ident("try"), [Ident("foo"), Lambda([Underscore("_")], Apply(Crash, [String("\"\"")]))]))
+Assign(Underscore("_"), Block([Assign(Underscore("_"), Apply(Crash, [String("\"\"")])), Crash]))
 Record([("f", Apply(Crash, [String("\"\"")]))])
 
 [=== formatted below ===]

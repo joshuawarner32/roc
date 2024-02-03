@@ -23,7 +23,7 @@ description: "x = foo {\n  bar: blah\n}\nx\n\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("x", Apply(Ident("foo"), [Record([("bar", Ident("blah"))])]))
+Assign(Ident("x"), Apply(Ident("foo"), [Record([("bar", Ident("blah"))])]))
 Ident("x")
 
 [=== formatted below ===]

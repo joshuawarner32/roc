@@ -1,0 +1,42 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "UserId x : [UserId I64]\n(UserId x) = UserId 42\n\nx\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        ((*
+                BeginTypeOrTypeAlias
+                UpperIdent=>UpperIdent@0
+                InlineApply=>UpperIdent@0
+                Ident=>LowerIdent@1
+            EndApply)
+            InlineTypeColon=>OpColon@2
+            (BeginTypeTagUnion Tag=>UpperIdent@4 TypeName=>UpperIdent@5 EndTypeTagUnion)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            (BeginParens
+                (*
+                    UpperIdent=>UpperIdent@8
+                    InlineApply=>UpperIdent@8
+                    Ident=>LowerIdent@9
+                EndApply)
+            EndParens)
+            InlineAssign=>OpAssign@11
+            (*
+                UpperIdent=>UpperIdent@12
+                InlineApply=>UpperIdent@12
+                Num=>IntBase10@13
+            EndApply)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@14
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Apply(UpperIdent("UserId"), [Ident("x")]), TagUnion([Name("UserId"), Name("I64")]))
+Assign(Apply(UpperIdent("UserId"), [Ident("x")]), Apply(UpperIdent("UserId"), [IntBase10("42")]))
+Ident("x")
+
+[=== formatted below ===]
+

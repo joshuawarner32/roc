@@ -15,7 +15,7 @@ description: "a = [\n  1, 2, 3\n]\na\n\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("a", List([IntBase10("1"), IntBase10("2"), IntBase10("3")]))
+Assign(Ident("a"), List([IntBase10("1"), IntBase10("2"), IntBase10("3")]))
 Ident("a")
 
 [=== formatted below ===]

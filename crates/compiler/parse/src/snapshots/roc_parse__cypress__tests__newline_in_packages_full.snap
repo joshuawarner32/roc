@@ -27,7 +27,7 @@ description: "app \"hello\"\n    packages { pf:\n\"https://github.com/roc-lang/b
 EndFile)
 
 [=== canfmt below ===]
-Assign("main", Block([Apply(ModuleLowerName("Stdout", ".line"), [String("\"I'm a Roc application!\"")])]))
+Assign(Ident("main"), Block([Apply(ModuleLowerName("Stdout", ".line"), [String("\"I'm a Roc application!\"")])]))
 
 [=== formatted below ===]
 

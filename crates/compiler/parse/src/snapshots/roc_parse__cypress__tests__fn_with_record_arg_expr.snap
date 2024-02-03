@@ -32,7 +32,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("table"), Lambda([Record([("height", Name("Pixels"))])], Name("Table")))
-Assign("table", Lambda([PatternRecord([("height", PatternAny)])], Apply(Crash, [String("\"not implemented\"")])))
+Assign(Ident("table"), Lambda([PatternRecord([("height", PatternAny)])], Apply(Crash, [String("\"not implemented\"")])))
 Ident("table")
 
 [=== formatted below ===]

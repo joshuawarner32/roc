@@ -21,7 +21,7 @@ description: "a =\n    b =\n        c\n    d\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign("a", Block([Assign("b", Block([Ident("c")])), Ident("d")]))
+Assign(Ident("a"), Block([Assign(Ident("b"), Block([Ident("c")])), Ident("d")]))
 
 [=== formatted below ===]
 

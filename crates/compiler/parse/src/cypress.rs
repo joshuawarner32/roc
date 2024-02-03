@@ -1742,6 +1742,7 @@ impl State {
             Some(
                 T::LowerIdent
                 | T::UpperIdent
+                | T::Underscore
                 | T::OpenCurly
                 | T::IntBase10
                 | T::IntNonBase10
@@ -3758,7 +3759,7 @@ mod canfmt {
         List(&'a [Expr<'a>]),
 
         // Not really expressions, but considering them as such to make the formatter as error tolerant as possible
-        Assign(&'a str, &'a Expr<'a>),
+        Assign(&'a Expr<'a>, &'a Expr<'a>),
         Comment(&'a str),
         TypeAlias(&'a Expr<'a>, &'a Type<'a>),
         AbilityName(&'a str),
@@ -4141,14 +4142,9 @@ mod canfmt {
                         values.collect::<std::vec::Vec<_>>()
                     );
                     let name = values.next().unwrap();
-                    let name_text = match name {
-                        Expr::Ident(name) => name,
-                        Expr::Underscore(name) => name, // TODO: allow patterns
-                        _ => panic!("Expected ident, found {:?}", name),
-                    };
                     let value = values.next().unwrap();
                     drop(values);
-                    stack.push(i, Expr::Assign(name_text, bump.alloc(value)));
+                    stack.push(i, Expr::Assign(bump.alloc(name), bump.alloc(value)));
                 }
                 N::InlineTypeColon => {
                     let (ty, i, index) = build_type(bump, ctx, &mut w);
@@ -5600,6 +5596,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // parens don't introduce a block, so this is no longer valid
     fn test_newline_before_operator_with_defs_expr_formatted() {
         snapshot_test!(block_indentify(
             r#"
@@ -6704,6 +6701,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // parens don't introduce a block, so this is no longer valid
     fn test_newline_before_operator_with_defs_expr() {
         snapshot_test!(block_indentify(
             r#"
