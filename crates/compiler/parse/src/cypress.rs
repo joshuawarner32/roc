@@ -349,7 +349,10 @@ enum NodeIndexKind {
 impl N {
     fn is_decl(self) -> bool {
         match self {
-            N::EndAssign => true,
+            N::EndAssign |
+            N::EndTypeOrTypeAlias |
+            N::EndBackpassing |
+            N::EndImplements => true,
             _ => false,
         }
     }
@@ -898,8 +901,8 @@ impl State {
         self.buf.kind(self.pos)
     }
 
-    fn peek_at(&self, pos: usize) -> Option<T> {
-        self.buf.kind(pos)
+    fn peek_at(&self, offset: usize) -> Option<T> {
+        self.buf.kind(self.pos + offset)
     }
 
     fn _update_line(&mut self) {
@@ -1848,6 +1851,20 @@ impl State {
                     );
                     return;
                 }
+                Some(T::Underscore) => {
+                    self.bump();
+                    self.push_node(N::Underscore, Some(self.pos as u32 - 1));
+
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueType {
+                            in_apply: None,
+                            allow_clauses,
+                        },
+                    );
+                    return;
+                }
                 Some(T::OpStar) => {
                     self.bump();
                     self.push_node(N::TypeWildcard, Some(self.pos as u32 - 1));
@@ -1953,7 +1970,7 @@ impl State {
     ) {
         match self.cur() {
             Some(T::Comma) => {
-                if (self.peek_at(1) != Some(T::LowerIdent) || self.peek_at(2) != Some(T::OpColon)) && self.peek_at(1) != Some(T::CloseCurly) {
+                if (dbg!(self.peek_at(1)) != Some(T::LowerIdent) || dbg!(self.peek_at(2)) != Some(T::OpColon)) && dbg!(self.peek_at(1)) != Some(T::CloseCurly) {
                     self.bump();
                     if in_apply == Some(true) {
                         self.push_node(N::EndTypeApply, Some(subtree_start));
@@ -2024,7 +2041,7 @@ impl State {
                 self.start_type(cfg, false);
             }
             // TODO: check for other things that can start an expr
-            Some(T::LowerIdent | T::UpperIdent | T::OpenCurly | T::OpenSquare | T::OpenRound)
+            Some(T::LowerIdent | T::UpperIdent | T::OpenCurly | T::OpenSquare | T::OpenRound | T::Underscore)
                 if in_apply.is_some() =>
             {
                 if dbg!(self.at_newline()) {
@@ -2169,6 +2186,7 @@ impl State {
             }
             N::Ident
             | N::UpperIdent
+            | N::Underscore
             | N::Num
             | N::Crash
             | N::String
