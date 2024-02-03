@@ -5,7 +5,12 @@ description: "platform \"test/types\"\n    requires { Flags, Model, } { main : A
 (BeginFile
     (BeginHeaderPlatform
         (BeginCollection Ident=>UpperIdent@4 Ident=>UpperIdent@6 EndCollection)
-        (BeginCollection Ident=>LowerIdent@10 EndCollection)
+        (BeginCollection
+            Ident=>LowerIdent@10
+            TypeName=>UpperIdent@12
+            TypeName=>UpperIdent@13
+            TypeName=>UpperIdent@14
+        EndCollection)
         (BeginCollection EndCollection)
         (BeginCollection EndCollection)
         (BeginCollection EndCollection)

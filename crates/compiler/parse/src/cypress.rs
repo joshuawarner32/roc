@@ -1065,7 +1065,7 @@ impl State {
 
     fn push_node(&mut self, kind: N, subtree_start: Option<u32>) {
         eprintln!(
-            "{:indent$}@{} pushing kind {}:{:?} starting at {:?}",
+            "{:indent$}@{} pushing kind {}:\x1b[34m{:?}\x1b[0m starting at {:?}",
             "",
             self.pos,
             self.tree.kinds.len(),
@@ -2402,7 +2402,20 @@ impl State {
                         // This needs to be key:value pairs for lower ident keys and type values
                         s.expect_and_push_node(T::LowerIdent, N::Ident); // TODO: correct node type
                         s.expect(T::OpColon);
-                        while s.consume(T::UpperIdent) {}
+                        loop {
+                            match s.cur() {
+                                Some(T::UpperIdent) => {
+                                    s.bump();
+                                    s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+                                }
+                                Some(T::OpenCurly) => {
+                                    s.bump();
+                                    // TODO: stuff in the middle here...
+                                    s.expect(T::CloseCurly);
+                                }
+                                _ => break,
+                            }
+                        }
                     },
                 );
                 self.expect(T::KwExposes);
@@ -2422,7 +2435,9 @@ impl State {
                     T::CloseCurly,
                     N::EndCollection,
                     |s| {
-                        s.expect_and_push_node(T::UpperIdent, N::Ident); // TODO: correct node type
+                        s.expect_and_push_node(T::LowerIdent, N::Ident);
+                        s.expect(T::OpColon);
+                        s.expect_and_push_node(T::String, N::String);
                     },
                 );
                 self.expect(T::KwImports);

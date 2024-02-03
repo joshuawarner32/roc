@@ -1,0 +1,21 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "platform \"foo/barbaz\"\n    requires { Model } { main : {} }\n    exposes []\n    packages { foo: \"./foo\" }\n    imports []\n    provides [mainForHost]\n\n"
+---
+(BeginFile
+    (BeginHeaderPlatform
+        (BeginCollection Ident=>UpperIdent@4 EndCollection)
+        (BeginCollection Ident=>LowerIdent@7 EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection Ident=>LowerIdent@17 String=>String@19 EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection Ident=>LowerIdent@26 EndCollection)
+    EndHeaderPlatform)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+
