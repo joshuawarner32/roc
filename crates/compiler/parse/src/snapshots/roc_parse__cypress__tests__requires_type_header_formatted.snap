@@ -1,0 +1,21 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "platform \"test/types\"\n    requires { Flags, Model } { main : App Flags Model }\n    exposes []\n    packages {}\n    imports []\n    provides [mainForHost]\n\n"
+---
+(BeginFile
+    (BeginHeaderPlatform
+        (BeginCollection Ident=>UpperIdent@4 Ident=>UpperIdent@6 EndCollection)
+        (BeginCollection Ident=>LowerIdent@9 EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection Ident=>LowerIdent@26 EndCollection)
+    EndHeaderPlatform)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+

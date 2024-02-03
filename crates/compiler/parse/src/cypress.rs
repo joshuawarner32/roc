@@ -2775,8 +2775,7 @@ impl State {
 
     fn pump_continue_expr_list(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume_end(T::CloseSquare) {
-            self.push_node(N::EndList, Some(self.pos as u32 - 1));
-            self.update_end(N::BeginList, subtree_start);
+            self.push_node_end(N::BeginList, N::EndList, subtree_start);
             self.handle_field_access_suffix(subtree_start);
             return;
         }
@@ -2784,8 +2783,7 @@ impl State {
         self.expect(T::Comma);
 
         if self.consume_end(T::CloseSquare) {
-            self.push_node(N::EndList, Some(self.pos as u32 - 1));
-            self.update_end(N::BeginList, subtree_start);
+            self.push_node_end(N::BeginList, N::EndList, subtree_start);
             self.handle_field_access_suffix(subtree_start);
             return;
         }
@@ -2796,16 +2794,14 @@ impl State {
 
     fn pump_continue_pattern_list(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume_end(T::CloseSquare) {
-            self.push_node(N::EndPatternList, Some(self.pos as u32 - 1));
-            self.update_end(N::BeginPatternList, subtree_start);
+            self.push_node_end(N::BeginPatternList, N::EndPatternList, subtree_start);
             return;
         }
 
         self.expect(T::Comma);
 
         if self.consume_end(T::CloseSquare) {
-            self.push_node(N::EndPatternList, Some(self.pos as u32 - 1));
-            self.update_end(N::BeginPatternList, subtree_start);
+            self.push_node_end(N::BeginPatternList, N::EndPatternList, subtree_start);
             return;
         }
 

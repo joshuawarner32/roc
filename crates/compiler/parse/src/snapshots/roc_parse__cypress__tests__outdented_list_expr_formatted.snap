@@ -1,0 +1,22 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "a = [\n    1,\n    2,\n    3,\n]\na\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginList Num=>IntBase10@3 Num=>IntBase10@5 Num=>IntBase10@7 EndList)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@10
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign("a", List([IntBase10("1"), IntBase10("2"), IntBase10("3")]))
+Ident("a")
+
+[=== formatted below ===]
+

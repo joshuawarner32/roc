@@ -1,0 +1,18 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "package \"foo/barbaz\"\n    exposes [Foo, Bar]\n    packages { foo: \"./foo\" }\n"
+---
+(BeginFile
+    (BeginHeaderPackage
+        String=>String@1
+        (BeginCollection TypeName=>UpperIdent@4 TypeName=>UpperIdent@6 EndCollection)
+        (BeginCollection EndCollection)
+    EndHeaderPackage)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+
