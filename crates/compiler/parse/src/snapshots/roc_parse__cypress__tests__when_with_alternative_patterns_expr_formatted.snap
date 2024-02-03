@@ -1,0 +1,31 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when x is\n    \"blah\" | \"blop\" -> 1\n    \"foo\"\n    | \"bar\"\n    | \"baz\" -> 2\n\n    \"stuff\" -> 4\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            String=>String@3
+            String=>String@5
+            InlineWhenArrow=>OpArrow@6
+            Num=>IntBase10@7
+            String=>String@8
+            String=>String@10
+            String=>String@12
+            InlineWhenArrow=>OpArrow@13
+            Num=>IntBase10@14
+            String=>String@15
+            InlineWhenArrow=>OpArrow@16
+            Num=>IntBase10@17
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Ident("x"), [String("\"blah\""), String("\"blop\""), IntBase10("1"), String("\"foo\""), String("\"bar\""), String("\"baz\""), IntBase10("2"), String("\"stuff\""), IntBase10("4")])
+
+[=== formatted below ===]
+

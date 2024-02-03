@@ -271,6 +271,8 @@ pub enum N {
     BeginFile,
     EndFile,
 
+    PatternAny, // special pattern that we use if the user didn't put anything after the ':' in a record pattern
+
     BeginHeaderApp,
     BeginHeaderHosted,
     BeginHeaderInterface,
@@ -482,7 +484,8 @@ impl N {
             | N::EndWhereClause
             | N::EndTypeApply => NodeIndexKind::EndOnly,
             N::DotModuleLowerIdent | N::DotModuleUpperIdent => NodeIndexKind::EndSingleToken,
-            N::Float | N::SingleQuote | N::Underscore | N::TypeWildcard | N::Crash | N::Dbg => {
+            N::Float | N::SingleQuote | N::Underscore | N::TypeWildcard | N::Crash | N::Dbg
+            | N::PatternAny => {
                 NodeIndexKind::Token
             }
         }
@@ -845,7 +848,7 @@ enum IfState {
 enum WhenState {
     Is,
     BranchPattern(Indent),
-    BranchArrow(Indent),
+    BranchBarOrArrow(Indent),
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -2285,7 +2288,7 @@ impl State {
                     subtree_start,
                     cfg,
                     Frame::ContinueWhen {
-                        next: WhenState::BranchArrow(indent),
+                        next: WhenState::BranchBarOrArrow(indent),
                     },
                 );
                 self.start_pattern(cfg);
@@ -2302,7 +2305,7 @@ impl State {
                         subtree_start,
                         cfg,
                         Frame::ContinueWhen {
-                            next: WhenState::BranchArrow(indent),
+                            next: WhenState::BranchBarOrArrow(indent),
                         },
                     );
                     self.start_pattern(cfg);
@@ -2310,20 +2313,31 @@ impl State {
                 }
                 self.push_node_end(N::BeginWhen, N::EndWhen, subtree_start);
             }
-            WhenState::BranchArrow(indent) => {
-                self.expect_and_push_node(T::OpArrow, N::InlineWhenArrow);
-                self.push_next_frame(
-                    subtree_start,
-                    cfg,
-                    Frame::ContinueWhen {
-                        next: WhenState::BranchPattern(indent),
-                    },
-                );
-                let indent = self.cur_indent();
-                let cfg = cfg
-                    .set_block_indent_floor(Some(indent))
-                    .set_expr_indent_floor(Some(indent));
-                self.start_block_or_expr(cfg);
+            WhenState::BranchBarOrArrow(indent) => {
+                if self.consume(T::OpBar) {
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueWhen {
+                            next: WhenState::BranchBarOrArrow(indent),
+                        },
+                    );
+                    self.start_pattern(cfg);
+                } else {
+                    self.expect_and_push_node(T::OpArrow, N::InlineWhenArrow);
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueWhen {
+                            next: WhenState::BranchPattern(indent),
+                        },
+                    );
+                    let indent = self.cur_indent();
+                    let cfg = cfg
+                        .set_block_indent_floor(Some(indent))
+                        .set_expr_indent_floor(Some(indent));
+                    self.start_block_or_expr(cfg);
+                }
             }
         }
     }
@@ -2754,6 +2768,14 @@ impl State {
             }
 
             self.expect_lower_ident_and_push_node();
+
+            if self.consume_and_push_node(T::OpColon, N::InlineColon) {
+                self.push_next_frame(subtree_start, cfg, Frame::ContinuePatternRecord { start: false });
+                self.start_pattern(cfg.disable_multi_backpassing());
+                return;
+            } else if self.cur() == Some(T::Comma) || self.cur() == Some(T::CloseCurly) {
+                self.push_node(N::PatternAny, Some(self.pos as u32));
+            }
 
             start = false;
         }
@@ -3722,7 +3744,8 @@ mod canfmt {
         Expect(&'a Expr<'a>),
         ExpectFx(&'a Expr<'a>),
 
-        PatternRecord(&'a [&'a str]),
+        PatternRecord(&'a [(&'a str, &'a Expr<'a>)]),
+        PatternAny,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -4153,20 +4176,22 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::Record(pairs.into_bump_slice()));
                 }
+                N::PatternAny => stack.push(i, Expr::PatternAny),
                 N::EndPatternRecord => {
                     let mut values = stack.drain_to_index(index);
-                    let mut items: Vec<&'a str> = Vec::new_in(bump);
+                    let mut pairs: Vec<(&'a str, &'a Expr<'a>)> = Vec::new_in(bump);
                     loop {
                         let name = match values.next() {
                             Some(Expr::Ident(name)) => name,
                             None => break,
-                            _ => panic!("Expected ident"),
+                            a => panic!("Expected ident, found {:?}", a),
                         };
+                        let value = values.next().unwrap();
                         // TODO: allow optional :/? for field patterns
-                        items.push(name);
+                        pairs.push((name, bump.alloc(value)));
                     }
                     drop(values);
-                    stack.push(i, Expr::PatternRecord(items.into_bump_slice()));
+                    stack.push(i, Expr::PatternRecord(pairs.into_bump_slice()));
                 }
                 N::EndParens => {
                     let mut values = stack.drain_to_index(index);

@@ -1,0 +1,47 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when {foo: (1, 2)} is\n {foo: (1, x)} -> x\n {foo: (_, b)} -> 3 + b\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            (BeginRecord
+                Ident=>LowerIdent@2
+                InlineColon=>OpColon@3
+                (BeginParens Num=>IntBase10@5 Num=>IntBase10@7 EndParens)
+            EndRecord)
+            InlineKwIs=>KwIs@10
+            (BeginPatternRecord=>LowerIdent@21
+                Ident=>LowerIdent@12
+                InlineColon=>OpColon@13
+                (BeginPatternParens=>OpArrow@20
+                    Num=>IntBase10@15
+                    Ident=>LowerIdent@17
+                EndPatternParens)
+            EndPatternRecord)
+            InlineWhenArrow=>OpArrow@20
+            Ident=>LowerIdent@21
+            (BeginPatternRecord=>OpArrow@31
+                Ident=>LowerIdent@23
+                InlineColon=>OpColon@24
+                (BeginPatternParens=>CloseCurly@30
+                    Underscore=>Underscore@26
+                    Ident=>LowerIdent@28
+                EndPatternParens)
+            EndPatternRecord)
+            InlineWhenArrow=>OpArrow@31
+            (*
+                Num=>IntBase10@32
+                InlineBinOpPlus=>OpPlus@33
+                Ident=>LowerIdent@34
+            EndBinOpPlus)
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Record([("foo", Tuple([IntBase10("1"), IntBase10("2")]))]), [PatternRecord([("foo", Tuple([IntBase10("1"), Ident("x")]))]), Ident("x"), PatternRecord([("foo", Tuple([Underscore("_"), Ident("b")]))]), BinOp(IntBase10("3"), Plus, Ident("b"))])
+
+[=== formatted below ===]
+

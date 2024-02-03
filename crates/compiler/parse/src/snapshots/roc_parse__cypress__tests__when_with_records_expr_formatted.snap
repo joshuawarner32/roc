@@ -8,12 +8,17 @@ description: "when x is\n    { y } -> 2\n    { z, w } -> 4\n"
         (BeginWhen
             Ident=>LowerIdent@1
             InlineKwIs=>KwIs@2
-            (BeginPatternRecord=>LowerIdent@9 Ident=>LowerIdent@4 EndPatternRecord)
+            (BeginPatternRecord=>Comma@10
+                Ident=>LowerIdent@4
+                PatternAny=>CloseCurly@5
+            EndPatternRecord)
             InlineWhenArrow=>OpArrow@6
             Num=>IntBase10@7
-            (BeginPatternRecord=>?broken?@15
+            (BeginPatternRecord=>?broken?@18
                 Ident=>LowerIdent@9
+                PatternAny=>Comma@10
                 Ident=>LowerIdent@11
+                PatternAny=>CloseCurly@12
             EndPatternRecord)
             InlineWhenArrow=>OpArrow@13
             Num=>IntBase10@14
@@ -22,7 +27,7 @@ description: "when x is\n    { y } -> 2\n    { z, w } -> 4\n"
 EndFile)
 
 [=== canfmt below ===]
-When(Ident("x"), [PatternRecord(["y"]), IntBase10("2"), PatternRecord(["z", "w"]), IntBase10("4")])
+When(Ident("x"), [PatternRecord([("y", PatternAny)]), IntBase10("2"), PatternRecord([("z", PatternAny), ("w", PatternAny)]), IntBase10("4")])
 
 [=== formatted below ===]
 

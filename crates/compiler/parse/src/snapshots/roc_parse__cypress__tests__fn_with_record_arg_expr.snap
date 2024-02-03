@@ -17,7 +17,10 @@ description: "table : {\n    height : Pixels\n    } -> Table\ntable = \\{height}
             Ident=>LowerIdent@9
             InlineAssign=>OpAssign@10
             (BeginLambda
-                (BeginPatternRecord=>?broken?@20 Ident=>LowerIdent@13 EndPatternRecord)
+                (BeginPatternRecord=>?broken?@21
+                    Ident=>LowerIdent@13
+                    PatternAny=>CloseCurly@14
+                EndPatternRecord)
                 InlineLambdaArrow=>OpArrow@15
                 (* Crash=>KwCrash@16 InlineApply=>KwCrash@16 String=>String@17 EndApply)
             EndLambda)
@@ -29,7 +32,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("table"), Lambda([Record([("height", Name("Pixels"))])], Name("Table")))
-Assign("table", Lambda([PatternRecord(["height"])], Apply(Crash, [String("\"not implemented\"")])))
+Assign("table", Lambda([PatternRecord([("height", PatternAny)])], Apply(Crash, [String("\"not implemented\"")])))
 Ident("table")
 
 [=== formatted below ===]
