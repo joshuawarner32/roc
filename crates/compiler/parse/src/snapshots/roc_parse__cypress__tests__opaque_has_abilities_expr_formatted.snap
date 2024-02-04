@@ -1,0 +1,212 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "A := U8 implements [Eq, Hash]\n\nA := a where a implements Other\n    implements [Eq, Hash]\n\nA := a where a implements Other\n    implements [Eq, Hash]\n\nA := U8 implements [Eq { eq }, Hash { hash }]\n\nA := U8 implements [Eq { eq, eq1 }]\n\nA := U8 implements [Eq { eq, eq1 }, Hash]\n\nA := U8 implements [Hash, Eq { eq, eq1 }]\n\nA := U8 implements []\n\nA := a where a implements Other\n    implements [Eq { eq }, Hash { hash }]\n\nA := U8 implements [Eq {}]\n\n0\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@0
+            InlineTypeColonEqual=>OpColonEqual@1
+            TypeName=>UpperIdent@2
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@3
+            InlineApply=>KwImplements@3
+            (BeginList UpperIdent=>UpperIdent@5 UpperIdent=>UpperIdent@7 EndList)
+        EndApply)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@9
+            InlineTypeColonEqual=>OpColonEqual@10
+            (*
+                Ident=>LowerIdent@11
+                InlineKwWhere=>KwWhere@12
+                Ident=>LowerIdent@13
+                InlineKwImplements=>KwImplements@14
+                AbilityName=>UpperIdent@15
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@16
+            InlineApply=>KwImplements@16
+            (BeginList UpperIdent=>UpperIdent@18 UpperIdent=>UpperIdent@20 EndList)
+        EndApply)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@22
+            InlineTypeColonEqual=>OpColonEqual@23
+            (*
+                Ident=>LowerIdent@24
+                InlineKwWhere=>KwWhere@25
+                Ident=>LowerIdent@26
+                InlineKwImplements=>KwImplements@27
+                AbilityName=>UpperIdent@28
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@29
+            InlineApply=>KwImplements@29
+            (BeginList UpperIdent=>UpperIdent@31 UpperIdent=>UpperIdent@33 EndList)
+        EndApply)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@35
+            InlineTypeColonEqual=>OpColonEqual@36
+            TypeName=>UpperIdent@37
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@38
+            InlineApply=>KwImplements@38
+            (BeginList
+                (*
+                    UpperIdent=>UpperIdent@40
+                    InlineApply=>UpperIdent@40
+                    (BeginRecord Ident=>LowerIdent@42 EndRecord)
+                EndApply)
+                (*
+                    UpperIdent=>UpperIdent@45
+                    InlineApply=>UpperIdent@45
+                    (BeginRecord Ident=>LowerIdent@47 EndRecord)
+                EndApply)
+            EndList)
+        EndApply)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@50
+            InlineTypeColonEqual=>OpColonEqual@51
+            TypeName=>UpperIdent@52
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@53
+            InlineApply=>KwImplements@53
+            (BeginList
+                (*
+                    UpperIdent=>UpperIdent@55
+                    InlineApply=>UpperIdent@55
+                    (BeginRecord Ident=>LowerIdent@57 Ident=>LowerIdent@59 EndRecord)
+                EndApply)
+            EndList)
+        EndApply)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@62
+            InlineTypeColonEqual=>OpColonEqual@63
+            TypeName=>UpperIdent@64
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@65
+            InlineApply=>KwImplements@65
+            (BeginList
+                (*
+                    UpperIdent=>UpperIdent@67
+                    InlineApply=>UpperIdent@67
+                    (BeginRecord Ident=>LowerIdent@69 Ident=>LowerIdent@71 EndRecord)
+                EndApply)
+                UpperIdent=>UpperIdent@74
+            EndList)
+        EndApply)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@76
+            InlineTypeColonEqual=>OpColonEqual@77
+            TypeName=>UpperIdent@78
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@79
+            InlineApply=>KwImplements@79
+            (BeginList
+                UpperIdent=>UpperIdent@81
+                (*
+                    UpperIdent=>UpperIdent@83
+                    InlineApply=>UpperIdent@83
+                    (BeginRecord Ident=>LowerIdent@85 Ident=>LowerIdent@87 EndRecord)
+                EndApply)
+            EndList)
+        EndApply)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@90
+            InlineTypeColonEqual=>OpColonEqual@91
+            TypeName=>UpperIdent@92
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@93
+            InlineApply=>KwImplements@93
+            (BeginList EndList)
+        EndApply)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@96
+            InlineTypeColonEqual=>OpColonEqual@97
+            (*
+                Ident=>LowerIdent@98
+                InlineKwWhere=>KwWhere@99
+                Ident=>LowerIdent@100
+                InlineKwImplements=>KwImplements@101
+                AbilityName=>UpperIdent@102
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@103
+            InlineApply=>KwImplements@103
+            (BeginList
+                (*
+                    UpperIdent=>UpperIdent@105
+                    InlineApply=>UpperIdent@105
+                    (BeginRecord Ident=>LowerIdent@107 EndRecord)
+                EndApply)
+                (*
+                    UpperIdent=>UpperIdent@110
+                    InlineApply=>UpperIdent@110
+                    (BeginRecord Ident=>LowerIdent@112 EndRecord)
+                EndApply)
+            EndList)
+        EndApply)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@115
+            InlineTypeColonEqual=>OpColonEqual@116
+            TypeName=>UpperIdent@117
+        EndTypeOrTypeAlias)
+        (*
+            HintExpr
+            Ident=>KwImplements@118
+            InlineApply=>KwImplements@118
+            (BeginList
+                (*
+                    UpperIdent=>UpperIdent@120
+                    InlineApply=>UpperIdent@120
+                    (BeginRecord EndRecord)
+                EndApply)
+            EndList)
+        EndApply)
+        HintExpr
+        Num=>IntBase10@124
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAliasOpaque(UpperIdent("A"), Name("U8"))
+Apply(Ident("implements"), [List([UpperIdent("Eq"), UpperIdent("Hash")])])
+TypeAliasOpaque(UpperIdent("A"), WhereClause(Name("a"), Name("a"), ["Other"]))
+Apply(Ident("implements"), [List([UpperIdent("Eq"), UpperIdent("Hash")])])
+TypeAliasOpaque(UpperIdent("A"), WhereClause(Name("a"), Name("a"), ["Other"]))
+Apply(Ident("implements"), [List([UpperIdent("Eq"), UpperIdent("Hash")])])
+TypeAliasOpaque(UpperIdent("A"), Name("U8"))
+Apply(Ident("implements"), [List([Apply(UpperIdent("Eq"), [Record([Ident("eq")])]), Apply(UpperIdent("Hash"), [Record([Ident("hash")])])])])
+TypeAliasOpaque(UpperIdent("A"), Name("U8"))
+Apply(Ident("implements"), [List([Apply(UpperIdent("Eq"), [Record([Ident("eq"), Ident("eq1")])])])])
+TypeAliasOpaque(UpperIdent("A"), Name("U8"))
+Apply(Ident("implements"), [List([Apply(UpperIdent("Eq"), [Record([Ident("eq"), Ident("eq1")])]), UpperIdent("Hash")])])
+TypeAliasOpaque(UpperIdent("A"), Name("U8"))
+Apply(Ident("implements"), [List([UpperIdent("Hash"), Apply(UpperIdent("Eq"), [Record([Ident("eq"), Ident("eq1")])])])])
+TypeAliasOpaque(UpperIdent("A"), Name("U8"))
+Apply(Ident("implements"), [List([])])
+TypeAliasOpaque(UpperIdent("A"), WhereClause(Name("a"), Name("a"), ["Other"]))
+Apply(Ident("implements"), [List([Apply(UpperIdent("Eq"), [Record([Ident("eq")])]), Apply(UpperIdent("Hash"), [Record([Ident("hash")])])])])
+TypeAliasOpaque(UpperIdent("A"), Name("U8"))
+Apply(Ident("implements"), [List([Apply(UpperIdent("Eq"), [Record([])])])])
+IntBase10("0")
+
+[=== formatted below ===]
+

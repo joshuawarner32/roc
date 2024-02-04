@@ -1,0 +1,28 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "a:e\nNa:=\n e e0\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            Ident=>LowerIdent@2
+        EndTypeOrTypeAlias)
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@3
+            InlineTypeColonEqual=>OpColonEqual@4
+            Ident=>LowerIdent@5
+        EndTypeOrTypeAlias)
+        HintExpr
+        Ident=>LowerIdent@6
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("a"), Name("e"))
+TypeAliasOpaque(UpperIdent("Na"), Name("e"))
+Ident("e0")
+
+[=== formatted below ===]
+

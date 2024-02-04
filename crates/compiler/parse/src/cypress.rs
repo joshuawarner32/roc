@@ -304,7 +304,7 @@ pub enum N {
     EndMultiBackpassingArgs,
     EndFieldAccess,
     EndIndexAccess,
-    InlineColonEqual,
+    InlineTypeColonEqual,
     BeginTypeTagUnion,
     EndTypeTagUnion,
     TypeWildcard,
@@ -430,7 +430,7 @@ impl N {
             | N::InlineLambdaArrow
             | N::InlineColon
             | N::InlineTypeColon
-            | N::InlineColonEqual
+            | N::InlineTypeColonEqual
             | N::InlineBackArrow
             | N::InlineWhenArrow
             | N::InlineBinOpLessThan
@@ -518,6 +518,15 @@ impl Tree {
     fn len(&self) -> u32 {
         self.kinds.len() as u32
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum TypePrec {
+    WhereClauses,
+    As,
+    Lambda,
+    Apply,
+    Atom,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -670,7 +679,7 @@ impl BinOp {
             BinOp::Assign => N::InlineAssign,
             BinOp::Implements => N::InlineKwImplements,
             BinOp::DefineTypeOrTypeAlias => N::InlineTypeColon,
-            BinOp::DefineOtherTypeThing => N::InlineColonEqual,
+            BinOp::DefineOtherTypeThing => N::InlineTypeColonEqual,
             BinOp::Backpassing => N::InlineBackArrow,
             BinOp::MultiBackpassingComma => N::InlineMultiBackpassingComma,
             BinOp::Pizza => N::InlinePizza,
@@ -1757,6 +1766,26 @@ impl State {
             self.push_node(cur_op.into(), Some(subtree_start));
         }
     }
+
+    // fn next_type_op(&mut self, min_prec: TypePrec) -> Option<TypeBinOp> {
+    //     let (op, width) = match self.cur() {
+    //         // TODO: check for other things that can start a type
+    //         Some(
+    //             T::LowerIdent
+    //             | T::UpperIdent
+    //             | T::Underscore
+    //             | T::OpenCurly
+    //             | T::IntBase10
+    //             | T::IntNonBase10
+    //             | T::String
+    //             | T::OpenRound
+    //             | T::OpenCurly
+    //             | T::OpenSquare
+    //             | T::OpUnaryMinus
+    //             | T::OpBang,
+    //         ) => {
+    //     }
+    // }
 
     fn next_op(&mut self, min_prec: Prec, cfg: ExprCfg) -> Option<BinOp> {
         let (op, width) = match self.cur() {
@@ -3809,6 +3838,7 @@ mod canfmt {
         Assign(&'a Expr<'a>, &'a Expr<'a>),
         Comment(&'a str),
         TypeAlias(&'a Expr<'a>, &'a Type<'a>),
+        TypeAliasOpaque(&'a Expr<'a>, &'a Type<'a>),
         AbilityName(&'a str),
         Dbg(&'a Expr<'a>),
         Expect(&'a Expr<'a>),
@@ -4217,6 +4247,19 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::TypeAlias(bump.alloc(name), bump.alloc(ty)));
                 }
+                N::InlineTypeColonEqual => {
+                    let (ty, i, index) = build_type(bump, ctx, &mut w);
+                    let mut values = stack.drain_to_index(index);
+                    assert_eq!(
+                        values.len(),
+                        1,
+                        "{:?}",
+                        values.collect::<std::vec::Vec<_>>()
+                    );
+                    let name = values.next().unwrap();
+                    drop(values);
+                    stack.push(i, Expr::TypeAliasOpaque(bump.alloc(name), bump.alloc(ty)));
+                }
                 N::EndIf => {
                     // pop three elements (cond, then, else)
                     let mut values = stack.drain_to_index(index);
@@ -4577,7 +4620,8 @@ mod tests {
             let text: &str = text.as_ref();
             let mut tokenizer = Tokenizer::new(text);
             tokenizer.tokenize();
-            let tb = tokenizer.finish();
+            let (messages, tb) = tokenizer.finish();
+            assert_eq!(messages, vec![]);
             eprint!("tokens:");
             let mut last = 0;
             for (i, (begin, indent)) in tb.lines.iter().enumerate() {

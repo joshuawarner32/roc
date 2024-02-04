@@ -1,0 +1,19 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "Age := U8\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@0
+            InlineTypeColonEqual=>OpColonEqual@1
+            TypeName=>UpperIdent@2
+        EndTypeOrTypeAlias)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAliasOpaque(UpperIdent("Age"), Name("U8"))
+
+[=== formatted below ===]
+

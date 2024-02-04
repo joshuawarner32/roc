@@ -471,8 +471,8 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    pub fn finish(self) -> TokenenizedBuffer {
-        self.output
+    pub fn finish(self) -> (Vec<Message>, TokenenizedBuffer) {
+        (self.cursor.messages, self.output)
     }
 }
 
