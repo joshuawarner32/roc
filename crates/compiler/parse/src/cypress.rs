@@ -2270,6 +2270,18 @@ impl State {
             | N::EndBinOpPlus
             | N::EndBinOpMinus
             | N::EndBinOpStar
+            | N::EndBinOpLessThan
+            | N::EndBinOpGreaterThan
+            | N::EndBinOpLessThanOrEq
+            | N::EndBinOpGreaterThanOrEq
+            | N::EndBinOpSlash
+            | N::EndBinOpDoubleSlash
+            | N::EndBinOpPercent
+            | N::EndBinOpCaret
+            | N::EndBinOpAnd
+            | N::EndBinOpOr
+            | N::EndBinOpEquals
+            | N::EndBinOpNotEquals
             | N::EndUnaryNot
             | N::EndUnaryMinus
             | N::EndPizza

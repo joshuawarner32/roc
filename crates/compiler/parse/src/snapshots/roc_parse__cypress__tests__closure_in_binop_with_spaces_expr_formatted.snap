@@ -1,0 +1,30 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "i\n> (\\s -> s\n)\n    -a\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineBinOpGreaterThan=>OpGreaterThan@1
+            (*
+                (BeginParens
+                    (BeginLambda
+                        Ident=>LowerIdent@4
+                        InlineLambdaArrow=>OpArrow@5
+                        Ident=>LowerIdent@6
+                    EndLambda)
+                EndParens)
+                InlineApply=>CloseRound@7
+                (* Ident=>LowerIdent@9 EndUnaryMinus)
+            EndApply)
+        EndBinOpGreaterThan)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+BinOp(Ident("i"), GreaterThan, Apply(Lambda([Ident("s")], Ident("s")), [UnaryOp(Minus, Ident("a"))]))
+
+[=== formatted below ===]
+
