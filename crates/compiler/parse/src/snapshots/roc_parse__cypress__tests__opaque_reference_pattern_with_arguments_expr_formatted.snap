@@ -1,0 +1,28 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when n is\n    @Add n m -> n + m\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            OpaqueName=>OpaqueName@3
+            Ident=>LowerIdent@4
+            Ident=>LowerIdent@5
+            InlineWhenArrow=>OpArrow@6
+            (*
+                Ident=>LowerIdent@7
+                InlineBinOpPlus=>OpPlus@8
+                Ident=>LowerIdent@9
+            EndBinOpPlus)
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Ident("n"), [OpaqueName("@Add"), Ident("n"), Ident("m"), BinOp(Ident("n"), Plus, Ident("m"))])
+
+[=== formatted below ===]
+

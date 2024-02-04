@@ -1542,6 +1542,7 @@ impl State {
                 Some(T::IntBase10) => atom!(N::Num),
                 Some(T::String) => atom!(N::String),
                 Some(T::Float) => atom!(N::Float),
+                Some(T::OpaqueName) => atom!(N::OpaqueName),
 
                 Some(T::UpperIdent) => {
                     self.bump();
