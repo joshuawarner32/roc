@@ -8960,7 +8960,7 @@ mod tests {
     fn test_single_underscore_closure_expr() {
         snapshot_test!(block_indentify(
             r#"
-            |\\_ -> 42
+            |\_ -> 42
             "#
         ));
     }

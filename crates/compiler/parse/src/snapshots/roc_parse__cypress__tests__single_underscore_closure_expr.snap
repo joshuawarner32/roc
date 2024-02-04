@@ -1,0 +1,20 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "\\_ -> 42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginLambda
+            Underscore=>Underscore@1
+            InlineLambdaArrow=>OpArrow@2
+            Num=>IntBase10@3
+        EndLambda)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Lambda([Underscore("_")], IntBase10("42"))
+
+[=== formatted below ===]
+
