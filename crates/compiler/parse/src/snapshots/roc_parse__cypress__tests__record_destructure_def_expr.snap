@@ -1,0 +1,28 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "# leading comment\n{ x, y } = 5\ny = 6\n\n42\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            (BeginRecord Ident=>LowerIdent@1 Ident=>LowerIdent@3 EndRecord)
+            InlineAssign=>OpAssign@5
+            Num=>IntBase10@6
+        EndAssign)
+        (BeginAssign
+            Ident=>LowerIdent@7
+            InlineAssign=>OpAssign@8
+            Num=>IntBase10@9
+        EndAssign)
+        HintExpr
+        Num=>IntBase10@10
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Record([Ident("x"), Ident("y")]), IntBase10("5"))
+Assign(Ident("y"), IntBase10("6"))
+IntBase10("42")
+
+[=== formatted below ===]
+

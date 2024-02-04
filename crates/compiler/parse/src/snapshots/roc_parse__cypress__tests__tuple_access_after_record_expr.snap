@@ -8,9 +8,11 @@ description: "{ a: (1, 2) }.a.0\n"
         (*
             (*
                 (BeginRecord
-                    Ident=>LowerIdent@1
-                    InlineColon=>OpColon@2
-                    (BeginParens Num=>IntBase10@4 Num=>IntBase10@6 EndParens)
+                    (*
+                        Ident=>LowerIdent@1
+                        InlineColon=>OpColon@2
+                        (BeginParens Num=>IntBase10@4 Num=>IntBase10@6 EndParens)
+                    EndRecordFieldPair)
                 EndRecord)
                 DotIdent=>NoSpaceDotLowerIdent@9
             EndFieldAccess)
@@ -20,7 +22,7 @@ description: "{ a: (1, 2) }.a.0\n"
 EndFile)
 
 [=== canfmt below ===]
-TupleAccess(RecordAccess(Record([("a", Tuple([IntBase10("1"), IntBase10("2")]))]), ".a"), ".0")
+TupleAccess(RecordAccess(Record([RecordFieldPair("a", Tuple([IntBase10("1"), IntBase10("2")]))]), ".a"), ".0")
 
 [=== formatted below ===]
 

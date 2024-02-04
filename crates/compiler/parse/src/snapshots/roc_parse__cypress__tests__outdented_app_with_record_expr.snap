@@ -15,9 +15,11 @@ description: "x = foo (baz {\n  bar: blah\n})\nx\n\n"
                         Ident=>LowerIdent@4
                         InlineApply=>LowerIdent@4
                         (BeginRecord
-                            Ident=>LowerIdent@6
-                            InlineColon=>OpColon@7
-                            Ident=>LowerIdent@8
+                            (*
+                                Ident=>LowerIdent@6
+                                InlineColon=>OpColon@7
+                                Ident=>LowerIdent@8
+                            EndRecordFieldPair)
                         EndRecord)
                     EndApply)
                 EndParens)
@@ -29,7 +31,7 @@ description: "x = foo (baz {\n  bar: blah\n})\nx\n\n"
 EndFile)
 
 [=== canfmt below ===]
-Assign(Ident("x"), Apply(Ident("foo"), [Apply(Ident("baz"), [Record([("bar", Ident("blah"))])])]))
+Assign(Ident("x"), Apply(Ident("foo"), [Apply(Ident("baz"), [Record([RecordFieldPair("bar", Ident("blah"))])])]))
 Ident("x")
 
 [=== formatted below ===]

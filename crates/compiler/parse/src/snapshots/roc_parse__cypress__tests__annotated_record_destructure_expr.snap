@@ -1,0 +1,39 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "{ x, y } : Foo\n{ x, y } = { x : \"foo\", y : 3.14 }\n\nx\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            (BeginRecord Ident=>LowerIdent@1 Ident=>LowerIdent@3 EndRecord)
+            InlineTypeColon=>OpColon@5
+            TypeName=>UpperIdent@6
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            (BeginRecord Ident=>LowerIdent@8 Ident=>LowerIdent@10 EndRecord)
+            InlineAssign=>OpAssign@12
+            (BeginRecord
+                (*
+                    Ident=>LowerIdent@14
+                    InlineColon=>OpColon@15
+                    String=>String@16
+                EndRecordFieldPair)
+                (*
+                    Ident=>LowerIdent@18
+                    InlineColon=>OpColon@19
+                    Float=>Float@20
+                EndRecordFieldPair)
+            EndRecord)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@22
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Record([Ident("x"), Ident("y")]), Name("Foo"))
+Assign(Record([Ident("x"), Ident("y")]), Record([RecordFieldPair("x", String("\"foo\"")), RecordFieldPair("y", Float("3.14"))]))
+Ident("x")
+
+[=== formatted below ===]
+

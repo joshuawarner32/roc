@@ -336,6 +336,7 @@ pub enum N {
     BeginPatternParens,
     EndPatternRecord,
     BeginPatternRecord,
+    EndRecordFieldPair,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -492,6 +493,7 @@ impl N {
             | N::EndTypeAs
             | N::EndPatternAs
             | N::EndWhereClause
+            | N::EndRecordFieldPair
             | N::EndTypeApply => NodeIndexKind::EndOnly,
             N::DotModuleLowerIdent | N::DotModuleUpperIdent => NodeIndexKind::EndSingleToken,
             N::Float | N::SingleQuote | N::Underscore | N::TypeWildcard | N::Crash | N::Dbg
@@ -1583,6 +1585,7 @@ impl State {
             Some(
                 T::LowerIdent
                 | T::UpperIdent
+                | T::Underscore
                 | T::OpenCurly
                 | T::IntBase10
                 | T::IntNonBase10
@@ -2761,10 +2764,22 @@ impl State {
         }
     }
 
-    fn pump_continue_record(&mut self, subtree_start: u32, cfg: ExprCfg, start: bool) {
+    fn pump_continue_record(&mut self, subtree_start: u32, cfg: ExprCfg, mut start: bool) {
         // TODO: allow { existingRecord & foo: bar } syntax
+        loop {
+            if !start {
+                if self.consume_end(T::CloseCurly) {
+                    self.push_node(N::EndRecord, Some(subtree_start));
+                    self.update_end(N::BeginRecord, subtree_start);
+                    self.handle_field_access_suffix(subtree_start);
+                    return;
+                }
 
-        if !start {
+                self.expect(T::Comma);
+            }
+
+            start = false;
+
             if self.consume_end(T::CloseCurly) {
                 self.push_node(N::EndRecord, Some(subtree_start));
                 self.update_end(N::BeginRecord, subtree_start);
@@ -2772,22 +2787,17 @@ impl State {
                 return;
             }
 
-            self.expect(T::Comma);
+            let field_subtree_start = self.tree.len();
+
+            self.expect_lower_ident_and_push_node();
+
+            if self.consume_and_push_node(T::OpColon, N::InlineColon) {
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueRecord { start });
+                self.push_next_frame(field_subtree_start, cfg, Frame::PushEndOnly(N::EndRecordFieldPair));
+                self.start_expr(cfg.disable_multi_backpassing());
+                return;
+            }
         }
-
-        if self.consume_end(T::CloseCurly) {
-            self.push_node(N::EndRecord, Some(subtree_start));
-            self.update_end(N::BeginRecord, subtree_start);
-            self.handle_field_access_suffix(subtree_start);
-            return;
-        }
-
-        self.expect_lower_ident_and_push_node();
-
-        self.expect_and_push_node(T::OpColon, N::InlineColon);
-
-        self.push_next_frame(subtree_start, cfg, Frame::ContinueRecord { start: false });
-        self.start_expr(cfg.disable_multi_backpassing());
     }
 
     fn pump_continue_pattern_record(&mut self, subtree_start: u32, cfg: ExprCfg, mut start: bool) {
@@ -3769,7 +3779,7 @@ mod canfmt {
         If(&'a [(&'a Expr<'a>, &'a Expr<'a>)], &'a Expr<'a>),
         When(&'a Expr<'a>, &'a [Expr<'a>]),
         Block(&'a [Expr<'a>]),
-        Record(&'a [(&'a str, &'a Expr<'a>)]),
+        Record(&'a [Expr<'a>]),
         RecordAccess(&'a Expr<'a>, &'a str),
         TupleAccess(&'a Expr<'a>, &'a str),
         ModuleLowerName(&'a str, &'a str),
@@ -3785,6 +3795,7 @@ mod canfmt {
         Dbg(&'a Expr<'a>),
         Expect(&'a Expr<'a>),
         ExpectFx(&'a Expr<'a>),
+        RecordFieldPair(&'a str, &'a Expr<'a>),
 
         PatternList(&'a [Expr<'a>]),
         PatternRecord(&'a [(&'a str, &'a Expr<'a>)]),
@@ -4215,19 +4226,19 @@ mod canfmt {
                     panic!("should already be handled via earlier build_type call");
                 }
                 N::EndRecord => {
+                    let values = stack.drain_to_index(index);
+                    let args = bump.alloc_slice_fill_iter(values);
+                    stack.push(i, Expr::Record(args));
+                }
+                N::EndRecordFieldPair => {
                     let mut values = stack.drain_to_index(index);
-                    let mut pairs: Vec<(&'a str, &'a Expr<'a>)> = Vec::new_in(bump);
-                    loop {
-                        let name = match values.next() {
-                            Some(Expr::Ident(name)) => name,
-                            None => break,
-                            _ => panic!("Expected ident"),
-                        };
-                        let value = values.next().unwrap();
-                        pairs.push((name, bump.alloc(value)));
-                    }
+                    let name = match values.next().unwrap() {
+                        Expr::Ident(name) => name,
+                        _ => panic!("Expected ident"),
+                    };
+                    let value = values.next().unwrap();
                     drop(values);
-                    stack.push(i, Expr::Record(pairs.into_bump_slice()));
+                    stack.push(i, Expr::RecordFieldPair(name, bump.alloc(value)));
                 }
                 N::PatternAny => stack.push(i, Expr::PatternAny),
                 N::PatternDoubleDot => stack.push(i, Expr::PatternDoubleDot),

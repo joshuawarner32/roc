@@ -9,14 +9,18 @@ description: "({ a: 0 }, { b: 1 }).0.a\n"
             (*
                 (BeginParens
                     (BeginRecord
-                        Ident=>LowerIdent@2
-                        InlineColon=>OpColon@3
-                        Num=>IntBase10@4
+                        (*
+                            Ident=>LowerIdent@2
+                            InlineColon=>OpColon@3
+                            Num=>IntBase10@4
+                        EndRecordFieldPair)
                     EndRecord)
                     (BeginRecord
-                        Ident=>LowerIdent@8
-                        InlineColon=>OpColon@9
-                        Num=>IntBase10@10
+                        (*
+                            Ident=>LowerIdent@8
+                            InlineColon=>OpColon@9
+                            Num=>IntBase10@10
+                        EndRecordFieldPair)
                     EndRecord)
                 EndParens)
                 DotNumber=>NoSpaceDotNumber@13
@@ -27,7 +31,7 @@ description: "({ a: 0 }, { b: 1 }).0.a\n"
 EndFile)
 
 [=== canfmt below ===]
-RecordAccess(TupleAccess(Tuple([Record([("a", IntBase10("0"))]), Record([("b", IntBase10("1"))])]), ".0"), ".a")
+RecordAccess(TupleAccess(Tuple([Record([RecordFieldPair("a", IntBase10("0"))]), Record([RecordFieldPair("b", IntBase10("1"))])]), ".0"), ".a")
 
 [=== formatted below ===]
 
