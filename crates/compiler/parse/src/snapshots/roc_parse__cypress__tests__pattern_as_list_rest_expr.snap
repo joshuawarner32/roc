@@ -1,0 +1,25 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when myList is\n    [first, .. as rest] -> 0\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            (BeginPatternList
+                Ident=>LowerIdent@4
+                (* PatternDoubleDot=>DoubleDot@6 Ident=>LowerIdent@8 EndPatternAs)
+            EndPatternList)
+            InlineWhenArrow=>OpArrow@10
+            Num=>IntBase10@11
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Ident("myList"), [PatternList([Ident("first"), PatternAs(PatternDoubleDot, "rest")]), IntBase10("0")])
+
+[=== formatted below ===]
+

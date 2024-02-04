@@ -1,0 +1,22 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "when 0 is\n    _ as n -> n\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Num=>IntBase10@1
+            InlineKwIs=>KwIs@2
+            (* Underscore=>Underscore@3 Ident=>LowerIdent@5 EndPatternAs)
+            InlineWhenArrow=>OpArrow@6
+            Ident=>LowerIdent@7
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(IntBase10("0"), [PatternAs(Underscore("_"), "n"), Ident("n")])
+
+[=== formatted below ===]
+

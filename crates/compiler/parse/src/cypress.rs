@@ -243,9 +243,12 @@ pub enum N {
     InlineKwElse,
     EndIf,
 
-    /// As expression, e.g. `x as y`
+    /// As type, e.g. `List Foo a as a`
     InlineKwAs,
     EndTypeAs,
+
+    /// As pattern, e.g. `when a is x as y`
+    EndPatternAs,
 
     /// A when expression, e.g. `when x is y -> z` (you need a newline after the 'is')
     BeginWhen,
@@ -487,6 +490,7 @@ impl N {
             | N::EndFieldAccess
             | N::EndIndexAccess
             | N::EndTypeAs
+            | N::EndPatternAs
             | N::EndWhereClause
             | N::EndTypeApply => NodeIndexKind::EndOnly,
             N::DotModuleLowerIdent | N::DotModuleUpperIdent => NodeIndexKind::EndSingleToken,
@@ -561,6 +565,7 @@ pub enum BinOp {
     DefineOtherTypeThing,
     MultiBackpassingComma,
     Implements,
+    As,
 }
 
 impl Prec {
@@ -596,6 +601,7 @@ impl BinOp {
             BinOp::DeclSeq => Prec::DeclSeq,
             BinOp::AssignBlock
             | BinOp::Assign
+            | BinOp::As // is this right?
             | BinOp::DefineTypeOrTypeAlias
             | BinOp::DefineOtherTypeThing
             | BinOp::Backpassing
@@ -621,6 +627,7 @@ impl BinOp {
             BinOp::AssignBlock => Assoc::Right,
             BinOp::DeclSeq => Assoc::Right,
             BinOp::Assign
+            | BinOp::As // is this right?
             | BinOp::Backpassing
             | BinOp::DefineTypeOrTypeAlias
             | BinOp::DefineOtherTypeThing
@@ -660,6 +667,7 @@ impl BinOp {
         match self {
             BinOp::AssignBlock => todo!(),
             BinOp::DeclSeq => todo!(),
+            BinOp::As => N::InlineKwAs,
             BinOp::Assign => N::InlineAssign,
             BinOp::Implements => N::InlineKwImplements,
             BinOp::DefineTypeOrTypeAlias => N::InlineTypeColon,
@@ -712,6 +720,7 @@ impl From<BinOp> for N {
             BinOp::Or => N::EndBinOpOr,
             BinOp::Equals => N::EndBinOpEquals,
             BinOp::NotEquals => N::EndBinOpNotEquals,
+            BinOp::As => N::EndPatternAs,
             _ => todo!("binop to node {:?}", op),
         }
     }
@@ -1601,10 +1610,18 @@ impl State {
     }
 
     fn pump_continue_pattern(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        // TODO: only allow calls / application in patterns (remove this generic op stuff)
-        if self.at_pattern_continue(cfg) {
-            self.push_next_frame(subtree_start, cfg, Frame::ContinuePattern);
-            self.push_next_frame_starting_here(cfg, Frame::StartPattern);
+        loop {
+            if self.consume(T::KwAs) {
+                self.expect_and_push_node(T::LowerIdent, N::Ident);
+                self.push_node(N::EndPatternAs, Some(subtree_start));
+                continue;
+            }
+
+            // TODO: only allow calls / application in patterns (remove this generic op stuff)
+            if self.at_pattern_continue(cfg) {
+                self.push_next_frame(subtree_start, cfg, Frame::ContinuePattern);
+                self.push_next_frame_starting_here(cfg, Frame::StartPattern);
+            }
             return;
         }
     }
@@ -1783,6 +1800,7 @@ impl State {
             Some(T::OpAnd) => (BinOp::And, 1),
             Some(T::OpOr) => (BinOp::Or, 1),
             Some(T::Comma) if cfg.allow_multi_backpassing => (BinOp::MultiBackpassingComma, 1),
+            Some(T::KwAs) => (BinOp::As, 1),
             _ => return None,
         };
 
@@ -3769,6 +3787,7 @@ mod canfmt {
 
         PatternList(&'a [Expr<'a>]),
         PatternRecord(&'a [(&'a str, &'a Expr<'a>)]),
+        PatternAs(&'a Expr<'a>, &'a str),
         PatternAny,
         PatternDoubleDot,
     }
@@ -4248,6 +4267,16 @@ mod canfmt {
                         let args = bump.alloc_slice_fill_iter(values);
                         stack.push(i, Expr::Tuple(args));
                     }
+                }
+                N::EndPatternAs => {
+                    let mut values = stack.drain_to_index(index);
+                    let pat = values.next().unwrap();
+                    let name = match values.next().unwrap() {
+                        Expr::Ident(name) => name,
+                        _ => panic!("Expected ident"),
+                    };
+                    drop(values);
+                    stack.push(i, Expr::PatternAs(bump.alloc(pat), bump.alloc(name)));
                 }
                 N::EndBlock => {
                     let values = bump.alloc_slice_fill_iter(stack.drain_to_index(index));
