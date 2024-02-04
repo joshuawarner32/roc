@@ -3773,6 +3773,7 @@ mod canfmt {
         RecordAccess(&'a Expr<'a>, &'a str),
         TupleAccess(&'a Expr<'a>, &'a str),
         ModuleLowerName(&'a str, &'a str),
+        ModuleUpperName(&'a str, &'a str),
         Tuple(&'a [Expr<'a>]),
         List(&'a [Expr<'a>]),
 
@@ -4076,6 +4077,10 @@ mod canfmt {
                         w.next();
                         // if the next node is also a module name, then this is a module name
                         stack.push(i, Expr::ModuleLowerName(ctx.text(index), ctx.text(index2)));
+                    } else if let Some((N::DotModuleUpperIdent, _, index2)) = w.cur_index() {
+                        w.next();
+                        // if the next node is also a module name, then this is a module name
+                        stack.push(i, Expr::ModuleUpperName(ctx.text(index), ctx.text(index2)));
                     } else {
                         // otherwise it's a type name
                         // stack.push(i, Expr::TypeName(ctx.text(index)));

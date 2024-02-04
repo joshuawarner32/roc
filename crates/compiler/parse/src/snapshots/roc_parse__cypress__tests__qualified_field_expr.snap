@@ -2,25 +2,27 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "One.Two.rec.abc.def.ghi\n"
 ---
-(BeginTopLevelDecls
-    HintExpr
-    (*
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
         (*
             (*
                 (*
-                    (* UpperIdent=>UpperIdent@0 DotIdent=>NoSpaceDotIdent@1 EndFieldAccess)
-                    DotIdent=>NoSpaceDotIdent@2
+                    (*
+                        (* ModuleName=>UpperIdent@0 DotModuleUpperIdent)
+                        DotIdent=>NoSpaceDotLowerIdent@2
+                    EndFieldAccess)
+                    DotIdent=>NoSpaceDotLowerIdent@3
                 EndFieldAccess)
-                DotIdent=>NoSpaceDotIdent@3
+                DotIdent=>NoSpaceDotLowerIdent@4
             EndFieldAccess)
-            DotIdent=>NoSpaceDotIdent@4
+            DotIdent=>NoSpaceDotLowerIdent@5
         EndFieldAccess)
-        DotIdent=>NoSpaceDotIdent@5
-    EndFieldAccess)
-EndTopLevelDecls)
+    EndTopLevelDecls)
+EndFile)
 
 [=== canfmt below ===]
-RecordAccess(RecordAccess(RecordAccess(RecordAccess(RecordAccess(UpperIdent("One"), ".Two"), ".rec"), ".abc"), ".def"), ".ghi")
+RecordAccess(RecordAccess(RecordAccess(RecordAccess(ModuleUpperName("One", ".Two"), ".rec"), ".abc"), ".def"), ".ghi")
 
 [=== formatted below ===]
 

@@ -1,0 +1,24 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "(One.Two.rec).field\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (*
+            (BeginParens
+                (*
+                    (* ModuleName=>UpperIdent@1 DotModuleUpperIdent)
+                    DotIdent=>NoSpaceDotLowerIdent@3
+                EndFieldAccess)
+            EndParens)
+            DotIdent=>NoSpaceDotLowerIdent@5
+        EndFieldAccess)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+RecordAccess(RecordAccess(ModuleUpperName("One", ".Two"), ".rec"), ".field")
+
+[=== formatted below ===]
+
