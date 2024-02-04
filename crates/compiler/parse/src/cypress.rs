@@ -755,10 +755,12 @@ enum Frame {
     FinishBlockItem,
     StartType {
         allow_clauses: bool,
+        allow_commas: bool,
     },
     ContinueType {
         in_apply: Option<bool>,
         allow_clauses: bool,
+        allow_commas: bool,
     },
     ContinueTypeCommaSep {
         allow_clauses: bool,
@@ -1225,13 +1227,14 @@ impl State {
             Frame::ContinueLambdaArgs => self.pump_continue_lambda_args(subtree_start, cfg),
             Frame::ContinueIf { next } => self.pump_continue_if(subtree_start, cfg, next),
             Frame::ContinueWhen { next } => self.pump_continue_when(subtree_start, cfg, next),
-            Frame::StartType { allow_clauses } => {
-                self.pump_start_type(subtree_start, cfg, allow_clauses)
+            Frame::StartType { allow_clauses, allow_commas } => {
+                self.pump_start_type(subtree_start, cfg, allow_clauses, allow_commas)
             }
             Frame::ContinueType {
                 in_apply,
                 allow_clauses,
-            } => self.pump_continue_type(subtree_start, cfg, in_apply, allow_clauses),
+                allow_commas,
+            } => self.pump_continue_type(subtree_start, cfg, in_apply, allow_clauses, allow_commas),
             Frame::ContinueTypeCommaSep { allow_clauses } => {
                 self.pump_continue_type_comma_sep(subtree_start, cfg, allow_clauses)
             }
@@ -1701,13 +1704,13 @@ impl State {
                 }
                 BinOp::DefineTypeOrTypeAlias => {
                     self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-                    self.start_type(cfg, true);
+                    self.start_type(cfg, true, true);
                     return;
                 }
                 BinOp::DefineOtherTypeThing => {
                     // TODO: is this correct????
                     self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-                    self.start_type(cfg, true);
+                    self.start_type(cfg, true, true);
                     return;
                 }
                 BinOp::Implements => {
@@ -1815,7 +1818,7 @@ impl State {
         Some(op)
     }
 
-    fn pump_start_type(&mut self, subtree_start: u32, cfg: ExprCfg, allow_clauses: bool) {
+    fn pump_start_type(&mut self, subtree_start: u32, cfg: ExprCfg, allow_clauses: bool, allow_commas: bool) {
         loop {
             match self.cur() {
                 Some(T::OpenRound) => {
@@ -1826,6 +1829,7 @@ impl State {
                         Frame::ContinueType {
                             in_apply: None,
                             allow_clauses,
+                            allow_commas,
                         },
                     );
                     self.push_node(N::BeginParens, None);
@@ -1840,6 +1844,7 @@ impl State {
                         Frame::ContinueType {
                             in_apply: None,
                             allow_clauses,
+                            allow_commas,
                         },
                     );
                     self.start_tag_union(subtree_start, cfg);
@@ -1853,6 +1858,7 @@ impl State {
                         Frame::ContinueType {
                             in_apply: None,
                             allow_clauses,
+                            allow_commas,
                         },
                     );
                     self.start_type_record(cfg);
@@ -1868,6 +1874,7 @@ impl State {
                         Frame::ContinueType {
                             in_apply: None,
                             allow_clauses,
+                            allow_commas,
                         },
                     );
                     return;
@@ -1882,6 +1889,7 @@ impl State {
                         Frame::ContinueType {
                             in_apply: None,
                             allow_clauses,
+                            allow_commas,
                         },
                     );
                     return;
@@ -1896,6 +1904,7 @@ impl State {
                         Frame::ContinueType {
                             in_apply: None,
                             allow_clauses,
+                            allow_commas,
                         },
                     );
                     return;
@@ -1918,6 +1927,7 @@ impl State {
                         Frame::ContinueType {
                             in_apply: Some(false),
                             allow_clauses,
+                            allow_commas,
                         },
                     );
                     return;
@@ -1933,6 +1943,7 @@ impl State {
                         Frame::ContinueType {
                             in_apply: None,
                             allow_clauses,
+                            allow_commas,
                         },
                     );
                     return;
@@ -1988,10 +1999,11 @@ impl State {
         cfg: ExprCfg,
         in_apply: Option<bool>,
         allow_clauses: bool,
+        allow_commas: bool,
     ) {
         match self.cur() {
-            Some(T::Comma) => {
-                if (dbg!(self.peek_at(1)) != Some(T::LowerIdent) || dbg!(self.peek_at(2)) != Some(T::OpColon)) && dbg!(self.peek_at(1)) != Some(T::CloseCurly) {
+            Some(T::Comma) if allow_commas => {
+                if (self.peek_at(1) != Some(T::LowerIdent) || self.peek_at(2) != Some(T::OpColon)) && self.peek_at(1) != Some(T::CloseCurly) {
                     self.bump();
                     if in_apply == Some(true) {
                         self.push_node(N::EndTypeApply, Some(subtree_start));
@@ -2001,7 +2013,7 @@ impl State {
                         cfg,
                         Frame::ContinueTypeCommaSep { allow_clauses },
                     );
-                    self.start_type(cfg, false);
+                    self.start_type(cfg, false, false);
                     return;
                 }
 
@@ -2022,10 +2034,11 @@ impl State {
                     Frame::ContinueType {
                         in_apply,
                         allow_clauses,
+                        allow_commas,
                     },
                 );
                 self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
-                self.start_type(cfg, false);
+                self.start_type(cfg, false, false);
                 return;
             }
             Some(T::KwWhere) if allow_clauses => {
@@ -2038,7 +2051,7 @@ impl State {
 
                     self.push_node(N::InlineKwWhere, Some(self.pos as u32 - 1));
                     self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
-                    self.start_type(cfg, false);
+                    self.start_type(cfg, false, false);
                     return;
                 }
             }
@@ -2056,10 +2069,11 @@ impl State {
                     Frame::ContinueType {
                         in_apply: None,
                         allow_clauses,
+                        allow_commas,
                     },
                 );
                 self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndTypeAs));
-                self.start_type(cfg, false);
+                self.start_type(cfg, false, false);
             }
             // TODO: check for other things that can start an expr
             Some(T::LowerIdent | T::UpperIdent | T::OpenCurly | T::OpenSquare | T::OpenRound | T::Underscore)
@@ -2087,9 +2101,10 @@ impl State {
                     Frame::ContinueType {
                         in_apply: Some(true),
                         allow_clauses,
+                        allow_commas,
                     },
                 );
-                self.start_type(cfg, false);
+                self.start_type(cfg, false, false);
             }
             _ => {
                 if in_apply == Some(true) {
@@ -2107,19 +2122,21 @@ impl State {
     ) {
         match self.cur() {
             Some(T::Comma) => {
-                self.bump();
-                self.push_next_frame(
-                    subtree_start,
-                    cfg,
-                    Frame::ContinueTypeCommaSep { allow_clauses },
-                );
-                self.start_type(cfg, false);
+                if (self.peek_at(1) != Some(T::LowerIdent) || self.peek_at(2) != Some(T::OpColon)) && self.peek_at(1) != Some(T::CloseCurly) {
+                    self.bump();
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueTypeCommaSep { allow_clauses },
+                    );
+                    self.start_type(cfg, false, false);
+                }
             }
             Some(T::OpArrow) => {
                 self.bump();
                 self.push_node(N::InlineLambdaArrow, Some(self.pos as u32 - 1));
                 self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
-                self.start_type(cfg, false);
+                self.start_type(cfg, false, false);
             }
 
             // TODO: if there isn't an outer square/round/curly and we don't eventually get the arrow,
@@ -2143,7 +2160,7 @@ impl State {
         self.push_node(N::EndWhereClause, Some(subtree_start));
         if self.consume(T::Comma) {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
-            self.start_type(cfg, false);
+            self.start_type(cfg, false, false);
         }
     }
 
@@ -2495,7 +2512,7 @@ impl State {
                         s.expect_and_push_node(T::LowerIdent, N::Ident); // TODO: correct node type
                         s.expect(T::OpColon);
                         let subtree_start = s.tree.len();
-                        s.force_pump_single_frame(subtree_start, ExprCfg::default(), Frame::StartType { allow_clauses: false });
+                        s.force_pump_single_frame(subtree_start, ExprCfg::default(), Frame::StartType { allow_clauses: false, allow_commas: true });
                     },
                 );
                 self.expect(T::KwExposes);
@@ -2742,8 +2759,8 @@ impl State {
         self.start_block_item(cfg);
     }
 
-    fn start_type(&mut self, cfg: ExprCfg, allow_clauses: bool) {
-        self.push_next_frame_starting_here(cfg, Frame::StartType { allow_clauses });
+    fn start_type(&mut self, cfg: ExprCfg, allow_clauses: bool, allow_commas: bool) {
+        self.push_next_frame_starting_here(cfg, Frame::StartType { allow_clauses, allow_commas });
     }
 
     fn assert_end(&self) {
@@ -2861,7 +2878,7 @@ impl State {
     fn pump_continue_type_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::Comma) {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
-            self.start_type(cfg, false);
+            self.start_type(cfg, false, true);
         } else {
             self.expect(T::CloseRound);
             self.push_node_end(N::BeginParens, N::EndParens, subtree_start);
@@ -2960,7 +2977,7 @@ impl State {
             return;
         }
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTagUnionArgs);
-        self.start_type(cfg, false);
+        self.start_type(cfg, false, true);
     }
 
     fn pump_continue_implements_method_decl(&mut self, subtree_start: u32, cfg: ExprCfg) {
@@ -2979,7 +2996,7 @@ impl State {
             self.expect_and_push_node(T::LowerIdent, N::Ident);
             self.expect(T::OpColon); // TODO: need to add a node?
             self.push_next_frame(subtree_start, cfg, Frame::ContinueImplementsMethodDecl);
-            self.start_type(cfg, false);
+            self.start_type(cfg, false, true);
         } else {
             self.push_node(N::EndImplements, Some(subtree_start));
         }
@@ -3002,7 +3019,7 @@ impl State {
         self.expect(T::OpColon); // TODO: need to add a node?
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeRecord);
-        self.start_type(cfg, false);
+        self.start_type(cfg, false, true);
     }
 
     fn consume_end_type_record(&mut self, subtree_start: u32, cfg: ExprCfg) -> bool {
@@ -3034,13 +3051,13 @@ impl State {
         self.expect(T::OpColon); // TODO: need to add a node?
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeRecord);
-        self.start_type(cfg, false);
+        self.start_type(cfg, false, true);
     }
 
     fn maybe_start_type_adendum(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::NoSpace) {
             self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndTypeAdendum));
-            self.start_type(cfg, false);
+            self.start_type(cfg, false, false);
         }
     }
 
@@ -3944,12 +3961,15 @@ mod canfmt {
                 }
                 N::EndTypeRecord => {
                     let mut values = stack.drain_to_index(index);
+                    let values = values.collect::<std::vec::Vec<_>>();
+                    dbg!(&values);
+                    let mut values = values.into_iter();
                     let mut pairs: Vec<(&'a str, &'a Type<'a>)> = Vec::new_in(bump);
                     loop {
                         let name = match values.next() {
                             Some(Type::Name(name)) => name,
                             None => break,
-                            _ => panic!("Expected name"),
+                            name => panic!("Expected name, got {:?}", name),
                         };
                         let value = values.next().unwrap();
                         pairs.push((name, bump.alloc(value)));
