@@ -464,7 +464,7 @@ impl<'a> Tokenizer<'a> {
 
     fn maybe_add_nospace(&mut self) {
         match self.cursor.peek() {
-            None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#' | b',' | b']' | b'}' | b')' | b'-' | b'.') => {}
+            None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#' | b',' | b']' | b'}' | b')' | b'-' | b'.' | b':') => {}
             _ => {
                 self.output.push_token(T::NoSpace, self.cursor.offset, 0);
             }
