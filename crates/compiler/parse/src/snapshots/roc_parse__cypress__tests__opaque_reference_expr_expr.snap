@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "@Age\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls HintExpr OpaqueName=>OpaqueName@0 EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+OpaqueName("@Age")
+
+[=== formatted below ===]
+

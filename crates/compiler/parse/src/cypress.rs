@@ -144,6 +144,9 @@ pub enum N {
     /// An underscore, e.g. `_` or `_x`
     Underscore,
 
+    /// An opaque type/tag name, e.g. @Foo
+    OpaqueName,
+
     TupleAccessFunction,
     FieldAccessFunction,
 
@@ -494,7 +497,7 @@ impl N {
             | N::EndTypeApply => NodeIndexKind::EndOnly,
             N::DotModuleLowerIdent | N::DotModuleUpperIdent => NodeIndexKind::EndSingleToken,
             N::Float | N::SingleQuote | N::Underscore | N::TypeWildcard | N::Crash | N::Dbg
-            | N::PatternAny | N::PatternDoubleDot => {
+            | N::PatternAny | N::PatternDoubleDot | N::OpaqueName => {
                 NodeIndexKind::Token
             }
         }
@@ -1318,6 +1321,7 @@ impl State {
                 Some(T::Float) => atom!(N::Float),
                 Some(T::DotNumber) => atom!(N::TupleAccessFunction),
                 Some(T::DotLowerIdent) => atom!(N::FieldAccessFunction),
+                Some(T::OpaqueName) => atom!(N::OpaqueName),
 
                 Some(T::UpperIdent) => {
                     self.bump();
@@ -2254,6 +2258,7 @@ impl State {
             N::Ident
             | N::UpperIdent
             | N::Underscore
+            | N::OpaqueName
             | N::Num
             | N::Crash
             | N::String
@@ -3810,6 +3815,7 @@ mod canfmt {
     pub enum Expr<'a> {
         Crash,
         Ident(&'a str),
+        OpaqueName(&'a str),
         Underscore(&'a str),
         UpperIdent(&'a str),
         IntBase10(&'a str),
@@ -4125,6 +4131,7 @@ mod canfmt {
 
             match node {
                 N::Ident => stack.push(i, Expr::Ident(ctx.text(index))),
+                N::OpaqueName => stack.push(i, Expr::OpaqueName(ctx.text(index))),
                 N::DotNumber => stack.push(i, Expr::DotNumber(ctx.text(index))),
                 N::Crash => stack.push(i, Expr::Crash),
                 N::Underscore => stack.push(i, Expr::Underscore(ctx.text(index))),
