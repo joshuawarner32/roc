@@ -63,9 +63,11 @@ description: "_ = crash \"\"\n_ = crash \"\" \"\"\n_ = crash 15 123\n_ = try foo
         EndAssign)
         HintExpr
         (BeginRecord
-            Ident=>LowerIdent@33
-            InlineColon=>OpColon@34
-            (* Crash=>KwCrash@35 InlineApply=>KwCrash@35 String=>String@36 EndApply)
+            (*
+                Ident=>LowerIdent@33
+                InlineColon=>OpColon@34
+                (* Crash=>KwCrash@35 InlineApply=>KwCrash@35 String=>String@36 EndApply)
+            EndRecordFieldPair)
         EndRecord)
     EndTopLevelDecls)
 EndFile)
@@ -76,7 +78,7 @@ Assign(Underscore("_"), Apply(Crash, [String("\"\""), String("\"\"")]))
 Assign(Underscore("_"), Apply(Crash, [IntBase10("15"), IntBase10("123")]))
 Assign(Underscore("_"), Apply(Ident("try"), [Ident("foo"), Lambda([Underscore("_")], Apply(Crash, [String("\"\"")]))]))
 Assign(Underscore("_"), Block([Assign(Underscore("_"), Apply(Crash, [String("\"\"")])), Crash]))
-Record([("f", Apply(Crash, [String("\"\"")]))])
+Record([RecordFieldPair("f", Apply(Crash, [String("\"\"")]))])
 
 [=== formatted below ===]
 

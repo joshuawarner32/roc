@@ -13,9 +13,11 @@ description: "where : { where : I32 }\nwhere = { where: 1 }\n\nwhere.where\n"
             Ident=>KwWhere@7
             InlineAssign=>OpAssign@8
             (BeginRecord
-                Ident=>KwWhere@10
-                InlineColon=>OpColon@11
-                Num=>IntBase10@12
+                (*
+                    Ident=>KwWhere@10
+                    InlineColon=>OpColon@11
+                    Num=>IntBase10@12
+                EndRecordFieldPair)
             EndRecord)
         EndAssign)
         HintExpr
@@ -25,7 +27,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Ident("where"), Record([("where", Name("I32"))]))
-Assign(Ident("where"), Record([("where", IntBase10("1"))]))
+Assign(Ident("where"), Record([RecordFieldPair("where", IntBase10("1"))]))
 RecordAccess(Ident("where"), ".where")
 
 [=== formatted below ===]

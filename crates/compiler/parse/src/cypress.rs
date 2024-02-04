@@ -144,6 +144,9 @@ pub enum N {
     /// An underscore, e.g. `_` or `_x`
     Underscore,
 
+    TupleAccessFunction,
+    FieldAccessFunction,
+
     /// The "crash" keyword
     Crash,
 
@@ -155,12 +158,6 @@ pub enum N {
 
     /// Reference to an opaque type, e.g. @Opaq
     OpaqueRef,
-
-    /// Look up exactly one field on a record or tuple, e.g. `x.foo` or `x.0`.
-    Access,
-
-    /// e.g. `.foo` or `.0`
-    AccessorFunction,
 
     /// List literals, e.g. `[1, 2, 3]`
     BeginList,
@@ -463,8 +460,8 @@ impl N {
             | N::AbilityName
             | N::Tag
             | N::OpaqueRef
-            | N::Access
-            | N::AccessorFunction => NodeIndexKind::Token,
+            | N::TupleAccessFunction
+            | N::FieldAccessFunction => NodeIndexKind::Token,
             N::Dummy | N::HintExpr => NodeIndexKind::Unused,
             N::EndApply
             | N::EndPizza
@@ -1307,6 +1304,8 @@ impl State {
                 Some(T::IntBase10) => atom!(N::Num),
                 Some(T::String) => atom!(N::String),
                 Some(T::Float) => atom!(N::Float),
+                Some(T::DotNumber) => atom!(N::TupleAccessFunction),
+                Some(T::DotLowerIdent) => atom!(N::FieldAccessFunction),
 
                 Some(T::UpperIdent) => {
                     self.bump();
@@ -3771,6 +3770,8 @@ mod canfmt {
         Float(&'a str),
         String(&'a str),
         DotNumber(&'a str),
+        TupleAccessFunction(&'a str),
+        FieldAccessFunction(&'a str),
         Apply(&'a Expr<'a>, &'a [Expr<'a>]),
         BinOp(&'a Expr<'a>, BinOp, &'a Expr<'a>),
         UnaryOp(UnaryOp, &'a Expr<'a>),
@@ -4082,6 +4083,8 @@ mod canfmt {
                 N::Float => stack.push(i, Expr::Float(ctx.text(index))),
                 N::String => stack.push(i, Expr::String(ctx.text(index))),
                 N::DotIdent => stack.push(i, Expr::Ident(ctx.text(index))),
+                N::TupleAccessFunction => stack.push(i, Expr::TupleAccessFunction(ctx.text(index))),
+                N::FieldAccessFunction => stack.push(i, Expr::FieldAccessFunction(ctx.text(index))),
                 N::ModuleName => {
                     // stack.push(i, Expr::ModuleName(ctx.text(index)))
                     if let Some((N::DotModuleLowerIdent, _, index2)) = w.cur_index() {
