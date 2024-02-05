@@ -1,0 +1,35 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "main =\n    arg1, arg2 <- f {}\n    \"Roc <3 Zig!\\n\"\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock
+                ((*
+                        BeginBackpassing
+                        Ident=>LowerIdent@2
+                        InlineMultiBackpassingComma=>Comma@3
+                        Ident=>LowerIdent@4
+                    EndMultiBackpassingArgs)
+                    InlineBackArrow=>OpBackArrow@5
+                    (*
+                        Ident=>LowerIdent@6
+                        InlineApply=>LowerIdent@6
+                        (BeginRecord EndRecord)
+                    EndApply)
+                EndBackpassing)
+                HintExpr
+                String=>String@9
+            EndBlock)
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("main"), Block([Backpassing([Ident("arg1"), Ident("arg2")], Apply(Ident("f"), [Record([])])), String("\"Roc <3 Zig!\\n\"")]))
+
+[=== formatted below ===]
+

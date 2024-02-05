@@ -4497,6 +4497,7 @@ mod canfmt {
                 | N::BeginPatternParens
                 | N::BeginPatternList
                 | N::BeginImplements
+                | N::EndMultiBackpassingArgs
                 | N::HintExpr
                 | N::InlineMultiBackpassingComma => {}
                 _ => todo!("{:?}", node),

@@ -1,0 +1,36 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "x, y <- List.map2 [] []\n\nx + y\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        ((*
+                BeginBackpassing
+                Ident=>LowerIdent@0
+                InlineMultiBackpassingComma=>Comma@1
+                Ident=>LowerIdent@2
+            EndMultiBackpassingArgs)
+            InlineBackArrow=>OpBackArrow@3
+            (*
+                (* ModuleName=>UpperIdent@4 DotModuleLowerIdent)
+                InlineApply=>NoSpaceDotLowerIdent@5
+                (BeginList EndList)
+                InlineApply=>CloseSquare@7
+                (BeginList EndList)
+            EndApply)
+        EndBackpassing)
+        (*
+            HintExpr
+            Ident=>LowerIdent@10
+            InlineBinOpPlus=>OpPlus@11
+            Ident=>LowerIdent@12
+        EndBinOpPlus)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Backpassing([Ident("x"), Ident("y")], Apply(ModuleLowerName("List", ".map2"), [List([]), List([])]))
+BinOp(Ident("x"), Plus, Ident("y"))
+
+[=== formatted below ===]
+
