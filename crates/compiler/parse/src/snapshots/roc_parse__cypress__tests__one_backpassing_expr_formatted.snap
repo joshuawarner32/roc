@@ -1,0 +1,26 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "# leading comment\nx <- \\y -> y\n\nx\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginBackpassing
+            Ident=>LowerIdent@0
+            InlineBackArrow=>OpBackArrow@1
+            (BeginLambda
+                Ident=>LowerIdent@3
+                InlineLambdaArrow=>OpArrow@4
+                Ident=>LowerIdent@5
+            EndLambda)
+        EndBackpassing)
+        HintExpr
+        Ident=>LowerIdent@6
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Backpassing([Ident("x")], Lambda([Ident("y")], Ident("y")))
+Ident("x")
+
+[=== formatted below ===]
+

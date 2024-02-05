@@ -1,0 +1,92 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "{\n  u8:   123u8,\n  u16:  123u16,\n  u32:  123u32,\n  u64:  123u64,\n  u128: 123u128,\n  i8:   123i8,\n  i16:  123i16,\n  i32:  123i32,\n  i64:  123i64,\n  i128: 123i128,\n  nat:  123nat,\n  dec:  123dec,\n  u8Neg:   -123u8,\n  u16Neg:  -123u16,\n  u32Neg:  -123u32,\n  u64Neg:  -123u64,\n  u128Neg: -123u128,\n  i8Neg:   -123i8,\n  i16Neg:  -123i16,\n  i32Neg:  -123i32,\n  i64Neg:  -123i64,\n  i128Neg: -123i128,\n  natNeg:  -123nat,\n  decNeg:  -123dec,\n  u8Bin:   0b101u8,\n  u16Bin:  0b101u16,\n  u32Bin:  0b101u32,\n  u64Bin:  0b101u64,\n  u128Bin: 0b101u128,\n  i8Bin:   0b101i8,\n  i16Bin:  0b101i16,\n  i32Bin:  0b101i32,\n  i64Bin:  0b101i64,\n  i128Bin: 0b101i128,\n  natBin:  0b101nat,\n}\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginRecord
+            (* Ident=>LowerIdent@1 InlineColon=>OpColon@2 Num=>Int@3 EndRecordFieldPair)
+            (* Ident=>LowerIdent@5 InlineColon=>OpColon@6 Num=>Int@7 EndRecordFieldPair)
+            (* Ident=>LowerIdent@9 InlineColon=>OpColon@10 Num=>Int@11 EndRecordFieldPair)
+            (* Ident=>LowerIdent@13 InlineColon=>OpColon@14 Num=>Int@15 EndRecordFieldPair)
+            (* Ident=>LowerIdent@17 InlineColon=>OpColon@18 Num=>Int@19 EndRecordFieldPair)
+            (* Ident=>LowerIdent@21 InlineColon=>OpColon@22 Num=>Int@23 EndRecordFieldPair)
+            (* Ident=>LowerIdent@25 InlineColon=>OpColon@26 Num=>Int@27 EndRecordFieldPair)
+            (* Ident=>LowerIdent@29 InlineColon=>OpColon@30 Num=>Int@31 EndRecordFieldPair)
+            (* Ident=>LowerIdent@33 InlineColon=>OpColon@34 Num=>Int@35 EndRecordFieldPair)
+            (* Ident=>LowerIdent@37 InlineColon=>OpColon@38 Num=>Int@39 EndRecordFieldPair)
+            (* Ident=>LowerIdent@41 InlineColon=>OpColon@42 Num=>Int@43 EndRecordFieldPair)
+            (* Ident=>LowerIdent@45 InlineColon=>OpColon@46 Num=>Int@47 EndRecordFieldPair)
+            (* Ident=>LowerIdent@49 InlineColon=>OpColon@50 Num=>Int@51 EndRecordFieldPair)
+            (* Ident=>LowerIdent@53 InlineColon=>OpColon@54 Num=>Int@55 EndRecordFieldPair)
+            (* Ident=>LowerIdent@57 InlineColon=>OpColon@58 Num=>Int@59 EndRecordFieldPair)
+            (* Ident=>LowerIdent@61 InlineColon=>OpColon@62 Num=>Int@63 EndRecordFieldPair)
+            (* Ident=>LowerIdent@65 InlineColon=>OpColon@66 Num=>Int@67 EndRecordFieldPair)
+            (* Ident=>LowerIdent@69 InlineColon=>OpColon@70 Num=>Int@71 EndRecordFieldPair)
+            (* Ident=>LowerIdent@73 InlineColon=>OpColon@74 Num=>Int@75 EndRecordFieldPair)
+            (* Ident=>LowerIdent@77 InlineColon=>OpColon@78 Num=>Int@79 EndRecordFieldPair)
+            (* Ident=>LowerIdent@81 InlineColon=>OpColon@82 Num=>Int@83 EndRecordFieldPair)
+            (* Ident=>LowerIdent@85 InlineColon=>OpColon@86 Num=>Int@87 EndRecordFieldPair)
+            (* Ident=>LowerIdent@89 InlineColon=>OpColon@90 Num=>Int@91 EndRecordFieldPair)
+            (* Ident=>LowerIdent@93 InlineColon=>OpColon@94 Num=>Int@95 EndRecordFieldPair)
+            (* Ident=>LowerIdent@97 InlineColon=>OpColon@98 Num=>Int@99 EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@101
+                InlineColon=>OpColon@102
+                Num=>Int@103
+            EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@105
+                InlineColon=>OpColon@106
+                Num=>Int@107
+            EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@109
+                InlineColon=>OpColon@110
+                Num=>Int@111
+            EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@113
+                InlineColon=>OpColon@114
+                Num=>Int@115
+            EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@117
+                InlineColon=>OpColon@118
+                Num=>Int@119
+            EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@121
+                InlineColon=>OpColon@122
+                Num=>Int@123
+            EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@125
+                InlineColon=>OpColon@126
+                Num=>Int@127
+            EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@129
+                InlineColon=>OpColon@130
+                Num=>Int@131
+            EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@133
+                InlineColon=>OpColon@134
+                Num=>Int@135
+            EndRecordFieldPair)
+            (*
+                Ident=>LowerIdent@137
+                InlineColon=>OpColon@138
+                Num=>Int@139
+            EndRecordFieldPair)
+        EndRecord)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Record([RecordFieldPair("u8", IntBase10("123u8")), RecordFieldPair("u16", IntBase10("123u16")), RecordFieldPair("u32", IntBase10("123u32")), RecordFieldPair("u64", IntBase10("123u64")), RecordFieldPair("u128", IntBase10("123u128")), RecordFieldPair("i8", IntBase10("123i8")), RecordFieldPair("i16", IntBase10("123i16")), RecordFieldPair("i32", IntBase10("123i32")), RecordFieldPair("i64", IntBase10("123i64")), RecordFieldPair("i128", IntBase10("123i128")), RecordFieldPair("nat", IntBase10("123nat")), RecordFieldPair("dec", IntBase10("123dec")), RecordFieldPair("u8Neg", IntBase10("-123u8")), RecordFieldPair("u16Neg", IntBase10("-123u16")), RecordFieldPair("u32Neg", IntBase10("-123u32")), RecordFieldPair("u64Neg", IntBase10("-123u64")), RecordFieldPair("u128Neg", IntBase10("-123u128")), RecordFieldPair("i8Neg", IntBase10("-123i8")), RecordFieldPair("i16Neg", IntBase10("-123i16")), RecordFieldPair("i32Neg", IntBase10("-123i32")), RecordFieldPair("i64Neg", IntBase10("-123i64")), RecordFieldPair("i128Neg", IntBase10("-123i128")), RecordFieldPair("natNeg", IntBase10("-123nat")), RecordFieldPair("decNeg", IntBase10("-123dec")), RecordFieldPair("u8Bin", IntBase10("0b101u8")), RecordFieldPair("u16Bin", IntBase10("0b101u16")), RecordFieldPair("u32Bin", IntBase10("0b101u32")), RecordFieldPair("u64Bin", IntBase10("0b101u64")), RecordFieldPair("u128Bin", IntBase10("0b101u128")), RecordFieldPair("i8Bin", IntBase10("0b101i8")), RecordFieldPair("i16Bin", IntBase10("0b101i16")), RecordFieldPair("i32Bin", IntBase10("0b101i32")), RecordFieldPair("i64Bin", IntBase10("0b101i64")), RecordFieldPair("i128Bin", IntBase10("0b101i128")), RecordFieldPair("natBin", IntBase10("0b101nat"))])
+
+[=== formatted below ===]
+

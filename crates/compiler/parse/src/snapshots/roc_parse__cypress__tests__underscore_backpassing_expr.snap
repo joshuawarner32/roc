@@ -1,0 +1,28 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "# leading comment\n_ <- (\\y -> y)\n\n4\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginBackpassing
+            Underscore=>Underscore@0
+            InlineBackArrow=>OpBackArrow@1
+            (BeginParens
+                (BeginLambda
+                    Ident=>LowerIdent@4
+                    InlineLambdaArrow=>OpArrow@5
+                    Ident=>LowerIdent@6
+                EndLambda)
+            EndParens)
+        EndBackpassing)
+        HintExpr
+        Num=>Int@8
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Backpassing([Underscore("_")], Lambda([Ident("y")], Ident("y")))
+IntBase10("4")
+
+[=== formatted below ===]
+

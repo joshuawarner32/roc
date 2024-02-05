@@ -3849,6 +3849,7 @@ mod canfmt {
 
         // Not really expressions, but considering them as such to make the formatter as error tolerant as possible
         Assign(&'a Expr<'a>, &'a Expr<'a>),
+        Backpassing(&'a [Expr<'a>], &'a Expr<'a>),
         Comment(&'a str),
         TypeAlias(&'a Expr<'a>, &'a Type<'a>),
         TypeAliasOpaque(&'a Expr<'a>, &'a Type<'a>),
@@ -4264,6 +4265,15 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::Assign(bump.alloc(name), bump.alloc(value)));
                 }
+                N::EndBackpassing => {
+                    let mut values = stack.drain_to_index(index);
+                    let name_count = values.len() - 1;
+                    let names = bump.alloc_slice_fill_iter(values.by_ref().take(name_count));
+                    let value = values.next().unwrap();
+                    assert_eq!(values.next(), None);
+                    drop(values);
+                    stack.push(i, Expr::Backpassing(names, bump.alloc(value)));
+                }
                 N::InlineTypeColon => {
                     let (ty, i, index) = build_type(bump, ctx, &mut w);
                     let mut values = stack.drain_to_index(index);
@@ -4446,6 +4456,7 @@ mod canfmt {
                 | N::InlineAssign
                 | N::InlinePizza
                 | N::InlineColon
+                | N::InlineBackArrow
                 | N::InlineBinOpPlus
                 | N::InlineBinOpStar
                 | N::InlineBinOpMinus
@@ -4466,6 +4477,7 @@ mod canfmt {
                 | N::BeginBlock
                 | N::BeginParens
                 | N::BeginRecord
+                | N::BeginBackpassing
                 | N::BeginTypeOrTypeAlias
                 | N::BeginWhen
                 | N::BeginList
