@@ -17,7 +17,7 @@ description: "doStuff : UserId -> Task Str _\n42\n"
             EndTypeLambda)
         EndTypeOrTypeAlias)
         HintExpr
-        Num=>IntBase10@7
+        Num=>Int@7
     EndTopLevelDecls)
 EndFile)
 

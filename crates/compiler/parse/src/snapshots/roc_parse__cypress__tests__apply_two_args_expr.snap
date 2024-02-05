@@ -8,9 +8,9 @@ description: "whee  12  34\n"
             HintExpr
             Ident=>LowerIdent@0
             InlineApply=>LowerIdent@0
-            Num=>IntBase10@1
-            InlineApply=>IntBase10@1
-            Num=>IntBase10@2
+            Num=>Int@1
+            InlineApply=>Int@1
+            Num=>Int@2
         EndApply)
     EndTopLevelDecls)
 EndFile)

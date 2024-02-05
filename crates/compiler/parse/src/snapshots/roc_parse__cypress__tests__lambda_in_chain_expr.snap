@@ -17,11 +17,7 @@ description: "\"a string\"\n|> Str.toUtf8\n|> List.map \\byte -> byte + 1\n|> Li
             Ident=>LowerIdent@8
             InlineLambdaArrow=>OpArrow@9
             (*
-                (*
-                    Ident=>LowerIdent@10
-                    InlineBinOpPlus=>OpPlus@11
-                    Num=>IntBase10@12
-                EndBinOpPlus)
+                (* Ident=>LowerIdent@10 InlineBinOpPlus=>OpPlus@11 Num=>Int@12 EndBinOpPlus)
                 InlinePizza=>OpPizza@13
                 (* ModuleName=>UpperIdent@14 DotModuleLowerIdent)
             EndPizza)

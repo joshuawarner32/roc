@@ -5,14 +5,10 @@ description: "expect 1 == 1\n\n4\n\n"
 (BeginFile
     (BeginTopLevelDecls
         (BeginExpect
-            (*
-                Num=>IntBase10@1
-                InlineBinOpEquals=>OpEquals@2
-                Num=>IntBase10@3
-            EndBinOpEquals)
+            (* Num=>Int@1 InlineBinOpEquals=>OpEquals@2 Num=>Int@3 EndBinOpEquals)
         EndExpect)
         HintExpr
-        Num=>IntBase10@4
+        Num=>Int@4
     EndTopLevelDecls)
 EndFile)
 

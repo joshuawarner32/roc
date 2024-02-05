@@ -11,15 +11,15 @@ description: "when x is\n \"blah\" | \"blop\" -> 1\n \"foo\" |\n  \"bar\"\n |\"b
             String=>String@3
             String=>String@5
             InlineWhenArrow=>OpArrow@6
-            Num=>IntBase10@7
+            Num=>Int@7
             String=>String@8
             String=>String@10
             String=>String@12
             InlineWhenArrow=>OpArrow@13
-            Num=>IntBase10@14
+            Num=>Int@14
             String=>String@15
             InlineWhenArrow=>OpArrow@16
-            Num=>IntBase10@17
+            Num=>Int@17
         EndWhen)
     EndTopLevelDecls)
 EndFile)

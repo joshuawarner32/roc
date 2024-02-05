@@ -19,7 +19,7 @@ description: "foo : [True, Perhaps Thing]\nfoo = True\n\n42\n"
             UpperIdent=>UpperIdent@10
         EndAssign)
         HintExpr
-        Num=>IntBase10@11
+        Num=>Int@11
     EndTopLevelDecls)
 EndFile)
 

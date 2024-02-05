@@ -22,11 +22,7 @@ description: "UserId x : [UserId I64]\n(UserId x) = UserId 42\n\nx\n"
                 EndApply)
             EndParens)
             InlineAssign=>OpAssign@11
-            (*
-                UpperIdent=>UpperIdent@12
-                InlineApply=>UpperIdent@12
-                Num=>IntBase10@13
-            EndApply)
+            (* UpperIdent=>UpperIdent@12 InlineApply=>UpperIdent@12 Num=>Int@13 EndApply)
         EndAssign)
         HintExpr
         Ident=>LowerIdent@14

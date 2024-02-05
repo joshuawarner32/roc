@@ -18,11 +18,7 @@ description: "{ x, y } : Foo\n{ x, y } = { x: \"foo\", y: 3.14 }\n\nx\n"
                     InlineColon=>OpColon@15
                     String=>String@16
                 EndRecordFieldPair)
-                (*
-                    Ident=>LowerIdent@18
-                    InlineColon=>OpColon@19
-                    Float=>Float@20
-                EndRecordFieldPair)
+                (* Ident=>LowerIdent@18 InlineColon=>OpColon@19 Num=>Int@20 EndRecordFieldPair)
             EndRecord)
         EndAssign)
         HintExpr
@@ -32,7 +28,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Record([Ident("x"), Ident("y")]), Name("Foo"))
-Assign(Record([Ident("x"), Ident("y")]), Record([RecordFieldPair("x", String("\"foo\"")), RecordFieldPair("y", Float("3.14"))]))
+Assign(Record([Ident("x"), Ident("y")]), Record([RecordFieldPair("x", String("\"foo\"")), RecordFieldPair("y", IntBase10("3.14"))]))
 Ident("x")
 
 [=== formatted below ===]

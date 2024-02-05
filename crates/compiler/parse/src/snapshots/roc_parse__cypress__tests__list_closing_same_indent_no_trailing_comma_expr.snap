@@ -7,10 +7,10 @@ description: "myList = [\n    0,\n    1\n]\n42\n\n"
         (BeginAssign
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
-            (BeginList Num=>IntBase10@3 Num=>IntBase10@5 EndList)
+            (BeginList Num=>Int@3 Num=>Int@5 EndList)
         EndAssign)
         HintExpr
-        Num=>IntBase10@7
+        Num=>Int@7
     EndTopLevelDecls)
 EndFile)
 

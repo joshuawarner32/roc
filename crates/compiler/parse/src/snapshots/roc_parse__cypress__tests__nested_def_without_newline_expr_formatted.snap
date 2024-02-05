@@ -14,7 +14,7 @@ description: "x =\n    a : n\n    4\n_\n"
                     Ident=>LowerIdent@4
                 EndTypeOrTypeAlias)
                 HintExpr
-                Num=>IntBase10@5
+                Num=>Int@5
             EndBlock)
         EndAssign)
         HintExpr

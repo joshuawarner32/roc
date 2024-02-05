@@ -13,14 +13,14 @@ description: "func = \\x -> when n is\n              0 -> 0\n42\n"
                 (BeginWhen
                     Ident=>LowerIdent@6
                     InlineKwIs=>KwIs@7
-                    Num=>IntBase10@8
+                    Num=>Int@8
                     InlineWhenArrow=>OpArrow@9
-                    Num=>IntBase10@10
+                    Num=>Int@10
                 EndWhen)
             EndLambda)
         EndAssign)
         HintExpr
-        Num=>IntBase10@11
+        Num=>Int@11
     EndTopLevelDecls)
 EndFile)
 

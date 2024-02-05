@@ -18,9 +18,9 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
             (*
                 UpperIdent=>UpperIdent@6
                 InlineApply=>UpperIdent@6
-                Num=>IntBase10@7
-                InlineApply=>IntBase10@7
-                Num=>IntBase10@8
+                Num=>Int@7
+                InlineApply=>Int@7
+                Num=>Int@8
             EndApply)
         EndAssign)
         (BeginAssign
@@ -37,9 +37,9 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
             (*
                 UpperIdent=>UpperIdent@15
                 InlineApply=>UpperIdent@15
-                Num=>IntBase10@16
-                InlineApply=>IntBase10@16
-                Num=>IntBase10@17
+                Num=>Int@16
+                InlineApply=>Int@16
+                Num=>Int@17
             EndApply)
         EndAssign)
         (BeginAssign
@@ -56,9 +56,9 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
             (*
                 UpperIdent=>UpperIdent@24
                 InlineApply=>UpperIdent@24
-                Num=>IntBase10@25
-                InlineApply=>IntBase10@25
-                Num=>IntBase10@26
+                Num=>Int@25
+                InlineApply=>Int@25
+                Num=>Int@26
             EndApply)
         EndAssign)
         (BeginAssign
@@ -67,9 +67,9 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
             (*
                 UpperIdent=>UpperIdent@29
                 InlineApply=>UpperIdent@29
-                Num=>IntBase10@30
-                InlineApply=>IntBase10@30
-                Num=>IntBase10@31
+                Num=>Int@30
+                InlineApply=>Int@30
+                Num=>Int@31
             EndApply)
         EndAssign)
         (BeginAssign
@@ -106,9 +106,9 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
                     (*
                         UpperIdent=>UpperIdent@48
                         InlineApply=>UpperIdent@48
-                        Num=>IntBase10@49
-                        InlineApply=>IntBase10@49
-                        Num=>IntBase10@50
+                        Num=>Int@49
+                        InlineApply=>Int@49
+                        Num=>Int@50
                     EndApply)
                 EndParens)
                 InlineApply=>CloseRound@51
@@ -116,15 +116,15 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
                     (*
                         UpperIdent=>UpperIdent@53
                         InlineApply=>UpperIdent@53
-                        Num=>IntBase10@54
-                        InlineApply=>IntBase10@54
-                        Num=>IntBase10@55
+                        Num=>Int@54
+                        InlineApply=>Int@54
+                        Num=>Int@55
                     EndApply)
                 EndParens)
             EndApply)
         EndAssign)
         HintExpr
-        Num=>IntBase10@57
+        Num=>Int@57
     EndTopLevelDecls)
 EndFile)
 

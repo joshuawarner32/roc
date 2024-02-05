@@ -8,7 +8,7 @@ description: "\\_ -> 42\n"
         (BeginLambda
             Underscore=>Underscore@1
             InlineLambdaArrow=>OpArrow@2
-            Num=>IntBase10@3
+            Num=>Int@3
         EndLambda)
     EndTopLevelDecls)
 EndFile)

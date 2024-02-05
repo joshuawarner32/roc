@@ -15,7 +15,7 @@ description: "a && \\x->x\n8\n"
             EndLambda)
         EndBinOpAnd)
         HintExpr
-        Num=>IntBase10@6
+        Num=>Int@6
     EndTopLevelDecls)
 EndFile)
 

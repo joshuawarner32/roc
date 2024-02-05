@@ -12,14 +12,14 @@ description: "x =\n    when n is\n        0 -> 0\n42\n"
                 (BeginWhen
                     Ident=>LowerIdent@3
                     InlineKwIs=>KwIs@4
-                    Num=>IntBase10@5
+                    Num=>Int@5
                     InlineWhenArrow=>OpArrow@6
-                    Num=>IntBase10@7
+                    Num=>Int@7
                 EndWhen)
             EndBlock)
         EndAssign)
         HintExpr
-        Num=>IntBase10@8
+        Num=>Int@8
     EndTopLevelDecls)
 EndFile)
 

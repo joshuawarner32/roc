@@ -12,16 +12,12 @@ description: "{ x: if Bool.true then 1 else 2, y: 3 }\n"
                 (BeginIf
                     (* ModuleName=>UpperIdent@4 DotModuleLowerIdent)
                     InlineKwThen=>KwThen@6
-                    Num=>IntBase10@7
+                    Num=>Int@7
                     InlineKwElse=>KwElse@8
-                    Num=>IntBase10@9
+                    Num=>Int@9
                 EndIf)
             EndRecordFieldPair)
-            (*
-                Ident=>LowerIdent@11
-                InlineColon=>OpColon@12
-                Num=>IntBase10@13
-            EndRecordFieldPair)
+            (* Ident=>LowerIdent@11 InlineColon=>OpColon@12 Num=>Int@13 EndRecordFieldPair)
         EndRecord)
     EndTopLevelDecls)
 EndFile)

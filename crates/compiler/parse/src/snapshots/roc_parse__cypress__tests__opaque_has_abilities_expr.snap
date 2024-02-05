@@ -181,7 +181,7 @@ description: "A := U8 implements [Eq, Hash]\n\nA := a where a implements Other i
             EndList)
         EndApply)
         HintExpr
-        Num=>IntBase10@124
+        Num=>Int@124
     EndTopLevelDecls)
 EndFile)
 

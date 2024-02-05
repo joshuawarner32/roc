@@ -7,7 +7,7 @@ description: "a = [\n  1, 2, 3\n]\na\n\n"
         (BeginAssign
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
-            (BeginList Num=>IntBase10@3 Num=>IntBase10@5 Num=>IntBase10@7 EndList)
+            (BeginList Num=>Int@3 Num=>Int@5 Num=>Int@7 EndList)
         EndAssign)
         HintExpr
         Ident=>LowerIdent@9

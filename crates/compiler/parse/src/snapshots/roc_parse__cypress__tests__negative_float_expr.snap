@@ -2,12 +2,10 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "-42.9\n"
 ---
-(BeginFile
-    (BeginTopLevelDecls HintExpr Float=>Float@0 EndTopLevelDecls)
-EndFile)
+(BeginFile (BeginTopLevelDecls HintExpr Num=>Int@0 EndTopLevelDecls) EndFile)
 
 [=== canfmt below ===]
-Float("-42.9")
+IntBase10("-42.9")
 
 [=== formatted below ===]
 

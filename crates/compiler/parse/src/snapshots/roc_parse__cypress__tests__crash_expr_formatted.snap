@@ -26,9 +26,9 @@ description: "_ = crash \"\"\n_ = crash \"\" \"\"\n_ = crash 15 123\n_ = try foo
             (*
                 Crash=>KwCrash@11
                 InlineApply=>KwCrash@11
-                Num=>IntBase10@12
-                InlineApply=>IntBase10@12
-                Num=>IntBase10@13
+                Num=>Int@12
+                InlineApply=>Int@12
+                Num=>Int@13
             EndApply)
         EndAssign)
         (BeginAssign

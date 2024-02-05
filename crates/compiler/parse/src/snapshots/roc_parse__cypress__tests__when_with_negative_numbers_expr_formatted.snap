@@ -8,12 +8,12 @@ description: "when x is\n    1 -> 2\n    -3 -> 4\n"
         (BeginWhen
             Ident=>LowerIdent@1
             InlineKwIs=>KwIs@2
-            Num=>IntBase10@3
+            Num=>Int@3
             InlineWhenArrow=>OpArrow@4
-            Num=>IntBase10@5
-            Num=>IntBase10@6
+            Num=>Int@5
+            Num=>Int@6
             InlineWhenArrow=>OpArrow@7
-            Num=>IntBase10@8
+            Num=>Int@8
         EndWhen)
     EndTopLevelDecls)
 EndFile)

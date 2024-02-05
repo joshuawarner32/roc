@@ -1313,7 +1313,7 @@ impl State {
                 Some(T::KwCrash) => atom!(N::Crash),
                 // TODO: do these need to be distinguished in the node?
                 Some(T::Underscore | T::NamedUnderscore) => atom!(N::Underscore),
-                Some(T::IntBase10) => atom!(N::Num),
+                Some(T::Int) => atom!(N::Num),
                 Some(T::String) => atom!(N::String),
                 Some(T::Float) => atom!(N::Float),
                 Some(T::DotNumber) => atom!(N::TupleAccessFunction),
@@ -1536,7 +1536,7 @@ impl State {
                 Some(T::KwCrash) => atom!(N::Crash),
                 // TODO: do these need to be distinguished in the node?
                 Some(T::Underscore | T::NamedUnderscore) => atom!(N::Underscore),
-                Some(T::IntBase10) => atom!(N::Num),
+                Some(T::Int) => atom!(N::Num),
                 Some(T::String) => atom!(N::String),
                 Some(T::Float) => atom!(N::Float),
                 Some(T::OpaqueName) => atom!(N::OpaqueName),
@@ -1600,8 +1600,7 @@ impl State {
                 | T::UpperIdent
                 | T::Underscore
                 | T::OpenCurly
-                | T::IntBase10
-                | T::IntNonBase10
+                | T::Int
                 | T::String
                 | T::OpenRound
                 | T::OpenCurly
@@ -1779,7 +1778,6 @@ impl State {
     //             | T::Underscore
     //             | T::OpenCurly
     //             | T::IntBase10
-    //             | T::IntNonBase10
     //             | T::String
     //             | T::OpenRound
     //             | T::OpenCurly
@@ -1798,8 +1796,7 @@ impl State {
                 | T::UpperIdent
                 | T::Underscore
                 | T::OpenCurly
-                | T::IntBase10
-                | T::IntNonBase10
+                | T::Int
                 | T::String
                 | T::OpenRound
                 | T::OpenCurly
@@ -3787,7 +3784,7 @@ impl<'a> CommentExtractor<'a> {
 
             N::Ident => self.check_next_token(T::LowerIdent),
             N::UpperIdent => self.check_next_token(T::UpperIdent),
-            N::Num => self.check_next_token(T::IntBase10),
+            N::Num => self.check_next_token(T::Int),
             N::Float => self.check_next_token(T::Float),
             N::InlineAssign => self.check_next_token(T::OpAssign),
 

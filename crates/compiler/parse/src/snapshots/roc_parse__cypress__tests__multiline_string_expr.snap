@@ -20,7 +20,7 @@ description: "a = \"Hello,\\n\\nWorld!\"\nb = \"\"\"Hello,\\n\\nWorld!\"\"\"\nc 
             (BeginBlock HintExpr String=>String@8 EndBlock)
         EndAssign)
         HintExpr
-        Num=>IntBase10@9
+        Num=>Int@9
     EndTopLevelDecls)
 EndFile)
 

@@ -10,7 +10,7 @@ description: "when n is\n    @Age -> 1\n"
             InlineKwIs=>KwIs@2
             OpaqueName=>OpaqueName@3
             InlineWhenArrow=>OpArrow@4
-            Num=>IntBase10@5
+            Num=>Int@5
         EndWhen)
     EndTopLevelDecls)
 EndFile)

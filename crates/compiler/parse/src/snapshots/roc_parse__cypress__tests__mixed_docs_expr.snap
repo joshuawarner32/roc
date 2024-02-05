@@ -4,13 +4,9 @@ description: "### not docs!\n## docs, but with a problem\n## (namely that this i
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
-            Ident=>LowerIdent@0
-            InlineAssign=>OpAssign@1
-            Num=>IntBase10@2
-        EndAssign)
+        (BeginAssign Ident=>LowerIdent@0 InlineAssign=>OpAssign@1 Num=>Int@2 EndAssign)
         HintExpr
-        Num=>IntBase10@3
+        Num=>Int@3
     EndTopLevelDecls)
 EndFile)
 

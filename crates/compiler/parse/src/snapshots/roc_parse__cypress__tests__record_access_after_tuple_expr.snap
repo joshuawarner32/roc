@@ -9,18 +9,10 @@ description: "({a: 0}, {b: 1}).0.a\n"
             (*
                 (BeginParens
                     (BeginRecord
-                        (*
-                            Ident=>LowerIdent@2
-                            InlineColon=>OpColon@3
-                            Num=>IntBase10@4
-                        EndRecordFieldPair)
+                        (* Ident=>LowerIdent@2 InlineColon=>OpColon@3 Num=>Int@4 EndRecordFieldPair)
                     EndRecord)
                     (BeginRecord
-                        (*
-                            Ident=>LowerIdent@8
-                            InlineColon=>OpColon@9
-                            Num=>IntBase10@10
-                        EndRecordFieldPair)
+                        (* Ident=>LowerIdent@8 InlineColon=>OpColon@9 Num=>Int@10 EndRecordFieldPair)
                     EndRecord)
                 EndParens)
                 DotNumber=>NoSpaceDotNumber@13

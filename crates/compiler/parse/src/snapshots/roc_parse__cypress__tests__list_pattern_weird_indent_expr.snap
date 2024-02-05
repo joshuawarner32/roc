@@ -8,11 +8,7 @@ description: "when [] is\n    [1, 2,\n3] -> \"\"\n\n"
         (BeginWhen
             (BeginList EndList)
             InlineKwIs=>KwIs@3
-            (BeginPatternList
-                Num=>IntBase10@5
-                Num=>IntBase10@7
-                Num=>IntBase10@9
-            EndPatternList)
+            (BeginPatternList Num=>Int@5 Num=>Int@7 Num=>Int@9 EndPatternList)
             InlineWhenArrow=>OpArrow@11
             String=>String@12
         EndWhen)

@@ -5,7 +5,7 @@ description: "(1, 2, 3)\n"
 (BeginFile
     (BeginTopLevelDecls
         HintExpr
-        (BeginParens Num=>IntBase10@1 Num=>IntBase10@3 Num=>IntBase10@5 EndParens)
+        (BeginParens Num=>Int@1 Num=>Int@3 Num=>Int@5 EndParens)
     EndTopLevelDecls)
 EndFile)
 

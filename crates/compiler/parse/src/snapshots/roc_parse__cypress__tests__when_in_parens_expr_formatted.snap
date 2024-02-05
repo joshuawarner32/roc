@@ -10,7 +10,7 @@ description: "when x is\n    Ok ->\n        3\n"
             InlineKwIs=>KwIs@2
             UpperIdent=>UpperIdent@3
             InlineWhenArrow=>OpArrow@4
-            (BeginBlock HintExpr Num=>IntBase10@5 EndBlock)
+            (BeginBlock HintExpr Num=>Int@5 EndBlock)
         EndWhen)
     EndTopLevelDecls)
 EndFile)

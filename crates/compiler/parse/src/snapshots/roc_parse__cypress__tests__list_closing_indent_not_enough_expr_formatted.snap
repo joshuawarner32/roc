@@ -8,13 +8,13 @@ description: "myList = [\n    0,\n    [\n        a,\n        b,\n    ],\n    1,\
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginList
-                Num=>IntBase10@3
+                Num=>Int@3
                 (BeginList Ident=>LowerIdent@6 Ident=>LowerIdent@8 EndList)
-                Num=>IntBase10@12
+                Num=>Int@12
             EndList)
         EndAssign)
         HintExpr
-        Num=>IntBase10@15
+        Num=>Int@15
     EndTopLevelDecls)
 EndFile)
 

@@ -8,7 +8,7 @@ description: "(whee) 1\n"
             HintExpr
             (BeginParens Ident=>LowerIdent@1 EndParens)
             InlineApply=>CloseRound@2
-            Num=>IntBase10@3
+            Num=>Int@3
         EndApply)
     EndTopLevelDecls)
 EndFile)

@@ -8,7 +8,7 @@ description: ".1 (1, 2, 3)\n"
             HintExpr
             TupleAccessFunction=>DotNumber@0
             InlineApply=>DotNumber@0
-            (BeginParens Num=>IntBase10@2 Num=>IntBase10@4 Num=>IntBase10@6 EndParens)
+            (BeginParens Num=>Int@2 Num=>Int@4 Num=>Int@6 EndParens)
         EndApply)
     EndTopLevelDecls)
 EndFile)

@@ -9,7 +9,7 @@ description: "\\_, _name -> 42\n"
             Underscore=>Underscore@1
             Underscore=>NamedUnderscore@3
             InlineLambdaArrow=>OpArrow@4
-            Num=>IntBase10@5
+            Num=>Int@5
         EndLambda)
     EndTopLevelDecls)
 EndFile)

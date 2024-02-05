@@ -10,7 +10,7 @@ description: "a :\n    c\n0\n"
             Ident=>LowerIdent@2
         EndTypeOrTypeAlias)
         HintExpr
-        Num=>IntBase10@3
+        Num=>Int@3
     EndTopLevelDecls)
 EndFile)
 

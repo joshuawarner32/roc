@@ -12,7 +12,7 @@ description: "( x, y ) : Foo\n( x, y ) = ( \"foo\", 3.14 )\n\nx\n\n"
         (BeginAssign
             (BeginParens Ident=>LowerIdent@8 Ident=>LowerIdent@10 EndParens)
             InlineAssign=>OpAssign@12
-            (BeginParens String=>String@14 Float=>Float@16 EndParens)
+            (BeginParens String=>String@14 Num=>Int@16 EndParens)
         EndAssign)
         HintExpr
         Ident=>LowerIdent@18
@@ -21,7 +21,7 @@ EndFile)
 
 [=== canfmt below ===]
 TypeAlias(Tuple([Ident("x"), Ident("y")]), Name("Foo"))
-Assign(Tuple([Ident("x"), Ident("y")]), Tuple([String("\"foo\""), Float("3.14")]))
+Assign(Tuple([Ident("x"), Ident("y")]), Tuple([String("\"foo\""), IntBase10("3.14")]))
 Ident("x")
 
 [=== formatted below ===]

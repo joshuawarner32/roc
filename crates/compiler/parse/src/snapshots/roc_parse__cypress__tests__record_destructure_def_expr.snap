@@ -7,15 +7,11 @@ description: "# leading comment\n{ x, y } = 5\ny = 6\n\n42\n\n"
         (BeginAssign
             (BeginRecord Ident=>LowerIdent@1 Ident=>LowerIdent@3 EndRecord)
             InlineAssign=>OpAssign@5
-            Num=>IntBase10@6
+            Num=>Int@6
         EndAssign)
-        (BeginAssign
-            Ident=>LowerIdent@7
-            InlineAssign=>OpAssign@8
-            Num=>IntBase10@9
-        EndAssign)
+        (BeginAssign Ident=>LowerIdent@7 InlineAssign=>OpAssign@8 Num=>Int@9 EndAssign)
         HintExpr
-        Num=>IntBase10@10
+        Num=>Int@10
     EndTopLevelDecls)
 EndFile)
 

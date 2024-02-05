@@ -4,12 +4,7 @@ description: "3  # test!\n+ 4\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (*
-            HintExpr
-            Num=>IntBase10@0
-            InlineBinOpPlus=>OpPlus@1
-            Num=>IntBase10@2
-        EndBinOpPlus)
+        (* HintExpr Num=>Int@0 InlineBinOpPlus=>OpPlus@1 Num=>Int@2 EndBinOpPlus)
     EndTopLevelDecls)
 EndFile)
 

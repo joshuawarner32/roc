@@ -10,13 +10,13 @@ description: "when x is\n    _ ->\n        1\n\n    _ ->\n        2\n\n    Ok ->
             InlineKwIs=>KwIs@2
             Underscore=>Underscore@3
             InlineWhenArrow=>OpArrow@4
-            (BeginBlock HintExpr Num=>IntBase10@5 EndBlock)
+            (BeginBlock HintExpr Num=>Int@5 EndBlock)
             Underscore=>Underscore@6
             InlineWhenArrow=>OpArrow@7
-            (BeginBlock HintExpr Num=>IntBase10@8 EndBlock)
+            (BeginBlock HintExpr Num=>Int@8 EndBlock)
             UpperIdent=>UpperIdent@9
             InlineWhenArrow=>OpArrow@10
-            (BeginBlock HintExpr Num=>IntBase10@11 EndBlock)
+            (BeginBlock HintExpr Num=>Int@11 EndBlock)
         EndWhen)
     EndTopLevelDecls)
 EndFile)

@@ -10,14 +10,14 @@ description: "x =\n    1\n    < 2\n\n42\n"
             (BeginBlock
                 (*
                     HintExpr
-                    Num=>IntBase10@2
+                    Num=>Int@2
                     InlineBinOpLessThan=>OpLessThan@3
-                    Num=>IntBase10@4
+                    Num=>Int@4
                 EndBinOpLessThan)
             EndBlock)
         EndAssign)
         HintExpr
-        Num=>IntBase10@5
+        Num=>Int@5
     EndTopLevelDecls)
 EndFile)
 

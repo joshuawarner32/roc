@@ -7,10 +7,10 @@ description: "x =\n    5\n\n42\n\n"
         (BeginAssign
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
-            (BeginBlock HintExpr Num=>IntBase10@2 EndBlock)
+            (BeginBlock HintExpr Num=>Int@2 EndBlock)
         EndAssign)
         HintExpr
-        Num=>IntBase10@3
+        Num=>Int@3
     EndTopLevelDecls)
 EndFile)
 

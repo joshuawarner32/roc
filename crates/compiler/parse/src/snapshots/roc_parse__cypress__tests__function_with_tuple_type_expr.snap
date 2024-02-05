@@ -21,11 +21,7 @@ description: "f : I64 -> (I64, I64)\nf = \\x -> (x, x + 1)\n\nf 42\n\n"
                 InlineLambdaArrow=>OpArrow@13
                 (BeginParens
                     Ident=>LowerIdent@15
-                    (*
-                        Ident=>LowerIdent@17
-                        InlineBinOpPlus=>OpPlus@18
-                        Num=>IntBase10@19
-                    EndBinOpPlus)
+                    (* Ident=>LowerIdent@17 InlineBinOpPlus=>OpPlus@18 Num=>Int@19 EndBinOpPlus)
                 EndParens)
             EndLambda)
         EndAssign)
@@ -33,7 +29,7 @@ description: "f : I64 -> (I64, I64)\nf = \\x -> (x, x + 1)\n\nf 42\n\n"
             HintExpr
             Ident=>LowerIdent@21
             InlineApply=>LowerIdent@21
-            Num=>IntBase10@22
+            Num=>Int@22
         EndApply)
     EndTopLevelDecls)
 EndFile)

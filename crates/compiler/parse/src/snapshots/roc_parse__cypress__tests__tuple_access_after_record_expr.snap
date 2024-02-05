@@ -11,7 +11,7 @@ description: "{ a: (1, 2) }.a.0\n"
                     (*
                         Ident=>LowerIdent@1
                         InlineColon=>OpColon@2
-                        (BeginParens Num=>IntBase10@4 Num=>IntBase10@6 EndParens)
+                        (BeginParens Num=>Int@4 Num=>Int@6 EndParens)
                     EndRecordFieldPair)
                 EndRecord)
                 DotIdent=>NoSpaceDotLowerIdent@9

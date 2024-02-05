@@ -8,8 +8,8 @@ description: "whee 12 -foo\n"
             HintExpr
             Ident=>LowerIdent@0
             InlineApply=>LowerIdent@0
-            Num=>IntBase10@1
-            InlineApply=>IntBase10@1
+            Num=>Int@1
+            InlineApply=>Int@1
             (* Ident=>LowerIdent@3 EndUnaryMinus)
         EndApply)
     EndTopLevelDecls)

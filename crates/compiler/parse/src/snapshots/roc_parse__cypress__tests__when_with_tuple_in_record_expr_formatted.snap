@@ -10,7 +10,7 @@ description: "when { foo: (1, 2) } is\n    { foo: (1, x) } -> x\n    { foo: (_, 
                 (*
                     Ident=>LowerIdent@2
                     InlineColon=>OpColon@3
-                    (BeginParens Num=>IntBase10@5 Num=>IntBase10@7 EndParens)
+                    (BeginParens Num=>Int@5 Num=>Int@7 EndParens)
                 EndRecordFieldPair)
             EndRecord)
             InlineKwIs=>KwIs@10
@@ -18,13 +18,13 @@ description: "when { foo: (1, 2) } is\n    { foo: (1, x) } -> x\n    { foo: (_, 
                 Ident=>LowerIdent@12
                 InlineColon=>OpColon@13
                 (BeginPatternParens=>LowerIdent@21
-                    Num=>IntBase10@15
+                    Num=>Int@15
                     Ident=>LowerIdent@17
                 EndPatternParens)
             EndPatternRecord)
             InlineWhenArrow=>OpArrow@20
             Ident=>LowerIdent@21
-            (BeginPatternRecord=>IntBase10@32
+            (BeginPatternRecord=>Int@32
                 Ident=>LowerIdent@23
                 InlineColon=>OpColon@24
                 (BeginPatternParens=>OpArrow@31
@@ -33,11 +33,7 @@ description: "when { foo: (1, 2) } is\n    { foo: (1, x) } -> x\n    { foo: (_, 
                 EndPatternParens)
             EndPatternRecord)
             InlineWhenArrow=>OpArrow@31
-            (*
-                Num=>IntBase10@32
-                InlineBinOpPlus=>OpPlus@33
-                Ident=>LowerIdent@34
-            EndBinOpPlus)
+            (* Num=>Int@32 InlineBinOpPlus=>OpPlus@33 Ident=>LowerIdent@34 EndBinOpPlus)
         EndWhen)
     EndTopLevelDecls)
 EndFile)

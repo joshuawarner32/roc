@@ -5,11 +5,7 @@ description: "# expecting some effects\nexpect-fx 5 == 2\n\n"
 (BeginFile
     (BeginTopLevelDecls
         (BeginExpectFx
-            (*
-                Num=>IntBase10@1
-                InlineBinOpEquals=>OpEquals@2
-                Num=>IntBase10@3
-            EndBinOpEquals)
+            (* Num=>Int@1 InlineBinOpEquals=>OpEquals@2 Num=>Int@3 EndBinOpEquals)
         EndExpectFx)
     EndTopLevelDecls)
 EndFile)

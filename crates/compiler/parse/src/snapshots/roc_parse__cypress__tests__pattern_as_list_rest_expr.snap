@@ -13,7 +13,7 @@ description: "when myList is\n    [first, .. as rest] -> 0\n\n"
                 (* PatternDoubleDot=>DoubleDot@6 Ident=>LowerIdent@8 EndPatternAs)
             EndPatternList)
             InlineWhenArrow=>OpArrow@10
-            Num=>IntBase10@11
+            Num=>Int@11
         EndWhen)
     EndTopLevelDecls)
 EndFile)

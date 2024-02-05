@@ -3,10 +3,7 @@ source: crates/compiler/parse/src/cypress.rs
 description: "[\n1\n]\n"
 ---
 (BeginFile
-    (BeginTopLevelDecls
-        HintExpr
-        (BeginList Num=>IntBase10@1 EndList)
-    EndTopLevelDecls)
+    (BeginTopLevelDecls HintExpr (BeginList Num=>Int@1 EndList) EndTopLevelDecls)
 EndFile)
 
 [=== canfmt below ===]

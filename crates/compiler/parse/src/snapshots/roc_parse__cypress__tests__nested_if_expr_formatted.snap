@@ -8,13 +8,13 @@ description: "if t1 then\n    1\nelse if t2 then\n    2\nelse\n    3\n"
         (BeginIf
             Ident=>LowerIdent@1
             InlineKwThen=>KwThen@2
-            (BeginBlock HintExpr Num=>IntBase10@3 EndBlock)
+            (BeginBlock HintExpr Num=>Int@3 EndBlock)
             InlineKwElse=>KwElse@4
             Ident=>LowerIdent@6
             InlineKwThen=>KwThen@7
-            (BeginBlock HintExpr Num=>IntBase10@8 EndBlock)
+            (BeginBlock HintExpr Num=>Int@8 EndBlock)
             InlineKwElse=>KwElse@9
-            (BeginBlock HintExpr Num=>IntBase10@10 EndBlock)
+            (BeginBlock HintExpr Num=>Int@10 EndBlock)
         EndIf)
     EndTopLevelDecls)
 EndFile)

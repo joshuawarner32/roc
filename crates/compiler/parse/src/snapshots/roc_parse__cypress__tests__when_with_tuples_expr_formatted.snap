@@ -6,10 +6,10 @@ description: "when (1, 2) is\n    (1, x) -> x\n    (_, b) -> 3 + b\n"
     (BeginTopLevelDecls
         HintExpr
         (BeginWhen
-            (BeginParens Num=>IntBase10@2 Num=>IntBase10@4 EndParens)
+            (BeginParens Num=>Int@2 Num=>Int@4 EndParens)
             InlineKwIs=>KwIs@6
             (BeginPatternParens=>LowerIdent@13
-                Num=>IntBase10@8
+                Num=>Int@8
                 Ident=>LowerIdent@10
             EndPatternParens)
             InlineWhenArrow=>OpArrow@12
@@ -19,11 +19,7 @@ description: "when (1, 2) is\n    (1, x) -> x\n    (_, b) -> 3 + b\n"
                 Ident=>LowerIdent@17
             EndPatternParens)
             InlineWhenArrow=>OpArrow@19
-            (*
-                Num=>IntBase10@20
-                InlineBinOpPlus=>OpPlus@21
-                Ident=>LowerIdent@22
-            EndBinOpPlus)
+            (* Num=>Int@20 InlineBinOpPlus=>OpPlus@21 Ident=>LowerIdent@22 EndBinOpPlus)
         EndWhen)
     EndTopLevelDecls)
 EndFile)

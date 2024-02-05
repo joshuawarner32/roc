@@ -26,7 +26,7 @@ description: "f : (Str, Str) -> (Str, Str)\nf = \\x -> x\n\nf (1, 2)\n"
             HintExpr
             Ident=>LowerIdent@19
             InlineApply=>LowerIdent@19
-            (BeginParens Num=>IntBase10@21 Num=>IntBase10@23 EndParens)
+            (BeginParens Num=>Int@21 Num=>Int@23 EndParens)
         EndApply)
     EndTopLevelDecls)
 EndFile)

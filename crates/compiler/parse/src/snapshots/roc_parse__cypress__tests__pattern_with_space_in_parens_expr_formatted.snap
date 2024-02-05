@@ -17,7 +17,7 @@ description: "when Delmin (Del rx) 0 is\n    Delmin (Del ry) _ -> Node Black 0 B
                     EndApply)
                 EndParens)
                 InlineApply=>CloseRound@5
-                Num=>IntBase10@6
+                Num=>Int@6
             EndApply)
             InlineKwIs=>KwIs@7
             UpperIdent=>UpperIdent@8
@@ -32,8 +32,8 @@ description: "when Delmin (Del rx) 0 is\n    Delmin (Del ry) _ -> Node Black 0 B
                 InlineApply=>UpperIdent@15
                 UpperIdent=>UpperIdent@16
                 InlineApply=>UpperIdent@16
-                Num=>IntBase10@17
-                InlineApply=>IntBase10@17
+                Num=>Int@17
+                InlineApply=>Int@17
                 (* ModuleName=>UpperIdent@18 DotModuleLowerIdent)
                 InlineApply=>NoSpaceDotLowerIdent@19
                 Ident=>LowerIdent@20

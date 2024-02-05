@@ -6,7 +6,7 @@ description: "when 0 is\n    _ as n -> n\n\n"
     (BeginTopLevelDecls
         HintExpr
         (BeginWhen
-            Num=>IntBase10@1
+            Num=>Int@1
             InlineKwIs=>KwIs@2
             (* Underscore=>Underscore@3 Ident=>LowerIdent@5 EndPatternAs)
             InlineWhenArrow=>OpArrow@6

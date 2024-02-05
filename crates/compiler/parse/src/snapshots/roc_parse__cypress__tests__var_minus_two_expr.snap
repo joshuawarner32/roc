@@ -8,7 +8,7 @@ description: "x-2\n"
             HintExpr
             Ident=>LowerIdent@0
             InlineBinOpMinus=>OpBinaryMinus@1
-            Num=>IntBase10@2
+            Num=>Int@2
         EndBinOpMinus)
     EndTopLevelDecls)
 EndFile)

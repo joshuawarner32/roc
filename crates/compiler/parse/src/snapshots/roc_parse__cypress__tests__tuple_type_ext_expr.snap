@@ -32,7 +32,7 @@ description: "f: (Str, Str)a -> (Str, Str)a\nf = \\x -> x\n\nf (1, 2)\n"
             HintExpr
             Ident=>LowerIdent@23
             InlineApply=>LowerIdent@23
-            (BeginParens Num=>IntBase10@25 Num=>IntBase10@27 EndParens)
+            (BeginParens Num=>Int@25 Num=>Int@27 EndParens)
         EndApply)
     EndTopLevelDecls)
 EndFile)

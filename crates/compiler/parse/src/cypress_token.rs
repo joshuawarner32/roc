@@ -84,8 +84,7 @@ pub enum T {
     NoSpace,
     NamedUnderscore,
     OpaqueName,
-    IntBase10,
-    IntNonBase10,
+    Int,
     NoSpaceDotNumber,
     NoSpaceDotLowerIdent,
     DotUpperIdent,
@@ -207,6 +206,7 @@ pub enum MessageKind {
     InvalidEscapeSequence,
     UnclosedString,
     UnclosedSingleQuote,
+    BadNumberSuffix,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -602,24 +602,32 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                     Some(b'x' | b'X') => {
                         maybe_message_for_uppercase_base!(b);
                         self.offset += 1;
-                        self.chomp_integer_base16()
+                        self.chomp_integer_base16();
+                        self.chomp_number_suffix();
+                        T::Int
                     }
                     Some(b'o' | b'O') => {
                         maybe_message_for_uppercase_base!(b);
                         self.offset += 1;
-                        self.chomp_integer_base8()
+                        self.chomp_integer_base8();
+                        self.chomp_number_suffix();
+                        T::Int
                     }
                     Some(b'b' | b'B') => {
                         maybe_message_for_uppercase_base!(b);
                         self.offset += 1;
-                        self.chomp_integer_base2()
+                        self.chomp_integer_base2();
+                        self.chomp_number_suffix();
+                        T::Int
                     }
                     Some(b'0'..=b'9') => {
                         self.messages.push(Message {
                             kind: MessageKind::LeadingZero,
                             offset: self.offset as u32,
                         });
-                        self.chomp_number_base10()
+                        self.chomp_number_base10();
+                        self.chomp_number_suffix();
+                        T::Int
                     }
                     Some(b'_') => {
                         self.offset += 1;
@@ -630,17 +638,49 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                         self.chomp_integer_base10();
                         T::Float
                     }
-                    _ => T::IntBase10,
+                    _ => T::Int,
                 };
                 break res
             }
         } else {
-            self.chomp_number_base10()
+            self.chomp_number_base10();
+            self.chomp_number_suffix();
+            T::Int
         };
 
         // TODO: check for trailing ident chars
 
         tok
+    }
+
+    fn chomp_number_suffix(&mut self) {
+        if !is_alpha(self.peek()) {
+            return;
+        }
+
+        let start = self.offset;
+        let mut pos = self.offset + 1;
+
+        while let Some(b) = self.buf.get(pos) {
+            match b {
+                b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => pos += 1,
+                _ => break,
+            }
+        }
+
+        let suffix = &self.buf[start..pos];
+        match suffix {
+            b"dec" | b"i128" | b"i16" | b"i32" | b"i64" | b"i8" | b"nat" | b"u128" | b"u16" | b"u32" | b"u64" | b"u8" => {}
+            _ => {
+                dbg!(suffix);
+                self.messages.push(Message {
+                    kind: MessageKind::BadNumberSuffix,
+                    offset: self.offset as u32,
+                });
+            }
+        }
+
+        self.offset = pos;
     }
 
     fn chomp_number_base10(&mut self) -> T {
@@ -650,7 +690,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
             self.chomp_integer_base10();
             T::Float
         } else {
-            T::IntBase10
+            T::Int
         }
     }
 
@@ -666,7 +706,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         }
     }
 
-    fn chomp_integer_base16(&mut self) -> T {
+    fn chomp_integer_base16(&mut self) {
         while let Some(b) = self.peek() {
             match b {
                 b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => self.offset += 1,
@@ -676,11 +716,9 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                 _ => break,
             }
         }
-
-        T::IntNonBase10
     }
 
-    fn chomp_integer_base8(&mut self) -> T {
+    fn chomp_integer_base8(&mut self) {
         while let Some(b) = self.peek() {
             match b {
                 b'0'..=b'7' => self.offset += 1,
@@ -690,11 +728,9 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                 _ => break,
             }
         }
-
-        T::IntNonBase10
     }
 
-    fn chomp_integer_base2(&mut self) -> T {
+    fn chomp_integer_base2(&mut self) {
         while let Some(b) = self.peek() {
             match b {
                 b'0' | b'1' => self.offset += 1,
@@ -704,8 +740,6 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                 _ => break,
             }
         }
-
-        T::IntNonBase10
     }
 
     fn chomp_ident_lower(&mut self) -> T {
@@ -929,6 +963,13 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
     }
 }
 
+fn is_alpha(b: Option<u8>) -> bool {
+    match b {
+        Some(b'a'..=b'z') | Some(b'A'..=b'Z') => true,
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -945,7 +986,7 @@ mod tests {
         tokenizer.tokenize();
         assert_eq!(
             tokenizer.output.kinds,
-            vec![T::IntBase10, T::OpPlus, T::IntBase10]
+            vec![T::Int, T::OpPlus, T::Int]
         );
     }
 
@@ -955,7 +996,7 @@ mod tests {
         tokenizer.tokenize();
         assert_eq!(
             tokenizer.output.kinds,
-            vec![T::IntBase10, T::OpUnaryMinus, T::LowerIdent]
+            vec![T::Int, T::OpUnaryMinus, T::LowerIdent]
         );
     }
 
@@ -963,7 +1004,7 @@ mod tests {
     fn test_tokenize_unary_minus_num() {
         let mut tokenizer = Tokenizer::new("1 -2");
         tokenizer.tokenize();
-        assert_eq!(tokenizer.output.kinds, vec![T::IntBase10, T::IntBase10]);
+        assert_eq!(tokenizer.output.kinds, vec![T::Int, T::Int]);
     }
 
     #[test]
@@ -972,7 +1013,7 @@ mod tests {
         tokenizer.tokenize();
         assert_eq!(
             tokenizer.output.kinds,
-            vec![T::IntBase10, T::OpBinaryMinus, T::IntBase10]
+            vec![T::Int, T::OpBinaryMinus, T::Int]
         );
     }
 
@@ -982,7 +1023,7 @@ mod tests {
         tokenizer.tokenize();
         assert_eq!(
             tokenizer.output.kinds,
-            vec![T::IntBase10, T::IntBase10]
+            vec![T::Int, T::Int]
         );
         assert_eq!(
             tokenizer.output.lines,

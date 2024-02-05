@@ -4,18 +4,10 @@ description: "# leading comment\nx = 5\ny = 6\n\n42\n\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
-            Ident=>LowerIdent@0
-            InlineAssign=>OpAssign@1
-            Num=>IntBase10@2
-        EndAssign)
-        (BeginAssign
-            Ident=>LowerIdent@3
-            InlineAssign=>OpAssign@4
-            Num=>IntBase10@5
-        EndAssign)
+        (BeginAssign Ident=>LowerIdent@0 InlineAssign=>OpAssign@1 Num=>Int@2 EndAssign)
+        (BeginAssign Ident=>LowerIdent@3 InlineAssign=>OpAssign@4 Num=>Int@5 EndAssign)
         HintExpr
-        Num=>IntBase10@6
+        Num=>Int@6
     EndTopLevelDecls)
 EndFile)
 

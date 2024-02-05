@@ -4,12 +4,7 @@ description: "12\n* # test!\n92\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (*
-            HintExpr
-            Num=>IntBase10@0
-            InlineBinOpStar=>OpStar@1
-            Num=>IntBase10@2
-        EndBinOpStar)
+        (* HintExpr Num=>Int@0 InlineBinOpStar=>OpStar@1 Num=>Int@2 EndBinOpStar)
     EndTopLevelDecls)
 EndFile)
 

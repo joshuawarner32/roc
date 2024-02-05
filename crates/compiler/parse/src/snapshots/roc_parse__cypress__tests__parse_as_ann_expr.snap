@@ -22,7 +22,7 @@ description: "foo : Foo.Bar.Baz x y as Blah a b\n\n42\n\n"
             EndTypeAs)
         EndTypeOrTypeAlias)
         HintExpr
-        Num=>IntBase10@11
+        Num=>Int@11
     EndTopLevelDecls)
 EndFile)
 

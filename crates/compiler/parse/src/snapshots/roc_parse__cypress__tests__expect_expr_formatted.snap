@@ -6,16 +6,11 @@ description: "expect\n    1 == 1\n\n4\n"
     (BeginTopLevelDecls
         (BeginExpect
             (BeginBlock
-                (*
-                    HintExpr
-                    Num=>IntBase10@1
-                    InlineBinOpEquals=>OpEquals@2
-                    Num=>IntBase10@3
-                EndBinOpEquals)
+                (* HintExpr Num=>Int@1 InlineBinOpEquals=>OpEquals@2 Num=>Int@3 EndBinOpEquals)
             EndBlock)
         EndExpect)
         HintExpr
-        Num=>IntBase10@4
+        Num=>Int@4
     EndTopLevelDecls)
 EndFile)
 

@@ -2,9 +2,7 @@
 source: crates/compiler/parse/src/cypress.rs
 description: "-9223372036854775808\n"
 ---
-(BeginFile
-    (BeginTopLevelDecls HintExpr Num=>IntBase10@0 EndTopLevelDecls)
-EndFile)
+(BeginFile (BeginTopLevelDecls HintExpr Num=>Int@0 EndTopLevelDecls) EndFile)
 
 [=== canfmt below ===]
 IntBase10("-9223372036854775808")

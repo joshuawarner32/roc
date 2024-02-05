@@ -9,13 +9,9 @@ description: "foo : Int\nfoo = 4\n\n42\n"
             InlineTypeColon=>OpColon@1
             TypeName=>UpperIdent@2
         EndTypeOrTypeAlias)
-        (BeginAssign
-            Ident=>LowerIdent@3
-            InlineAssign=>OpAssign@4
-            Num=>IntBase10@5
-        EndAssign)
+        (BeginAssign Ident=>LowerIdent@3 InlineAssign=>OpAssign@4 Num=>Int@5 EndAssign)
         HintExpr
-        Num=>IntBase10@6
+        Num=>Int@6
     EndTopLevelDecls)
 EndFile)
 

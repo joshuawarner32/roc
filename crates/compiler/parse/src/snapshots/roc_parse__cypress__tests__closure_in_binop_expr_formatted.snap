@@ -17,7 +17,7 @@ description: "a\n&& (\\x -> x)\n    8\n"
                     EndLambda)
                 EndParens)
                 InlineApply=>CloseRound@7
-                Num=>IntBase10@8
+                Num=>Int@8
             EndApply)
         EndBinOpAnd)
     EndTopLevelDecls)

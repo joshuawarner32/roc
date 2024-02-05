@@ -5,14 +5,9 @@ description: "31*42+534\n"
 (BeginFile
     (BeginTopLevelDecls
         (*
-            (*
-                HintExpr
-                Num=>IntBase10@0
-                InlineBinOpStar=>OpStar@1
-                Num=>IntBase10@2
-            EndBinOpStar)
+            (* HintExpr Num=>Int@0 InlineBinOpStar=>OpStar@1 Num=>Int@2 EndBinOpStar)
             InlineBinOpPlus=>OpPlus@3
-            Num=>IntBase10@4
+            Num=>Int@4
         EndBinOpPlus)
     EndTopLevelDecls)
 EndFile)

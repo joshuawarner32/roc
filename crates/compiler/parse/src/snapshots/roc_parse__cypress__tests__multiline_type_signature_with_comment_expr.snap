@@ -10,7 +10,7 @@ description: "f :# comment\n    {}\n\n42\n"
             (BeginTypeRecord EndTypeRecord)
         EndTypeOrTypeAlias)
         HintExpr
-        Num=>IntBase10@4
+        Num=>Int@4
     EndTopLevelDecls)
 EndFile)
 

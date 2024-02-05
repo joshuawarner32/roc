@@ -10,8 +10,8 @@ description: "-(whee 12 foo)\n"
                 (*
                     Ident=>LowerIdent@2
                     InlineApply=>LowerIdent@2
-                    Num=>IntBase10@3
-                    InlineApply=>IntBase10@3
+                    Num=>Int@3
+                    InlineApply=>Int@3
                     Ident=>LowerIdent@4
                 EndApply)
             EndParens)

@@ -9,7 +9,7 @@ description: "\\a, b -> 42\n"
             Ident=>LowerIdent@1
             Ident=>LowerIdent@3
             InlineLambdaArrow=>OpArrow@4
-            Num=>IntBase10@5
+            Num=>Int@5
         EndLambda)
     EndTopLevelDecls)
 EndFile)

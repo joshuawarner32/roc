@@ -6,9 +6,9 @@ description: "when 0 is\n    0 # foobar\n        as # barfoo\n        n -> {}\n\
     (BeginTopLevelDecls
         HintExpr
         (BeginWhen
-            Num=>IntBase10@1
+            Num=>Int@1
             InlineKwIs=>KwIs@2
-            (* Num=>IntBase10@3 Ident=>LowerIdent@5 EndPatternAs)
+            (* Num=>Int@3 Ident=>LowerIdent@5 EndPatternAs)
             InlineWhenArrow=>OpArrow@6
             (BeginRecord EndRecord)
         EndWhen)

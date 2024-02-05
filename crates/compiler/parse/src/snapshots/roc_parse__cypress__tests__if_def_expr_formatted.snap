@@ -4,13 +4,9 @@ description: "iffy = 5\n\n42\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
-            Ident=>LowerIdent@0
-            InlineAssign=>OpAssign@1
-            Num=>IntBase10@2
-        EndAssign)
+        (BeginAssign Ident=>LowerIdent@0 InlineAssign=>OpAssign@1 Num=>Int@2 EndAssign)
         HintExpr
-        Num=>IntBase10@3
+        Num=>Int@3
     EndTopLevelDecls)
 EndFile)
 
