@@ -1,0 +1,29 @@
+---
+source: crates/compiler/parse/src/cypress.rs
+description: "doStuff : UserId -> Task Str _\n42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                TypeName=>UpperIdent@2
+                InlineLambdaArrow=>OpArrow@3
+                (*
+                    TypeName=>UpperIdent@4
+                    (* TypeName=>UpperIdent@5 Underscore=>Underscore@6 EndTypeApply)
+                EndTypeApply)
+            EndTypeLambda)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Num=>IntBase10@7
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("doStuff"), Lambda([Name("UserId")], Apply(Name("Task"), [Apply(Name("Str"), [Infer])])))
+IntBase10("42")
+
+[=== formatted below ===]
+

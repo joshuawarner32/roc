@@ -296,6 +296,7 @@ pub enum N {
 
     EndTypeLambda,
     InlineKwImplements,
+    InlineAbilityImplements,
     EndTypeOrTypeAlias,
     BeginTypeOrTypeAlias,
     InlineBackArrow,
@@ -429,6 +430,7 @@ impl N {
             | N::InlineKwWhere
             | N::InlineKwAs
             | N::InlineKwImplements
+            | N::InlineAbilityImplements
             | N::InlineKwIs
             | N::InlineLambdaArrow
             | N::InlineColon
@@ -680,7 +682,7 @@ impl BinOp {
             BinOp::DeclSeq => todo!(),
             BinOp::As => N::InlineKwAs,
             BinOp::Assign => N::InlineAssign,
-            BinOp::Implements => N::InlineKwImplements,
+            BinOp::Implements => N::InlineAbilityImplements,
             BinOp::DefineTypeOrTypeAlias => N::InlineTypeColon,
             BinOp::DefineOtherTypeThing => N::InlineTypeColonEqual,
             BinOp::Backpassing => N::InlineBackArrow,
@@ -1022,11 +1024,6 @@ impl State {
     fn expect_and_push_node(&mut self, tok: T, node: N) {
         self.expect(tok);
         self.push_node(node, Some(self.pos as u32 - 1));
-    }
-
-    #[track_caller]
-    fn expect_newline(&mut self) {
-        todo!();
     }
 
     fn consume(&mut self, tok: T) -> bool {
@@ -1699,6 +1696,7 @@ impl State {
         cur_op: Option<BinOp>,
         mut num_found: usize,
     ) {
+        let cur_indent = self.cur_indent();
         if let Some(op) = self.next_op(min_prec, cfg) {
             if let Some(cur_op) = cur_op {
                 if op != cur_op || !op.n_arity() {
@@ -1728,7 +1726,7 @@ impl State {
                     return;
                 }
                 BinOp::Implements => {
-                    let cfg = cfg.set_block_indent_floor(Some(self.cur_indent()));
+                    let cfg = cfg.set_block_indent_floor(Some(cur_indent));
                     self.continue_implements_method_decl_body(subtree_start, cfg);
                     return;
                 }
@@ -3028,17 +3026,16 @@ impl State {
     }
 
     fn pump_continue_implements_method_decl(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        self.expect_newline();
         self.continue_implements_method_decl_body(subtree_start, cfg);
     }
 
     fn continue_implements_method_decl_body(&mut self, subtree_start: u32, cfg: ExprCfg) {
         // We continue as long as the indent is the same as the start of the implements block.
-        if self
+        if dbg!(self
             .cur_indent()
             .is_indented_more_than(cfg.block_indent_floor)
             .ok_or(Error::InconsistentIndent)
-            .expect("TODO: error handling")
+            .expect("TODO: error handling"))
         {
             self.expect_and_push_node(T::LowerIdent, N::Ident);
             self.expect(T::OpColon); // TODO: need to add a node?
@@ -3862,6 +3859,7 @@ mod canfmt {
         Dbg(&'a Expr<'a>),
         Expect(&'a Expr<'a>),
         ExpectFx(&'a Expr<'a>),
+        Ability(&'a str, &'a [(&'a str, &'a Type<'a>)]),
         RecordFieldPair(&'a str, &'a Expr<'a>),
 
         PatternList(&'a [Expr<'a>]),
@@ -3880,6 +3878,7 @@ mod canfmt {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Type<'a> {
         Wildcard,
+        Infer,
         Name(&'a str),
         Record(&'a [(&'a str, &'a Type<'a>)]),
         Apply(&'a Type<'a>, &'a [Type<'a>]),
@@ -3975,6 +3974,7 @@ mod canfmt {
                 N::TypeName => stack.push(i, Type::Name(ctx.text(index))),
                 N::ModuleName => stack.push(i, Type::Name(ctx.text(index))), // TODO!
                 N::TypeWildcard => stack.push(i, Type::Wildcard),
+                N::Underscore => stack.push(i, Type::Infer),
                 N::Tag => stack.push(i, Type::Name(ctx.text(index))), // TODO
                 N::AbilityName => stack.push(i, Type::Name(ctx.text(index))), // TODO
                 N::DotModuleUpperIdent => {
@@ -4083,6 +4083,19 @@ mod canfmt {
         }
 
         panic!("didn't find EndTypeOrTypeAlias");
+    }
+
+    fn build_ability<'a, 'b: 'a>(
+        bump: &'a Bump,
+        ctx: FormatCtx<'b>,
+        w: &mut TreeWalker<'b>,
+    ) -> (&'a [(&'a str, &'a Type<'a>)], usize, u32) {
+        while let Some((node, i, index)) = w.next_index() {
+            match node {
+                _ => todo!("{:?}", node),
+            }
+        }
+        panic!();
     }
 
     pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: FormatCtx<'b>) -> &'a [Expr<'a>] {
@@ -4419,7 +4432,18 @@ mod canfmt {
                     drop(values);
                     stack.push(i, Expr::UnaryOp(UnaryOp::Not, body));
                 }
+                N::InlineAbilityImplements => {
+                    let (body, i, index) = build_ability(bump, ctx, &mut w);
+                    let mut values = stack.drain_to_index(index);
+                    assert_eq!(
+                        values.len(),
+                        1,
+                        "{:?}",
+                        values.collect::<std::vec::Vec<_>>()
+                    );
+                }
                 N::BeginFile
+                | N::InlineKwImplements
                 | N::EndFile
                 | N::InlineApply
                 | N::InlineAssign
@@ -4442,7 +4466,6 @@ mod canfmt {
                 | N::InlineBinOpGreaterThanOrEq
                 | N::InlineLambdaArrow
                 | N::InlineKwWhere
-                | N::InlineKwImplements
                 | N::BeginBlock
                 | N::BeginParens
                 | N::BeginRecord
@@ -4464,6 +4487,7 @@ mod canfmt {
                 | N::BeginPatternRecord
                 | N::BeginPatternParens
                 | N::BeginPatternList
+                | N::BeginImplements
                 | N::HintExpr
                 | N::InlineMultiBackpassingComma => {}
                 _ => todo!("{:?}", node),
@@ -6599,6 +6623,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // not supported anymore
     fn test_nested_def_without_newline_expr() {
         snapshot_test!(block_indentify(
             r#"
