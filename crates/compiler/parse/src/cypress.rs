@@ -1205,6 +1205,11 @@ impl State {
                 i += 1;
                 debug_assert!(i < 1000, "pump looped too many times");
             }
+
+            if self.messages.len() > 0 {
+                self.pos = self.buf.kinds.len();
+                return;
+            }
         }
     }
 
@@ -1842,7 +1847,7 @@ impl State {
             return None;
         }
 
-        self.pos += width;
+        self.bump_n(width);
 
         Some(op)
     }
@@ -2723,6 +2728,39 @@ impl State {
                             s.push_node(N::Ident, Some(s.pos as u32 - 1));
                             s.consume_and_push_node(T::NoSpaceDotUpperIdent, N::DotModuleUpperIdent);
                             s.consume_and_push_node(T::NoSpaceDotUpperIdent, N::DotModuleUpperIdent);
+
+                            if s.consume(T::Dot) {
+                                s.expect_collection(
+                                    T::OpenCurly,
+                                    N::BeginCollection,
+                                    T::CloseCurly,
+                                    N::EndCollection,
+                                    |s| {
+                                        match s.cur() {
+                                            Some(T::LowerIdent) => {
+                                                s.bump();
+                                                s.push_node(N::Ident, Some(s.pos as u32 - 1));
+                                            }
+                                            Some(T::UpperIdent) => {
+                                                s.bump();
+                                                s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+                                            }
+                                            t => {
+                                                s.push_error(Error::ExpectViolation(T::LowerIdent, t));
+                                                s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
+                                            }
+                                        }
+                                    },
+                                );
+                            }
+                        }
+                        Some(T::String) => {
+                            s.bump();
+                            s.push_node(N::String, Some(s.pos as u32 - 1));
+                            s.expect(T::KwAs);
+                            s.expect(T::LowerIdent);
+                            s.expect(T::OpColon);
+                            s.expect(T::UpperIdent);
                         }
                         Some(T::UpperIdent) => {
                             s.bump();
@@ -2732,31 +2770,6 @@ impl State {
                             s.push_error(Error::ExpectViolation(T::LowerIdent, t));
                             s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
                         }
-                    }
-            
-                    if s.consume(T::Dot) {
-                        s.expect_collection(
-                            T::OpenCurly,
-                            N::BeginCollection,
-                            T::CloseCurly,
-                            N::EndCollection,
-                            |s| {
-                                match s.cur() {
-                                    Some(T::LowerIdent) => {
-                                        s.bump();
-                                        s.push_node(N::Ident, Some(s.pos as u32 - 1));
-                                    }
-                                    Some(T::UpperIdent) => {
-                                        s.bump();
-                                        s.push_node(N::TypeName, Some(s.pos as u32 - 1));
-                                    }
-                                    t => {
-                                        s.push_error(Error::ExpectViolation(T::LowerIdent, t));
-                                        s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
-                                    }
-                                }
-                            },
-                        );
                     }
                 },
             );
@@ -9498,5 +9511,18 @@ mod tests {
             |a
             "#
         ));
+    }
+
+    #[test]
+    fn test_parse_large_file() {
+        // print pwd for debugging
+        println!("pwd: {:?}", std::env::current_dir().unwrap());
+
+        let path = "../../../crates/glue/src/RustGlue.roc";
+        assert!(std::path::Path::new(path).exists());
+
+        let text = std::fs::read_to_string(path).unwrap();
+
+        snapshot_test!(&text);
     }
 }

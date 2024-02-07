@@ -840,6 +840,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
 
         let mut escape = false;
         while let Some(b) = self.peek() {
+            dbg!(b as char);
             if escape {
                 match b {
                     b'\\' | b'"' | b'\'' | b'n' | b'r' | b't' => {
@@ -879,8 +880,9 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                     }
                     b'(' => {
                         self.offset += 1;
+                        escape = false;
 
-                        // TODO...
+                        // TODO: emit a StringBegin, track parens inside, then eventually a StringSegment and a StringEnd
                     }
                     _ => {
                         self.messages.push(Message {
