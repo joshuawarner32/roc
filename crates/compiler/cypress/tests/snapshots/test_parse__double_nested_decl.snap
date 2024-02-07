@@ -1,0 +1,27 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "a =\n    b =\n        c\n    d\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock
+                (BeginAssign
+                    Ident=>LowerIdent@2
+                    InlineAssign=>OpAssign@3
+                    (BeginBlock HintExpr Ident=>LowerIdent@4 EndBlock)
+                EndAssign)
+                HintExpr
+                Ident=>LowerIdent@5
+            EndBlock)
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("a"), Block([Assign(Ident("b"), Block([Ident("c")])), Ident("d")]))
+
+[=== formatted below ===]
+

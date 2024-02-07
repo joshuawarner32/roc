@@ -1,0 +1,19 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "abc = def\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            Ident=>LowerIdent@2
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("abc"), Ident("def"))
+
+[=== formatted below ===]
+

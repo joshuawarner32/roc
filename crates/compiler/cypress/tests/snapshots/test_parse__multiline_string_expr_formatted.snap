@@ -1,0 +1,34 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "a = \"Hello,\\n\\nWorld!\"\nb =\n    \"\"\"\n    Hello,\\n\\nWorld!\n    \"\"\"\nc =\n    \"\"\"\n    Hello,\n\n    World!\n    \"\"\"\n42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            String=>String@2
+        EndAssign)
+        (BeginAssign
+            Ident=>LowerIdent@3
+            InlineAssign=>OpAssign@4
+            (BeginBlock HintExpr String=>String@5 EndBlock)
+        EndAssign)
+        (BeginAssign
+            Ident=>LowerIdent@6
+            InlineAssign=>OpAssign@7
+            (BeginBlock HintExpr String=>String@8 EndBlock)
+        EndAssign)
+        HintExpr
+        Num=>Int@9
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("a"), String("\"Hello,\\n\\nWorld!\""))
+Assign(Ident("b"), Block([String("\"\"\"\n    Hello,\\n\\nWorld!\n    \"\"\"")]))
+Assign(Ident("c"), Block([String("\"\"\"\n    Hello,\n\n    World!\n    \"\"\"")]))
+IntBase10("42")
+
+[=== formatted below ===]
+

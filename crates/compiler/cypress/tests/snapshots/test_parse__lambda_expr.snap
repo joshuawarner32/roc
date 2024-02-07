@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "\\abc -> def"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginLambda
+            Ident=>LowerIdent@1
+            InlineLambdaArrow=>OpArrow@2
+            Ident=>LowerIdent@3
+        EndLambda)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Lambda([Ident("abc")], Ident("def"))
+
+[=== formatted below ===]
+

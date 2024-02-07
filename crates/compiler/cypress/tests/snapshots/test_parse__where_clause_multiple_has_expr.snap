@@ -1,0 +1,48 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "f : a -> (b -> c) where a implements A, b implements Eq, c implements Ord\n\nf\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (*
+                    (*
+                        (*
+                            Ident=>LowerIdent@2
+                            InlineLambdaArrow=>OpArrow@3
+                            ((*
+                                    BeginParens
+                                    Ident=>LowerIdent@5
+                                    InlineLambdaArrow=>OpArrow@6
+                                    Ident=>LowerIdent@7
+                                EndTypeLambda)
+                            EndParens)
+                        EndTypeLambda)
+                        InlineKwWhere=>KwWhere@9
+                        Ident=>LowerIdent@10
+                        InlineKwImplements=>KwImplements@11
+                        AbilityName=>UpperIdent@12
+                    EndWhereClause)
+                    Ident=>LowerIdent@14
+                    InlineKwImplements=>KwImplements@15
+                    AbilityName=>UpperIdent@16
+                EndWhereClause)
+                Ident=>LowerIdent@18
+                InlineKwImplements=>KwImplements@19
+                AbilityName=>UpperIdent@20
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Ident=>LowerIdent@21
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("f"), WhereClause(WhereClause(WhereClause(Lambda([Name("a")], Lambda([Name("b")], Name("c"))), Name("a"), ["A"]), Name("b"), ["Eq"]), Name("c"), ["Ord"]))
+Ident("f")
+
+[=== formatted below ===]
+

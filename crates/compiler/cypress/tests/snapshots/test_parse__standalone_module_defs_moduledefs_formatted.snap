@@ -1,0 +1,27 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "# comment 1\nfoo = 1\n\n# comment 2\nbar = \"hi\"\nbaz = \"stuff\"\n# comment n\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign Ident=>LowerIdent@0 InlineAssign=>OpAssign@1 Num=>Int@2 EndAssign)
+        (BeginAssign
+            Ident=>LowerIdent@3
+            InlineAssign=>OpAssign@4
+            String=>String@5
+        EndAssign)
+        (BeginAssign
+            Ident=>LowerIdent@6
+            InlineAssign=>OpAssign@7
+            String=>String@8
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("foo"), IntBase10("1"))
+Assign(Ident("bar"), String("\"hi\""))
+Assign(Ident("baz"), String("\"stuff\""))
+
+[=== formatted below ===]
+

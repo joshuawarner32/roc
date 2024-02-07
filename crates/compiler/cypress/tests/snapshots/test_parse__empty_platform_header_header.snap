@@ -1,0 +1,24 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "platform \"rtfeldman/blah\" requires {} { main : {} } exposes [] packages {} imports [] provides []\n\n"
+---
+(BeginFile
+    (BeginHeaderPlatform
+        (BeginCollection EndCollection)
+        (BeginCollection
+            Ident=>LowerIdent@6
+            (BeginTypeRecord EndTypeRecord)
+        EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+    EndHeaderPlatform)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+

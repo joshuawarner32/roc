@@ -1,0 +1,13 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "\"123 abc 456 def\"\n"
+---
+(BeginFile
+    (BeginTopLevelDecls HintExpr String=>String@0 EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+String("\"123 abc 456 def\"")
+
+[=== formatted below ===]
+

@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "\\x ->\n  1\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginLambda
+            Ident=>LowerIdent@1
+            InlineLambdaArrow=>OpArrow@2
+            (BeginBlock HintExpr Num=>Int@3 EndBlock)
+        EndLambda)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Lambda([Ident("x")], Block([IntBase10("1")]))
+
+[=== formatted below ===]
+

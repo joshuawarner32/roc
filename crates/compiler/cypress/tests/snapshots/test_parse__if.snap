@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: if abc then def else ghi
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginIf
+            Ident=>LowerIdent@1
+            InlineKwThen=>KwThen@2
+            Ident=>LowerIdent@3
+            InlineKwElse=>KwElse@4
+            Ident=>LowerIdent@5
+        EndIf)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+If([(Ident("abc"), Ident("def"))], Ident("ghi"))
+
+[=== formatted below ===]
+

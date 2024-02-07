@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "when 0 is\n    0 # foobar\n        as # barfoo\n        n -> {}\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Num=>Int@1
+            InlineKwIs=>KwIs@2
+            (* Num=>Int@3 Ident=>LowerIdent@5 EndPatternAs)
+            InlineWhenArrow=>OpArrow@6
+            (BeginRecord EndRecord)
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(IntBase10("0"), [PatternAs(IntBase10("0"), "n"), Record([])])
+
+[=== formatted below ===]
+

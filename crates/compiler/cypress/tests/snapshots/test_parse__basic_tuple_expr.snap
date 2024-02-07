@@ -1,0 +1,16 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "(1, 2, 3)\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginParens Num=>Int@1 Num=>Int@3 Num=>Int@5 EndParens)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Tuple([IntBase10("1"), IntBase10("2"), IntBase10("3")])
+
+[=== formatted below ===]
+

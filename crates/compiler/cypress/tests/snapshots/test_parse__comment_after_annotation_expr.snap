@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "F:e#\n\n\nq\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            UpperIdent=>UpperIdent@0
+            InlineTypeColon=>OpColon@1
+            Ident=>LowerIdent@2
+        EndTypeOrTypeAlias)
+        HintExpr
+        Ident=>LowerIdent@3
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(UpperIdent("F"), Name("e"))
+Ident("q")
+
+[=== formatted below ===]
+

@@ -1,0 +1,25 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "abc =\n    def\nghi =\n    jkl\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock HintExpr Ident=>LowerIdent@2 EndBlock)
+        EndAssign)
+        (BeginAssign
+            Ident=>LowerIdent@3
+            InlineAssign=>OpAssign@4
+            (BeginBlock HintExpr Ident=>LowerIdent@5 EndBlock)
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("abc"), Block([Ident("def")]))
+Assign(Ident("ghi"), Block([Ident("jkl")]))
+
+[=== formatted below ===]
+

@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "x==y\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineBinOpEquals=>OpEquals@1
+            Ident=>LowerIdent@2
+        EndBinOpEquals)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+BinOp(Ident("x"), Equals, Ident("y"))
+
+[=== formatted below ===]
+

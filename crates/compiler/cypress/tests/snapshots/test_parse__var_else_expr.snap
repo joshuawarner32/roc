@@ -1,0 +1,13 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "elsewhere\n"
+---
+(BeginFile
+    (BeginTopLevelDecls HintExpr Ident=>LowerIdent@0 EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Ident("elsewhere")
+
+[=== formatted below ===]
+

@@ -1,0 +1,25 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "when x is\n 1 -> 2\n -3 -> 4\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            Num=>Int@3
+            InlineWhenArrow=>OpArrow@4
+            Num=>Int@5
+            Num=>Int@6
+            InlineWhenArrow=>OpArrow@7
+            Num=>Int@8
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Ident("x"), [IntBase10("1"), IntBase10("2"), IntBase10("-3"), IntBase10("4")])
+
+[=== formatted below ===]
+

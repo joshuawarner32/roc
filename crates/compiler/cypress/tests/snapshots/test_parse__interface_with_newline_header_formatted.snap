@@ -1,0 +1,18 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "interface T exposes [] imports []\n\n"
+---
+(BeginFile
+    (BeginHeaderInterface
+        ModuleName=>UpperIdent@1
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+    EndHeaderInterface)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+

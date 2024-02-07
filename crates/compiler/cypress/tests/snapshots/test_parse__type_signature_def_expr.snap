@@ -1,0 +1,24 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "foo : Int\nfoo = 4\n\n42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            TypeName=>UpperIdent@2
+        EndTypeOrTypeAlias)
+        (BeginAssign Ident=>LowerIdent@3 InlineAssign=>OpAssign@4 Num=>Int@5 EndAssign)
+        HintExpr
+        Num=>Int@6
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("foo"), Name("Int"))
+Assign(Ident("foo"), IntBase10("4"))
+IntBase10("42")
+
+[=== formatted below ===]
+

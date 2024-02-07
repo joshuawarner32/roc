@@ -1,0 +1,38 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "main =\n    task =\n        file <-\n            foo\n        bar\n    task\n42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock
+                (BeginAssign
+                    Ident=>LowerIdent@2
+                    InlineAssign=>OpAssign@3
+                    (BeginBlock
+                        (BeginBackpassing
+                            Ident=>LowerIdent@4
+                            InlineBackArrow=>OpBackArrow@5
+                            Ident=>LowerIdent@6
+                        EndBackpassing)
+                        HintExpr
+                        Ident=>LowerIdent@7
+                    EndBlock)
+                EndAssign)
+                HintExpr
+                Ident=>LowerIdent@8
+            EndBlock)
+        EndAssign)
+        HintExpr
+        Num=>Int@9
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("main"), Block([Assign(Ident("task"), Block([Backpassing([Ident("file")], Ident("foo")), Ident("bar")])), Ident("task")]))
+IntBase10("42")
+
+[=== formatted below ===]
+

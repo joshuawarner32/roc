@@ -1,0 +1,42 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "(@Thunk it) = id (@A {})\nit {}\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            (BeginParens
+                (*
+                    OpaqueName=>OpaqueName@1
+                    InlineApply=>OpaqueName@1
+                    Ident=>LowerIdent@2
+                EndApply)
+            EndParens)
+            InlineAssign=>OpAssign@4
+            (*
+                Ident=>LowerIdent@5
+                InlineApply=>LowerIdent@5
+                (BeginParens
+                    (*
+                        OpaqueName=>OpaqueName@7
+                        InlineApply=>OpaqueName@7
+                        (BeginRecord EndRecord)
+                    EndApply)
+                EndParens)
+            EndApply)
+        EndAssign)
+        (*
+            HintExpr
+            Ident=>LowerIdent@11
+            InlineApply=>LowerIdent@11
+            (BeginRecord EndRecord)
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Apply(OpaqueName("@Thunk"), [Ident("it")]), Apply(Ident("id"), [Apply(OpaqueName("@A"), [Record([])])]))
+Apply(Ident("it"), [Record([])])
+
+[=== formatted below ===]
+

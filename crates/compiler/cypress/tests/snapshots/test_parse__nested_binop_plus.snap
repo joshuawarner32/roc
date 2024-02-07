@@ -1,0 +1,24 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: abc + def + ghi
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            (*
+                HintExpr
+                Ident=>LowerIdent@0
+                InlineBinOpPlus=>OpPlus@1
+                Ident=>LowerIdent@2
+            EndBinOpPlus)
+            InlineBinOpPlus=>OpPlus@3
+            Ident=>LowerIdent@4
+        EndBinOpPlus)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+BinOp(BinOp(Ident("abc"), Plus, Ident("def")), Plus, Ident("ghi"))
+
+[=== formatted below ===]
+

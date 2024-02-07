@@ -1,0 +1,28 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "One.Two.rec.abc.def.ghi\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (*
+            (*
+                (*
+                    (*
+                        (* ModuleName=>UpperIdent@0 DotModuleUpperIdent)
+                        DotIdent=>NoSpaceDotLowerIdent@2
+                    EndFieldAccess)
+                    DotIdent=>NoSpaceDotLowerIdent@3
+                EndFieldAccess)
+                DotIdent=>NoSpaceDotLowerIdent@4
+            EndFieldAccess)
+            DotIdent=>NoSpaceDotLowerIdent@5
+        EndFieldAccess)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+RecordAccess(RecordAccess(RecordAccess(RecordAccess(ModuleUpperName("One", ".Two"), ".rec"), ".abc"), ".def"), ".ghi")
+
+[=== formatted below ===]
+

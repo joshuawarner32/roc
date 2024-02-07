@@ -1,0 +1,28 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "a = A\n    -g\n    a\na\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (*
+                UpperIdent=>UpperIdent@2
+                InlineApply=>UpperIdent@2
+                (* Ident=>LowerIdent@4 EndUnaryMinus)
+                InlineApply=>LowerIdent@4
+                Ident=>LowerIdent@5
+            EndApply)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@6
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("a"), Apply(UpperIdent("A"), [UnaryOp(Minus, Ident("g")), Ident("a")]))
+Ident("a")
+
+[=== formatted below ===]
+

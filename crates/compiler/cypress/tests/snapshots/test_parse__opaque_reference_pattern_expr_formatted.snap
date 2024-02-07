@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "when n is\n    @Age -> 1\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            OpaqueName=>OpaqueName@3
+            InlineWhenArrow=>OpArrow@4
+            Num=>Int@5
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Ident("n"), [OpaqueName("@Age"), IntBase10("1")])
+
+[=== formatted below ===]
+

@@ -1,0 +1,16 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "!blah\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (* Ident=>LowerIdent@1 EndUnaryNot)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+UnaryOp(Not, Ident("blah"))
+
+[=== formatted below ===]
+

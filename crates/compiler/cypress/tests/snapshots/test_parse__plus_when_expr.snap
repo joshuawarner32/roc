@@ -1,0 +1,29 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "1 +\n    when Foo is\n        Foo -> 2\n        Bar -> 3\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Num=>Int@0
+            InlineBinOpPlus=>OpPlus@1
+            (BeginWhen
+                UpperIdent=>UpperIdent@3
+                InlineKwIs=>KwIs@4
+                UpperIdent=>UpperIdent@5
+                InlineWhenArrow=>OpArrow@6
+                Num=>Int@7
+                UpperIdent=>UpperIdent@8
+                InlineWhenArrow=>OpArrow@9
+                Num=>Int@10
+            EndWhen)
+        EndBinOpPlus)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+BinOp(IntBase10("1"), Plus, When(UpperIdent("Foo"), [UpperIdent("Foo"), IntBase10("2"), UpperIdent("Bar"), IntBase10("3")]))
+
+[=== formatted below ===]
+

@@ -1,0 +1,49 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "when Delmin (Del rx) 0 is\n    Delmin (Del ry ) _ -> Node Black 0 Bool.false ry\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            (*
+                UpperIdent=>UpperIdent@1
+                InlineApply=>UpperIdent@1
+                (BeginParens
+                    (*
+                        UpperIdent=>UpperIdent@3
+                        InlineApply=>UpperIdent@3
+                        Ident=>LowerIdent@4
+                    EndApply)
+                EndParens)
+                InlineApply=>CloseRound@5
+                Num=>Int@6
+            EndApply)
+            InlineKwIs=>KwIs@7
+            UpperIdent=>UpperIdent@8
+            (BeginPatternParens=>?broken?@21
+                UpperIdent=>UpperIdent@10
+                Ident=>LowerIdent@11
+            EndPatternParens)
+            Underscore=>Underscore@13
+            InlineWhenArrow=>OpArrow@14
+            (*
+                UpperIdent=>UpperIdent@15
+                InlineApply=>UpperIdent@15
+                UpperIdent=>UpperIdent@16
+                InlineApply=>UpperIdent@16
+                Num=>Int@17
+                InlineApply=>Int@17
+                (* ModuleName=>UpperIdent@18 DotModuleLowerIdent)
+                InlineApply=>NoSpaceDotLowerIdent@19
+                Ident=>LowerIdent@20
+            EndApply)
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Apply(UpperIdent("Delmin"), [Apply(UpperIdent("Del"), [Ident("rx")]), IntBase10("0")]), [UpperIdent("Delmin"), Tuple([UpperIdent("Del"), Ident("ry")]), Underscore("_"), Apply(UpperIdent("Node"), [UpperIdent("Black"), IntBase10("0"), ModuleLowerName("Bool", ".false"), Ident("ry")])])
+
+[=== formatted below ===]
+

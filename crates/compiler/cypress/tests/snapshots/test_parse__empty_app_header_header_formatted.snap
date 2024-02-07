@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "app \"test-app\" packages {} imports [] provides [] to blah\n\n"
+---
+(BeginFile
+    (BeginHeaderApp
+        String=>String@1
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        Ident=>LowerIdent@12
+    EndHeaderApp)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+

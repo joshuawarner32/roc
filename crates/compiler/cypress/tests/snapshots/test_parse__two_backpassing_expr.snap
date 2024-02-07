@@ -1,0 +1,34 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "# leading comment\nx <- (\\y -> y)\nz <- {}\n\nx\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginBackpassing
+            Ident=>LowerIdent@0
+            InlineBackArrow=>OpBackArrow@1
+            (BeginParens
+                (BeginLambda
+                    Ident=>LowerIdent@4
+                    InlineLambdaArrow=>OpArrow@5
+                    Ident=>LowerIdent@6
+                EndLambda)
+            EndParens)
+        EndBackpassing)
+        (BeginBackpassing
+            Ident=>LowerIdent@8
+            InlineBackArrow=>OpBackArrow@9
+            (BeginRecord EndRecord)
+        EndBackpassing)
+        HintExpr
+        Ident=>LowerIdent@12
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Backpassing([Ident("x")], Lambda([Ident("y")], Ident("y")))
+Backpassing([Ident("z")], Record([]))
+Ident("x")
+
+[=== formatted below ===]
+

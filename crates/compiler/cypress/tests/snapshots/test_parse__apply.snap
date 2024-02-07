@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: abc def
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineApply=>LowerIdent@0
+            Ident=>LowerIdent@1
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Apply(Ident("abc"), [Ident("def")])
+
+[=== formatted below ===]
+

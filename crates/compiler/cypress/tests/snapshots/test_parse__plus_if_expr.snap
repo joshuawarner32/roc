@@ -1,0 +1,26 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "1 * if Bool.true then 1 else 1\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Num=>Int@0
+            InlineBinOpStar=>OpStar@1
+            (BeginIf
+                (* ModuleName=>UpperIdent@3 DotModuleLowerIdent)
+                InlineKwThen=>KwThen@5
+                Num=>Int@6
+                InlineKwElse=>KwElse@7
+                Num=>Int@8
+            EndIf)
+        EndBinOpStar)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+BinOp(IntBase10("1"), Star, If([(ModuleLowerName("Bool", ".true"), IntBase10("1"))], IntBase10("1")))
+
+[=== formatted below ===]
+

@@ -1,0 +1,19 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "(rec).field\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (*
+            (BeginParens Ident=>LowerIdent@1 EndParens)
+            DotIdent=>NoSpaceDotLowerIdent@3
+        EndFieldAccess)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+RecordAccess(Ident("rec"), ".field")
+
+[=== formatted below ===]
+

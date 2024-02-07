@@ -1,0 +1,38 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "f : a -> (b -> c) where a implements A\n\nf\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (*
+                    Ident=>LowerIdent@2
+                    InlineLambdaArrow=>OpArrow@3
+                    ((*
+                            BeginParens
+                            Ident=>LowerIdent@5
+                            InlineLambdaArrow=>OpArrow@6
+                            Ident=>LowerIdent@7
+                        EndTypeLambda)
+                    EndParens)
+                EndTypeLambda)
+                InlineKwWhere=>KwWhere@9
+                Ident=>LowerIdent@10
+                InlineKwImplements=>KwImplements@11
+                AbilityName=>UpperIdent@12
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Ident=>LowerIdent@13
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("f"), WhereClause(Lambda([Name("a")], Lambda([Name("b")], Name("c"))), Name("a"), ["A"]))
+Ident("f")
+
+[=== formatted below ===]
+

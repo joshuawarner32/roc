@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "3\n-\n4\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Num=>Int@0
+            InlineBinOpMinus=>OpBinaryMinus@1
+            Num=>Int@2
+        EndBinOpMinus)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+BinOp(IntBase10("3"), Minus, IntBase10("4"))
+
+[=== formatted below ===]
+

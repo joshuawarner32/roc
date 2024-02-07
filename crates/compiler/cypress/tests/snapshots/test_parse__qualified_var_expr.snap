@@ -1,0 +1,19 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "One.Two.whee\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (*
+            (* ModuleName=>UpperIdent@0 DotModuleUpperIdent)
+            DotIdent=>NoSpaceDotLowerIdent@2
+        EndFieldAccess)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+RecordAccess(ModuleUpperName("One", ".Two"), ".whee")
+
+[=== formatted below ===]
+

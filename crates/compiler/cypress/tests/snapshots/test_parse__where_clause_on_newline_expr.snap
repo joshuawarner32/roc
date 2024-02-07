@@ -1,0 +1,32 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "f : a -> U64\n    where a implements Hash\n\nf\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (*
+                    Ident=>LowerIdent@2
+                    InlineLambdaArrow=>OpArrow@3
+                    TypeName=>UpperIdent@4
+                EndTypeLambda)
+                InlineKwWhere=>KwWhere@5
+                Ident=>LowerIdent@6
+                InlineKwImplements=>KwImplements@7
+                AbilityName=>UpperIdent@8
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Ident=>LowerIdent@9
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("f"), WhereClause(Lambda([Name("a")], Name("U64")), Name("a"), ["Hash"]))
+Ident("f")
+
+[=== formatted below ===]
+

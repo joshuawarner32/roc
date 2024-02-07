@@ -1,0 +1,46 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "f : (Str)a -> (Str)a\nf = \\x -> x\n\nf (\"Str\", 42)\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (*
+                    (BeginParens TypeName=>UpperIdent@3 EndParens)
+                    Ident=>LowerIdent@6
+                EndTypeAdendum)
+                InlineLambdaArrow=>OpArrow@7
+                (*
+                    (BeginParens TypeName=>UpperIdent@9 EndParens)
+                    Ident=>LowerIdent@12
+                EndTypeAdendum)
+            EndTypeLambda)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@13
+            InlineAssign=>OpAssign@14
+            (BeginLambda
+                Ident=>LowerIdent@16
+                InlineLambdaArrow=>OpArrow@17
+                Ident=>LowerIdent@18
+            EndLambda)
+        EndAssign)
+        (*
+            HintExpr
+            Ident=>LowerIdent@19
+            InlineApply=>LowerIdent@19
+            (BeginParens String=>String@21 Num=>Int@23 EndParens)
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("f"), Lambda([Adendum(Name("Str"), Name("a"))], Adendum(Name("Str"), Name("a"))))
+Assign(Ident("f"), Lambda([Ident("x")], Ident("x")))
+Apply(Ident("f"), [Tuple([String("\"Str\""), IntBase10("42")])])
+
+[=== formatted below ===]
+

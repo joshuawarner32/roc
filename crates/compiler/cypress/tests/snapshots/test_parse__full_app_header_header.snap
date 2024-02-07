@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "app \"quicksort\"\n    packages { pf: \"./platform\" }\n    imports [ foo.Bar.Baz ]\n    provides [ quicksort ] to pf\n\n"
+---
+(BeginFile
+    (BeginHeaderApp
+        String=>String@1
+        (BeginCollection Ident=>LowerIdent@4 String=>String@6 EndCollection)
+        (BeginCollection
+            (* (* Ident=>LowerIdent@10 DotModuleUpperIdent) DotModuleUpperIdent)
+        EndCollection)
+        (BeginCollection Ident=>LowerIdent@16 EndCollection)
+        Ident=>LowerIdent@19
+    EndHeaderApp)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+

@@ -1,0 +1,13 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "[1]\n"
+---
+(BeginFile
+    (BeginTopLevelDecls HintExpr (BeginList Num=>Int@1 EndList) EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+List([IntBase10("1")])
+
+[=== formatted below ===]
+

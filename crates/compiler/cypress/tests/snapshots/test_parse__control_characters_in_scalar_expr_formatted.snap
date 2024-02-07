@@ -1,0 +1,13 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "'\\u(7)'\n"
+---
+(BeginFile
+    (BeginTopLevelDecls HintExpr String=>String@0 EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+String("'\\u(7)'")
+
+[=== formatted below ===]
+

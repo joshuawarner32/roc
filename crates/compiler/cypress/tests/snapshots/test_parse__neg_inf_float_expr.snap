@@ -1,0 +1,16 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "-inf\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (* Ident=>LowerIdent@1 EndUnaryMinus)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+UnaryOp(Minus, Ident("inf"))
+
+[=== formatted below ===]
+

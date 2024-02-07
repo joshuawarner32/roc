@@ -1,0 +1,24 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: abc |> def |> ghi |> jkl
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlinePizza=>OpPizza@1
+            Ident=>LowerIdent@2
+            InlinePizza=>OpPizza@3
+            Ident=>LowerIdent@4
+            InlinePizza=>OpPizza@5
+            Ident=>LowerIdent@6
+        EndPizza)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Pizza([Ident("abc"), Ident("def"), Ident("ghi"), Ident("jkl")])
+
+[=== formatted below ===]
+

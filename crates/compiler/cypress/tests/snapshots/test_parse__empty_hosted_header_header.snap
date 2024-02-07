@@ -1,0 +1,18 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "hosted Foo exposes [] imports [] generates Bar with []\n\n"
+---
+(BeginFile
+    (BeginHeaderHosted
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+    EndHeaderHosted)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+

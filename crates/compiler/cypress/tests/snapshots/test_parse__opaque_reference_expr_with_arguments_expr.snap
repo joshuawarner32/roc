@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "@Age m n\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            OpaqueName=>OpaqueName@0
+            InlineApply=>OpaqueName@0
+            Ident=>LowerIdent@1
+            InlineApply=>LowerIdent@1
+            Ident=>LowerIdent@2
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Apply(OpaqueName("@Age"), [Ident("m"), Ident("n")])
+
+[=== formatted below ===]
+

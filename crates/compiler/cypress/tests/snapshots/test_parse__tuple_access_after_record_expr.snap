@@ -1,0 +1,28 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "{ a: (1, 2) }.a.0\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (*
+            (*
+                (BeginRecord
+                    (*
+                        Ident=>LowerIdent@1
+                        InlineColon=>OpColon@2
+                        (BeginParens Num=>Int@4 Num=>Int@6 EndParens)
+                    EndRecordFieldPair)
+                EndRecord)
+                DotIdent=>NoSpaceDotLowerIdent@9
+            EndFieldAccess)
+            DotNumber=>NoSpaceDotNumber@10
+        EndIndexAccess)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TupleAccess(RecordAccess(Record([RecordFieldPair("a", Tuple([IntBase10("1"), IntBase10("2")]))]), ".a"), ".0")
+
+[=== formatted below ===]
+

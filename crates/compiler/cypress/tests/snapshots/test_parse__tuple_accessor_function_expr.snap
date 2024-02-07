@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: ".1 (1, 2, 3)\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            TupleAccessFunction=>DotNumber@0
+            InlineApply=>DotNumber@0
+            (BeginParens Num=>Int@2 Num=>Int@4 Num=>Int@6 EndParens)
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Apply(TupleAccessFunction(".1"), [Tuple([IntBase10("1"), IntBase10("2"), IntBase10("3")])])
+
+[=== formatted below ===]
+

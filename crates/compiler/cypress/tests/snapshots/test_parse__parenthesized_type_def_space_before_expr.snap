@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "(\nA):b\na\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            (BeginParens UpperIdent=>UpperIdent@1 EndParens)
+            InlineTypeColon=>OpColon@3
+            Ident=>LowerIdent@4
+        EndTypeOrTypeAlias)
+        HintExpr
+        Ident=>LowerIdent@5
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(UpperIdent("A"), Name("b"))
+Ident("a")
+
+[=== formatted below ===]
+

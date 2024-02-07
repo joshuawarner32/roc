@@ -1,0 +1,13 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "[\n]\n"
+---
+(BeginFile
+    (BeginTopLevelDecls HintExpr (BeginList EndList) EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+List([])
+
+[=== formatted below ===]
+

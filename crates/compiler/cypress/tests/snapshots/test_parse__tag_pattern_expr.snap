@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "\\Thing -> 42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginLambda
+            UpperIdent=>UpperIdent@1
+            InlineLambdaArrow=>OpArrow@2
+            Num=>Int@3
+        EndLambda)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Lambda([UpperIdent("Thing")], IntBase10("42"))
+
+[=== formatted below ===]
+

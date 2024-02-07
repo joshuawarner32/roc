@@ -1,0 +1,11 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "42.9\n"
+---
+(BeginFile (BeginTopLevelDecls HintExpr Num=>Int@0 EndTopLevelDecls) EndFile)
+
+[=== canfmt below ===]
+IntBase10("42.9")
+
+[=== formatted below ===]
+

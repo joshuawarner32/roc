@@ -1,0 +1,30 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "x =\n    a : n\n    4\n_\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock
+                (BeginTypeOrTypeAlias
+                    Ident=>LowerIdent@2
+                    InlineTypeColon=>OpColon@3
+                    Ident=>LowerIdent@4
+                EndTypeOrTypeAlias)
+                HintExpr
+                Num=>Int@5
+            EndBlock)
+        EndAssign)
+        HintExpr
+        Underscore=>Underscore@6
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("x"), Block([TypeAlias(Ident("a"), Name("n")), IntBase10("4")]))
+Underscore("_")
+
+[=== formatted below ===]
+

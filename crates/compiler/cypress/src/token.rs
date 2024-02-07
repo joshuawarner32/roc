@@ -127,8 +127,8 @@ impl T {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct Indent {
-    pub(crate) num_spaces: u16,
-    pub(crate) num_tabs: u16,
+    pub num_spaces: u16,
+    pub num_tabs: u16,
 }
 
 impl Indent {
@@ -149,10 +149,10 @@ impl Indent {
 }
 
 pub struct TokenenizedBuffer {
-    pub(crate) kinds: Vec<T>,
-    pub(crate) offsets: Vec<u32>,
-    pub(crate) lengths: Vec<u32>, // TODO: assess if it's better to just (re)compute this on the fly when accessing later
-    pub(crate) lines: Vec<(u32, Indent)>,
+    pub kinds: Vec<T>,
+    pub offsets: Vec<u32>,
+    pub lengths: Vec<u32>, // TODO: assess if it's better to just (re)compute this on the fly when accessing later
+    pub lines: Vec<(u32, Indent)>,
 }
 
 impl TokenenizedBuffer {

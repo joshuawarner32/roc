@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "whee  12  34\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineApply=>LowerIdent@0
+            Num=>Int@1
+            InlineApply=>Int@1
+            Num=>Int@2
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Apply(Ident("whee"), [IntBase10("12"), IntBase10("34")])
+
+[=== formatted below ===]
+

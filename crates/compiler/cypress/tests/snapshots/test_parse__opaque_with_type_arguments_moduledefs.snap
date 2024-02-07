@@ -1,0 +1,30 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "Bookmark a := { chapter: Str, stanza: Str, notes: a }\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        ((*
+                BeginTypeOrTypeAlias
+                UpperIdent=>UpperIdent@0
+                InlineApply=>UpperIdent@0
+                Ident=>LowerIdent@1
+            EndApply)
+            InlineTypeColonEqual=>OpColonEqual@2
+            (BeginTypeRecord
+                Ident=>LowerIdent@4
+                TypeName=>UpperIdent@6
+                Ident=>LowerIdent@8
+                TypeName=>UpperIdent@10
+                Ident=>LowerIdent@12
+                Ident=>LowerIdent@14
+            EndTypeRecord)
+        EndTypeOrTypeAlias)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAliasOpaque(Apply(UpperIdent("Bookmark"), [Ident("a")]), Record([("chapter", Name("Str")), ("stanza", Name("Str")), ("notes", Name("a"))]))
+
+[=== formatted below ===]
+

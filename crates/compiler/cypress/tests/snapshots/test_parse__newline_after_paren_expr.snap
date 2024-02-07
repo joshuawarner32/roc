@@ -1,0 +1,16 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "(\nA)\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginParens UpperIdent=>UpperIdent@1 EndParens)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+UpperIdent("A")
+
+[=== formatted below ===]
+

@@ -1,0 +1,31 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "x =\n    when n is\n        0 -> 0\n42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock
+                HintExpr
+                (BeginWhen
+                    Ident=>LowerIdent@3
+                    InlineKwIs=>KwIs@4
+                    Num=>Int@5
+                    InlineWhenArrow=>OpArrow@6
+                    Num=>Int@7
+                EndWhen)
+            EndBlock)
+        EndAssign)
+        HintExpr
+        Num=>Int@8
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("x"), Block([When(Ident("n"), [IntBase10("0"), IntBase10("0")])]))
+IntBase10("42")
+
+[=== formatted below ===]
+

@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "when x is\n    Ok -> 3\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            UpperIdent=>UpperIdent@3
+            InlineWhenArrow=>OpArrow@4
+            Num=>Int@5
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Ident("x"), [UpperIdent("Ok"), IntBase10("3")])
+
+[=== formatted below ===]
+

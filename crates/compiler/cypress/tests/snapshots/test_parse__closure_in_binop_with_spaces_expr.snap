@@ -1,0 +1,27 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "i>\\s->s\n-a\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineBinOpGreaterThan=>OpGreaterThan@1
+            (BeginLambda
+                Ident=>LowerIdent@3
+                InlineLambdaArrow=>OpArrow@4
+                Ident=>LowerIdent@5
+            EndLambda)
+        EndBinOpGreaterThan)
+        HintExpr
+        (* Ident=>LowerIdent@7 EndUnaryMinus)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+BinOp(Ident("i"), GreaterThan, Lambda([Ident("s")], Ident("s")))
+UnaryOp(Minus, Ident("a"))
+
+[=== formatted below ===]
+

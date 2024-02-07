@@ -1,0 +1,39 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "table : {\n    height : Pixels\n    } -> Table\ntable = \\{height} -> crash \"not implemented\"\ntable\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (BeginTypeRecord Ident=>LowerIdent@3 TypeName=>UpperIdent@5 EndTypeRecord)
+                InlineLambdaArrow=>OpArrow@7
+                TypeName=>UpperIdent@8
+            EndTypeLambda)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@9
+            InlineAssign=>OpAssign@10
+            (BeginLambda
+                (BeginPatternRecord=>?broken?@21
+                    Ident=>LowerIdent@13
+                    PatternAny=>CloseCurly@14
+                EndPatternRecord)
+                InlineLambdaArrow=>OpArrow@15
+                (* Crash=>KwCrash@16 InlineApply=>KwCrash@16 String=>String@17 EndApply)
+            EndLambda)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@18
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("table"), Lambda([Record([("height", Name("Pixels"))])], Name("Table")))
+Assign(Ident("table"), Lambda([PatternRecord([("height", PatternAny)])], Apply(Crash, [String("\"not implemented\"")])))
+Ident("table")
+
+[=== formatted below ===]
+

@@ -1,0 +1,13 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "0.0\n"
+---
+(BeginFile
+    (BeginTopLevelDecls HintExpr Float=>Float@0 EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Float("0.0")
+
+[=== formatted below ===]
+

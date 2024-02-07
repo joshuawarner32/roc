@@ -1,0 +1,31 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "when abc is def ->\n    when ghi is jkl ->\n        mno\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            Ident=>LowerIdent@3
+            InlineWhenArrow=>OpArrow@4
+            (BeginBlock
+                HintExpr
+                (BeginWhen
+                    Ident=>LowerIdent@6
+                    InlineKwIs=>KwIs@7
+                    Ident=>LowerIdent@8
+                    InlineWhenArrow=>OpArrow@9
+                    (BeginBlock HintExpr Ident=>LowerIdent@10 EndBlock)
+                EndWhen)
+            EndBlock)
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Ident("abc"), [Ident("def"), Block([When(Ident("ghi"), [Ident("jkl"), Block([Ident("mno")])])])])
+
+[=== formatted below ===]
+

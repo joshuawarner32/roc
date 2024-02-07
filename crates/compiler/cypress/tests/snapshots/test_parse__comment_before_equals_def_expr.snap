@@ -1,0 +1,18 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "t#\n=3\ne\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign Ident=>LowerIdent@0 InlineAssign=>OpAssign@1 Num=>Int@2 EndAssign)
+        HintExpr
+        Ident=>LowerIdent@3
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("t"), IntBase10("3"))
+Ident("e")
+
+[=== formatted below ===]
+

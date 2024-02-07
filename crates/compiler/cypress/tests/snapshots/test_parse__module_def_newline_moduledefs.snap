@@ -1,0 +1,23 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "main =\n    i = 64\n\n    i\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock
+                (BeginAssign Ident=>LowerIdent@2 InlineAssign=>OpAssign@3 Num=>Int@4 EndAssign)
+                HintExpr
+                Ident=>LowerIdent@5
+            EndBlock)
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("main"), Block([Assign(Ident("i"), IntBase10("64")), Ident("i")]))
+
+[=== formatted below ===]
+

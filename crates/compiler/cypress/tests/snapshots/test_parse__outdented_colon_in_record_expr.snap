@@ -1,0 +1,32 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "x = foo {\nbar\n:\nblah\n}\nx\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (*
+                Ident=>LowerIdent@2
+                InlineApply=>LowerIdent@2
+                (BeginRecord
+                    (*
+                        Ident=>LowerIdent@4
+                        InlineColon=>OpColon@5
+                        Ident=>LowerIdent@6
+                    EndRecordFieldPair)
+                EndRecord)
+            EndApply)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@8
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("x"), Apply(Ident("foo"), [Record([RecordFieldPair("bar", Ident("blah"))])]))
+Ident("x")
+
+[=== formatted below ===]
+

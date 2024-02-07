@@ -1,0 +1,32 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "foo : [True, Perhaps Thing]\nfoo = True\n\n42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (BeginTypeTagUnion
+                Tag=>UpperIdent@3
+                Tag=>UpperIdent@5
+                TypeName=>UpperIdent@6
+            EndTypeTagUnion)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@8
+            InlineAssign=>OpAssign@9
+            UpperIdent=>UpperIdent@10
+        EndAssign)
+        HintExpr
+        Num=>Int@11
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("foo"), TagUnion([Name("True"), Name("Perhaps"), Name("Thing")]))
+Assign(Ident("foo"), UpperIdent("True"))
+IntBase10("42")
+
+[=== formatted below ===]
+

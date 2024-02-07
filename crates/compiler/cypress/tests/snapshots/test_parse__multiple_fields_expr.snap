@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "rec.abc.def.ghi\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (*
+            (*
+                (* Ident=>LowerIdent@0 DotIdent=>NoSpaceDotLowerIdent@1 EndFieldAccess)
+                DotIdent=>NoSpaceDotLowerIdent@2
+            EndFieldAccess)
+            DotIdent=>NoSpaceDotLowerIdent@3
+        EndFieldAccess)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+RecordAccess(RecordAccess(RecordAccess(Ident("rec"), ".abc"), ".def"), ".ghi")
+
+[=== formatted below ===]
+

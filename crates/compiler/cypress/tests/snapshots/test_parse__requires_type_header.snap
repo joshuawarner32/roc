@@ -1,0 +1,42 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "platform \"test/types\"\n    requires { Flags, Model, } { main : App Flags Model }\n    exposes []\n    packages {}\n    imports []\n    provides [ mainForHost ]\n\nmainForHost : App Flags Model\nmainForHost = main\n\n"
+---
+(BeginFile
+    (BeginHeaderPlatform
+        (BeginCollection Ident=>UpperIdent@4 Ident=>UpperIdent@6 EndCollection)
+        (BeginCollection
+            Ident=>LowerIdent@10
+            (*
+                TypeName=>UpperIdent@12
+                (* TypeName=>UpperIdent@13 TypeName=>UpperIdent@14 EndTypeApply)
+            EndTypeApply)
+        EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection Ident=>LowerIdent@27 EndCollection)
+    EndHeaderPlatform)
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@29
+            InlineTypeColon=>OpColon@30
+            (*
+                TypeName=>UpperIdent@31
+                (* TypeName=>UpperIdent@32 TypeName=>UpperIdent@33 EndTypeApply)
+            EndTypeApply)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@34
+            InlineAssign=>OpAssign@35
+            Ident=>LowerIdent@36
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("mainForHost"), Apply(Name("App"), [Apply(Name("Flags"), [Name("Model")])]))
+Assign(Ident("mainForHost"), Ident("main"))
+
+[=== formatted below ===]
+

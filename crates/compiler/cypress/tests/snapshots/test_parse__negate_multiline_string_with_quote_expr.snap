@@ -1,0 +1,16 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "-\"\"\"\"<\"\"\"\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (* String=>String@1 EndUnaryMinus)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+UnaryOp(Minus, String("\"\"\"\"<\"\"\""))
+
+[=== formatted below ===]
+

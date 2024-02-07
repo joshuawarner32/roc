@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "\\a, b, c -> 42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginLambda
+            Ident=>LowerIdent@1
+            Ident=>LowerIdent@3
+            Ident=>LowerIdent@5
+            InlineLambdaArrow=>OpArrow@6
+            Num=>Int@7
+        EndLambda)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Lambda([Ident("a"), Ident("b"), Ident("c")], IntBase10("42"))
+
+[=== formatted below ===]
+

@@ -1,0 +1,30 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "F 1, r <- a\nW\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        ((*
+                (*
+                    BeginBackpassing
+                    UpperIdent=>UpperIdent@0
+                    InlineApply=>UpperIdent@0
+                    Num=>Int@1
+                EndApply)
+                InlineMultiBackpassingComma=>Comma@2
+                Ident=>LowerIdent@3
+            EndMultiBackpassingArgs)
+            InlineBackArrow=>OpBackArrow@4
+            Ident=>LowerIdent@5
+        EndBackpassing)
+        HintExpr
+        UpperIdent=>UpperIdent@6
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Backpassing([Apply(UpperIdent("F"), [IntBase10("1")]), Ident("r")], Ident("a"))
+UpperIdent("W")
+
+[=== formatted below ===]
+

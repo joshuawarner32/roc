@@ -1,0 +1,34 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "foo : Foo.Bar.Baz x y as Blah a b\n\n42\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (*
+                    (* (* ModuleName=>UpperIdent@2 DotModuleUpperIdent) DotModuleUpperIdent)
+                    Ident=>LowerIdent@5
+                    Ident=>LowerIdent@6
+                EndTypeApply)
+                InlineKwAs=>KwAs@7
+                (*
+                    TypeName=>UpperIdent@8
+                    Ident=>LowerIdent@9
+                    Ident=>LowerIdent@10
+                EndTypeApply)
+            EndTypeAs)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Num=>Int@11
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("foo"), As(Apply(ModuleType(".Bar", ".Baz"), [Name("x"), Name("y")]), Apply(Name("Blah"), [Name("a"), Name("b")])))
+IntBase10("42")
+
+[=== formatted below ===]
+

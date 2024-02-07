@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "myList = [\n    0,\n    1\n]\n42\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginList Num=>Int@3 Num=>Int@5 EndList)
+        EndAssign)
+        HintExpr
+        Num=>Int@7
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("myList"), List([IntBase10("0"), IntBase10("1")]))
+IntBase10("42")
+
+[=== formatted below ===]
+

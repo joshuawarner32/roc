@@ -1,0 +1,46 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "f : (Str, Str)a -> (Str, Str)a\nf = \\x -> x\n\nf (1, 2)\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                (*
+                    (BeginParens TypeName=>UpperIdent@3 TypeName=>UpperIdent@5 EndParens)
+                    Ident=>LowerIdent@8
+                EndTypeAdendum)
+                InlineLambdaArrow=>OpArrow@9
+                (*
+                    (BeginParens TypeName=>UpperIdent@11 TypeName=>UpperIdent@13 EndParens)
+                    Ident=>LowerIdent@16
+                EndTypeAdendum)
+            EndTypeLambda)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@17
+            InlineAssign=>OpAssign@18
+            (BeginLambda
+                Ident=>LowerIdent@20
+                InlineLambdaArrow=>OpArrow@21
+                Ident=>LowerIdent@22
+            EndLambda)
+        EndAssign)
+        (*
+            HintExpr
+            Ident=>LowerIdent@23
+            InlineApply=>LowerIdent@23
+            (BeginParens Num=>Int@25 Num=>Int@27 EndParens)
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("f"), Lambda([Adendum(Tuple([Name("Str"), Name("Str")]), Name("a"))], Adendum(Tuple([Name("Str"), Name("Str")]), Name("a"))))
+Assign(Ident("f"), Lambda([Ident("x")], Ident("x")))
+Apply(Ident("f"), [Tuple([IntBase10("1"), IntBase10("2")])])
+
+[=== formatted below ===]
+

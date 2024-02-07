@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "w #\n : n\nQ\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            Ident=>LowerIdent@2
+        EndTypeOrTypeAlias)
+        HintExpr
+        UpperIdent=>UpperIdent@3
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("w"), Name("n"))
+UpperIdent("Q")
+
+[=== formatted below ===]
+

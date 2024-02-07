@@ -1,0 +1,29 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "when x is\n    1 -> Num.neg\n     2\n    _ -> 4\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            Num=>Int@3
+            InlineWhenArrow=>OpArrow@4
+            (*
+                (* ModuleName=>UpperIdent@5 DotModuleLowerIdent)
+                InlineApply=>NoSpaceDotLowerIdent@6
+                Num=>Int@7
+            EndApply)
+            Underscore=>Underscore@8
+            InlineWhenArrow=>OpArrow@9
+            Num=>Int@10
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Ident("x"), [IntBase10("1"), Apply(ModuleLowerName("Num", ".neg"), [IntBase10("2")]), Underscore("_"), IntBase10("4")])
+
+[=== formatted below ===]
+

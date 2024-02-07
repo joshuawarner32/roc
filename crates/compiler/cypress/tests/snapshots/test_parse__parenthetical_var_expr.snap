@@ -1,0 +1,16 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "(whee)\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginParens Ident=>LowerIdent@1 EndParens)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Ident("whee")
+
+[=== formatted below ===]
+

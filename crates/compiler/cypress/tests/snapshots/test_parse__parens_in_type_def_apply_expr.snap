@@ -1,0 +1,28 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "U(b a):b\na\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        ((*
+                BeginTypeOrTypeAlias
+                UpperIdent=>UpperIdent@0
+                InlineApply=>UpperIdent@0
+                (BeginParens
+                    (* Ident=>LowerIdent@2 InlineApply=>LowerIdent@2 Ident=>LowerIdent@3 EndApply)
+                EndParens)
+            EndApply)
+            InlineTypeColon=>OpColon@5
+            Ident=>LowerIdent@6
+        EndTypeOrTypeAlias)
+        HintExpr
+        Ident=>LowerIdent@7
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Apply(UpperIdent("U"), [Apply(Ident("b"), [Ident("a")])]), Name("b"))
+Ident("a")
+
+[=== formatted below ===]
+

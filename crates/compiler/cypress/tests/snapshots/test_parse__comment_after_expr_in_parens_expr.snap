@@ -1,0 +1,16 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "(i#abc\n)\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginParens Ident=>LowerIdent@1 EndParens)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Ident("i")
+
+[=== formatted below ===]
+

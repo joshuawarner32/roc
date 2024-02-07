@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "x-2\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineBinOpMinus=>OpBinaryMinus@1
+            Num=>Int@2
+        EndBinOpMinus)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+BinOp(Ident("x"), Minus, IntBase10("2"))
+
+[=== formatted below ===]
+

@@ -1,0 +1,20 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "# leading comment\nx = 5\ny = 6\n\n42\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign Ident=>LowerIdent@0 InlineAssign=>OpAssign@1 Num=>Int@2 EndAssign)
+        (BeginAssign Ident=>LowerIdent@3 InlineAssign=>OpAssign@4 Num=>Int@5 EndAssign)
+        HintExpr
+        Num=>Int@6
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("x"), IntBase10("5"))
+Assign(Ident("y"), IntBase10("6"))
+IntBase10("42")
+
+[=== formatted below ===]
+

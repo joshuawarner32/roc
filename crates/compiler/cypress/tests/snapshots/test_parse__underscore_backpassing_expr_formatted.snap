@@ -1,0 +1,26 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "# leading comment\n_ <- \\y -> y\n\n4\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginBackpassing
+            Underscore=>Underscore@0
+            InlineBackArrow=>OpBackArrow@1
+            (BeginLambda
+                Ident=>LowerIdent@3
+                InlineLambdaArrow=>OpArrow@4
+                Ident=>LowerIdent@5
+            EndLambda)
+        EndBackpassing)
+        HintExpr
+        Num=>Int@6
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Backpassing([Underscore("_")], Lambda([Ident("y")], Ident("y")))
+IntBase10("4")
+
+[=== formatted below ===]
+

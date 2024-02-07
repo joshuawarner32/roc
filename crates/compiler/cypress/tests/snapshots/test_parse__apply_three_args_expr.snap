@@ -1,0 +1,24 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "a b c d\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            HintExpr
+            Ident=>LowerIdent@0
+            InlineApply=>LowerIdent@0
+            Ident=>LowerIdent@1
+            InlineApply=>LowerIdent@1
+            Ident=>LowerIdent@2
+            InlineApply=>LowerIdent@2
+            Ident=>LowerIdent@3
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Apply(Ident("a"), [Ident("b"), Ident("c"), Ident("d")])
+
+[=== formatted below ===]
+

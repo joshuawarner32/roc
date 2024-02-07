@@ -1,0 +1,13 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "{}\n"
+---
+(BeginFile
+    (BeginTopLevelDecls HintExpr (BeginRecord EndRecord) EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Record([])
+
+[=== formatted below ===]
+

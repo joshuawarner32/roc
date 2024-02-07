@@ -1,0 +1,22 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: when abc is def -> ghi
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginWhen
+            Ident=>LowerIdent@1
+            InlineKwIs=>KwIs@2
+            Ident=>LowerIdent@3
+            InlineWhenArrow=>OpArrow@4
+            Ident=>LowerIdent@5
+        EndWhen)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+When(Ident("abc"), [Ident("def"), Ident("ghi")])
+
+[=== formatted below ===]
+
