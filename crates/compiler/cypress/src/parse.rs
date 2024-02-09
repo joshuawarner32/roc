@@ -98,6 +98,7 @@
 
 use crate::token::{Comment, Indent, TokenenizedBuffer, T};
 use std::fmt;
+use std::os::unix::raw::off_t;
 use std::{
     collections::{btree_map::Keys, VecDeque},
     f32::consts::E,
@@ -910,6 +911,16 @@ pub struct State {
     pub messages: Vec<Message>,
 }
 
+// wrapper around an eprintln that's only enabled in debug mode
+macro_rules! debug_print {
+    ($($arg:tt)*) => {
+        if cfg!(debug_assertions) {
+            eprintln!($($arg)*);
+        }
+    }
+
+}
+
 impl State {
     pub fn from_buf(buf: TokenenizedBuffer) -> Self {
         State {
@@ -966,7 +977,7 @@ impl State {
     }
 
     fn bump(&mut self) {
-        eprintln!(
+        debug_print!(
             "{:indent$}@{} consuming \x1b[32m{:?}\x1b[0m",
             "",
             self.pos,
@@ -984,7 +995,7 @@ impl State {
     }
 
     fn push_error(&mut self, kind: Error) {
-        eprintln!(
+        debug_print!(
             "{:indent$}@{} pushing error \x1b[31m{:?}\x1b[0m",
             "",
             self.pos,
@@ -1085,7 +1096,7 @@ impl State {
 
     #[track_caller]
     fn update_end(&mut self, kind: N, subtree_start: u32) {
-        eprintln!(
+        debug_print!(
             "{:indent$}@{} updating end {} -> {}",
             "",
             self.pos,
@@ -1105,7 +1116,7 @@ impl State {
     }
 
     fn push_node(&mut self, kind: N, subtree_start: Option<u32>) {
-        eprintln!(
+        debug_print!(
             "{:indent$}@{} pushing kind {}:\x1b[34m{:?}\x1b[0m starting at {:?}",
             "",
             self.pos,
@@ -1117,7 +1128,6 @@ impl State {
         self.tree.kinds.push(kind);
         let pos = subtree_start.unwrap_or(self.tree.paird_group_ends.len() as u32);
         self.tree.paird_group_ends.push(pos);
-        // eprintln!("{:indent$}tree: {:?}", "", self.tree.debug_vis_grouping(), indent = 2 * self.frames.len() + 4);
     }
 
     fn push_node_begin(&mut self, kind: N) -> u32 {
@@ -1139,7 +1149,7 @@ impl State {
     }
 
     fn push_next_frame(&mut self, subtree_start: u32, cfg: ExprCfg, frame: Frame) {
-        eprintln!(
+        debug_print!(
             "{:indent$}@{} *{:?} pushing frame {:?}",
             "",
             self.pos,
@@ -1158,7 +1168,7 @@ impl State {
     fn pump_frame_now(&mut self) {
         let mut i = 0;
         while let Some((subtree_start, cfg, frame)) = self.frames.pop() {
-            eprintln!(
+            debug_print!(
                 "{:indent$}@{} *{:?} pumping frame {:?} starting at {}",
                 "",
                 self.pos,
@@ -1192,7 +1202,7 @@ impl State {
                 return;
             }
             if let Some((subtree_start, cfg, frame)) = self.frames.pop() {
-                eprintln!(
+                debug_print!(
                     "{:indent$}@{} *{:?} pumping frame {:?} starting at {}",
                     "",
                     self.pos,
@@ -1215,6 +1225,7 @@ impl State {
     }
 
     fn _pump_single_frame(&mut self, subtree_start: u32, cfg: ExprCfg, frame: Frame) {
+        self.pumping = Some(frame);
         match frame {
             Frame::StartExpr { min_prec } => self.pump_start_expr(subtree_start, cfg, min_prec),
             Frame::ContinueExprTupleOrParen => {
@@ -1275,6 +1286,7 @@ impl State {
             }
             Frame::ContinueTypeRecord => self.pump_continue_type_record(subtree_start, cfg),
         }
+        self.pumping = None;
     }
 
     fn pump_start_expr(&mut self, mut subtree_start: u32, mut cfg: ExprCfg, mut min_prec: Prec) {
@@ -1733,7 +1745,7 @@ impl State {
                 _ => {}
             }
 
-            eprintln!(
+            debug_print!(
                 "{:indent$}next op {:?}",
                 "",
                 op,
@@ -2417,7 +2429,7 @@ impl State {
                     .is_indented_more_than(cfg.block_indent_floor)
                     .ok_or(Error::InconsistentIndent)
                     .expect("TODO: error handling")
-                    && !self.at_terminator()
+                    && self.at_plausible_when_pattern()
                 {
                     self.push_next_frame(
                         subtree_start,
@@ -3225,6 +3237,47 @@ impl State {
             // TODO: maybe also allow binops / etc?
             // note: we can't allow expr start tokens here (i.e. implicitly allowing `if foo` to be concidered a call)
             _ => false,
+        }
+    }
+
+    fn at_plausible_when_pattern(&self) -> bool {
+        if self.at_terminator() {
+            return false;
+        }
+
+        let mut depth = 0;
+        let mut offset = 0;
+
+        loop {
+            match self.peek_at(offset) {
+                Some(T::OpenRound | T::OpenSquare | T::OpenCurly) => {
+                    depth += 1;
+                }
+                Some(T::CloseRound | T::CloseSquare | T::CloseCurly) => {
+                    depth -= 1;
+                }
+                Some(T::OpBar | T::OpArrow) if depth == 0 => {
+                    return true;
+                }
+                Some(T::OpAssign | T::Comma | T::OpColon | T::OpColonEqual) => {
+                    if depth == 0 {
+                        return false;
+                    }
+                }
+                Some(T::OpPlus | T::OpBinaryMinus | T::OpStar | T::OpSlash | T::OpPercent) => // TODO: more binops
+                {
+                    return false;
+                }
+                Some(T::UpperIdent | T::LowerIdent | T::Underscore | T::NamedUnderscore
+                    | T::Int | T::Float | T::String | T::SingleQuote) => {
+                    // ok!
+                }
+                None => {
+                    return true
+                }
+                t => todo!("{:?} at depth {}", t, depth),
+            }
+            offset += 1;
         }
     }
 }

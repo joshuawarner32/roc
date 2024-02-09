@@ -672,7 +672,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
         match suffix {
             b"dec" | b"i128" | b"i16" | b"i32" | b"i64" | b"i8" | b"nat" | b"u128" | b"u16" | b"u32" | b"u64" | b"u8" => {}
             _ => {
-                dbg!(suffix);
+                // dbg!(suffix);
                 self.messages.push(Message {
                     kind: MessageKind::BadNumberSuffix,
                     offset: self.offset as u32,
@@ -840,7 +840,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
 
         let mut escape = false;
         while let Some(b) = self.peek() {
-            dbg!(b as char);
+            // dbg!(b as char);
             if escape {
                 match b {
                     b'\\' | b'"' | b'\'' | b'n' | b'r' | b't' => {

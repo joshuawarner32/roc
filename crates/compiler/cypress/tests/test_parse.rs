@@ -452,6 +452,19 @@ fn test_nested_when() {
 }
 
 #[test]
+fn test_weird_when_in_expr() {
+    snapshot_test!(block_indentify(
+        r#"
+        |c=
+        |when e is
+        |                S->c
+        | a=e
+        |e
+    "#
+    ));
+}
+
+#[test]
 fn test_simple_assign_decl() {
     snapshot_test!(block_indentify(
         r#"
