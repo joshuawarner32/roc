@@ -1,0 +1,29 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "c=when e is\n                U|R->f\ne\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginWhen
+                Ident=>LowerIdent@3
+                InlineKwIs=>KwIs@4
+                UpperIdent=>UpperIdent@5
+                UpperIdent=>UpperIdent@7
+                InlineWhenArrow=>OpArrow@8
+                Ident=>LowerIdent@9
+            EndWhen)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@10
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("c"), When(Ident("e"), [UpperIdent("U"), UpperIdent("R"), Ident("f")]))
+Ident("e")
+
+[=== formatted below ===]
+

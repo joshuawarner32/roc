@@ -1,0 +1,45 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "p=when d is\nF->s\\a->\"\"\n_->\"\"if e then\ne\nelse\ne\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginWhen
+                Ident=>LowerIdent@3
+                InlineKwIs=>KwIs@4
+                UpperIdent=>UpperIdent@5
+                InlineWhenArrow=>OpArrow@6
+                (*
+                    Ident=>LowerIdent@7
+                    InlineApply=>LowerIdent@7
+                    (BeginLambda
+                        Ident=>LowerIdent@9
+                        InlineLambdaArrow=>OpArrow@10
+                        String=>String@11
+                    EndLambda)
+                EndApply)
+                Underscore=>Underscore@12
+                InlineWhenArrow=>OpArrow@13
+                String=>String@14
+            EndWhen)
+        EndAssign)
+        HintExpr
+        (BeginIf
+            Ident=>LowerIdent@16
+            InlineKwThen=>KwThen@17
+            (BeginBlock HintExpr Ident=>LowerIdent@18 EndBlock)
+            InlineKwElse=>KwElse@19
+            (BeginBlock HintExpr Ident=>LowerIdent@20 EndBlock)
+        EndIf)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("p"), When(Ident("d"), [UpperIdent("F"), Apply(Ident("s"), [Lambda([Ident("a")], String("\"\""))]), Underscore("_"), String("\"\"")]))
+If([(Ident("e"), Block([Ident("e")]))], Block([Ident("e")]))
+
+[=== formatted below ===]
+

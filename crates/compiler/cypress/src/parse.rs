@@ -339,6 +339,7 @@ pub enum N {
     EndPatternRecord,
     BeginPatternRecord,
     EndRecordFieldPair,
+    InlineKwIf,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -430,6 +431,7 @@ impl N {
             | N::InlineKwImplements
             | N::InlineAbilityImplements
             | N::InlineKwIs
+            | N::InlineKwIf
             | N::InlineLambdaArrow
             | N::InlineColon
             | N::InlineTypeColon
@@ -890,6 +892,7 @@ pub enum Error {
     ExpectViolation(T, Option<T>),
     ExpectedExpr(Option<T>),
     ExpectedPattern(Option<T>),
+    Todo(Option<T>),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -1815,7 +1818,9 @@ impl State {
                 | T::OpenCurly
                 | T::OpenSquare
                 | T::OpUnaryMinus
-                | T::OpBang,
+                | T::OpBang
+                | T::OpBackslash
+                | T::DotLowerIdent,
             ) => {
                 if self.at_newline() {
                     // are we at the start of a line?
@@ -1834,6 +1839,7 @@ impl State {
             Some(T::OpBinaryMinus) => (BinOp::Minus, 1),
             Some(T::OpStar) => (BinOp::Star, 1),
             Some(T::OpPizza) => (BinOp::Pizza, 1),
+            Some(T::OpPercent) => (BinOp::Percent, 1),
             Some(T::OpAssign) => (BinOp::Assign, 1),
             Some(T::OpColon) => (BinOp::DefineTypeOrTypeAlias, 1),
             Some(T::OpColonEqual) => (BinOp::DefineOtherTypeThing, 1),
@@ -1996,7 +2002,7 @@ impl State {
                     );
                     return;
                 }
-                k => todo!("{:?}", k),
+                k => todo!("start type, unexpected: {:?}", k),
             }
         }
     }
@@ -2036,7 +2042,7 @@ impl State {
                     self.push_node(N::Ident, Some(self.pos as u32 - 1));
                     return;
                 }
-                k => todo!("{:?}", k),
+                k => todo!("start type ext, unexpected: {:?}", k),
             }
         }
     }
@@ -2134,12 +2140,12 @@ impl State {
                 | T::OpenRound
                 | T::Underscore,
             ) if in_apply.is_some() => {
-                if dbg!(self.at_newline()) {
+                if self.at_newline() {
                     // are we at the start of a line?
-                    if !dbg!(self.buf.lines[self.line]
+                    if !self.buf.lines[self.line]
                         .1
                         .is_indented_more_than(cfg.expr_indent_floor)
-                        .expect("TODO: error handling"))
+                        .expect("TODO: error handling")
                     {
                         // Not indented enough; we're done.
                         if in_apply == Some(true) {
@@ -2199,7 +2205,8 @@ impl State {
             // TODO: if there isn't an outer square/round/curly and we don't eventually get the arrow,
             // we should error
             Some(T::CloseSquare | T::CloseRound | T::CloseCurly) => return, // Outer scope will handle
-            k => todo!("{:?}", k),
+            Some(T::LowerIdent | T::UpperIdent) | None => return, // if the inner type didn't consume, we know we're at the end of the line
+            k => todo!("continue type comma sep, unexpected: {:?}", k),
         }
     }
 
@@ -2320,12 +2327,14 @@ impl State {
             | N::EndBinOpCaret
             | N::EndBinOpAnd
             | N::EndBinOpOr
+            | N::EndBinOpPercent
             | N::EndTypeAs
             | N::EndBinOpEquals
-            | N::EndBinOpNotEquals => {
+            | N::EndBinOpNotEquals
+            | N::DotModuleLowerIdent => {
                 self.tree.kinds[subtree_start as usize] = N::HintExpr;
             }
-            k => todo!("{:?}: {:?}", k, self.tree.kinds),
+            k => todo!("finish block item, unexpected: {:?}", k),
         };
     }
 
@@ -2424,13 +2433,14 @@ impl State {
                 self.start_pattern(cfg);
             }
             WhenState::BranchPattern(indent) => {
-                if self
-                    .cur_indent()
-                    .is_indented_more_than(cfg.block_indent_floor)
-                    .ok_or(Error::InconsistentIndent)
-                    .expect("TODO: error handling")
-                    && self.at_plausible_when_pattern()
-                {
+                if
+                /*dbg!(self
+                .cur_indent()
+                .is_indented_more_than(cfg.block_indent_floor)
+                .ok_or(Error::InconsistentIndent)
+                .expect("TODO: error handling"))
+                && */
+                self.at_plausible_when_pattern() {
                     self.push_next_frame(
                         subtree_start,
                         cfg,
@@ -2453,6 +2463,15 @@ impl State {
                         },
                     );
                     self.start_pattern(cfg);
+                } else if self.consume_and_push_node(T::KwIf, N::InlineKwIf) {
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueWhen {
+                            next: WhenState::BranchBarOrArrow(indent),
+                        },
+                    );
+                    self.start_block_or_expr(cfg);
                 } else {
                     self.expect_and_push_node(T::OpArrow, N::InlineWhenArrow);
                     self.push_next_frame(
@@ -2883,7 +2902,7 @@ impl State {
     fn check<T>(&self, v: Result<T, Error>) -> T {
         match v {
             Ok(v) => v,
-            Err(e) => todo!(),
+            Err(e) => todo!("indentation error"),
         }
     }
 
@@ -3245,6 +3264,11 @@ impl State {
             return false;
         }
 
+        match self.cur() {
+            Some(T::KwWhen | T::KwIf) => return false,
+            _ => {}
+        }
+
         let mut depth = 0;
         let mut offset = 0;
 
@@ -3256,7 +3280,7 @@ impl State {
                 Some(T::CloseRound | T::CloseSquare | T::CloseCurly) => {
                     depth -= 1;
                 }
-                Some(T::OpBar | T::OpArrow) if depth == 0 => {
+                Some(T::OpBar | T::OpArrow | T::KwIf) if depth == 0 => {
                     return true;
                 }
                 Some(T::OpAssign | T::Comma | T::OpColon | T::OpColonEqual) => {
@@ -3264,16 +3288,39 @@ impl State {
                         return false;
                     }
                 }
-                Some(T::OpPlus | T::OpBinaryMinus | T::OpStar | T::OpSlash | T::OpPercent) => // TODO: more binops
+                Some(
+                    T::OpPlus
+                    | T::OpBinaryMinus
+                    | T::OpStar
+                    | T::OpSlash
+                    | T::OpPercent
+                    | T::OpPizza
+                    | T::OpBackslash
+                    | T::KwWhen
+                    | T::KwElse
+                    | T::OpBang
+                    | T::OpPercent,
+                ) =>
+                // TODO: more binops
                 {
                     return false;
                 }
-                Some(T::UpperIdent | T::LowerIdent | T::Underscore | T::NamedUnderscore
-                    | T::Int | T::Float | T::String | T::SingleQuote) => {
+                Some(
+                    T::UpperIdent
+                    | T::LowerIdent
+                    | T::Underscore
+                    | T::NamedUnderscore
+                    | T::Int
+                    | T::Float
+                    | T::String
+                    | T::SingleQuote
+                    | T::NoSpaceDotLowerIdent
+                    | T::DotLowerIdent,
+                ) => {
                     // ok!
                 }
                 None => {
-                    return true
+                    return false;
                 }
                 t => todo!("{:?} at depth {}", t, depth),
             }
@@ -3644,7 +3691,7 @@ impl<'a> UpProp for FmtInfoProp<'a> {
             N::BeginLambda => self.check_next_token(T::OpBackslash),
             N::InlineLambdaArrow => self.check_next_token(T::OpArrow),
 
-            _ => todo!("{:?}", node),
+            _ => todo!("leaf {:?}", node),
         }
     }
 
@@ -3775,7 +3822,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
                 buf.push_newline();
             }
             N::EndApply | N::EndBinOpPlus | N::EndBinOpStar | N::EndPizza => {}
-            _ => todo!("{:?}", node),
+            _ => todo!("pretty {:?}", node),
         }
     }
     buf
@@ -3867,7 +3914,7 @@ impl<'a> CommentExtractor<'a> {
             N::BeginLambda => self.check_next_token(T::OpBackslash),
             N::InlineLambdaArrow => self.check_next_token(T::OpArrow),
 
-            _ => todo!("{:?}", node),
+            _ => todo!("comment extract {:?}", node),
         }
 
         &self.comments[begin..]

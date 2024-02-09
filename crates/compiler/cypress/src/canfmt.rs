@@ -211,7 +211,7 @@ fn build_type<'a, 'b: 'a>(
                 }
             }
             N::EndTypeTagUnion => {
-                let mut values = stack.drain_to_index(index);
+                let values = stack.drain_to_index(index);
                 let args = bump.alloc_slice_fill_iter(values);
                 stack.push(i, Type::TagUnion(args));
             }

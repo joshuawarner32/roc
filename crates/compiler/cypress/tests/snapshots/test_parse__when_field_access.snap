@@ -1,0 +1,32 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "p=when s is H->s .d\ne\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginWhen
+                Ident=>LowerIdent@3
+                InlineKwIs=>KwIs@4
+                UpperIdent=>UpperIdent@5
+                InlineWhenArrow=>OpArrow@6
+                (*
+                    Ident=>LowerIdent@7
+                    InlineApply=>LowerIdent@7
+                    FieldAccessFunction=>DotLowerIdent@8
+                EndApply)
+            EndWhen)
+        EndAssign)
+        HintExpr
+        Ident=>LowerIdent@9
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("p"), When(Ident("s"), [UpperIdent("H"), Apply(Ident("s"), [FieldAccessFunction(".d")])]))
+Ident("e")
+
+[=== formatted below ===]
+

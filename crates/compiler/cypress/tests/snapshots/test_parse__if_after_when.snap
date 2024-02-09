@@ -1,0 +1,37 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "p=when d is\nF->\"\"\n_->\"\"if e then\ne\nelse\ne\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginWhen
+                Ident=>LowerIdent@3
+                InlineKwIs=>KwIs@4
+                UpperIdent=>UpperIdent@5
+                InlineWhenArrow=>OpArrow@6
+                String=>String@7
+                Underscore=>Underscore@8
+                InlineWhenArrow=>OpArrow@9
+                String=>String@10
+            EndWhen)
+        EndAssign)
+        HintExpr
+        (BeginIf
+            Ident=>LowerIdent@12
+            InlineKwThen=>KwThen@13
+            (BeginBlock HintExpr Ident=>LowerIdent@14 EndBlock)
+            InlineKwElse=>KwElse@15
+            (BeginBlock HintExpr Ident=>LowerIdent@16 EndBlock)
+        EndIf)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("p"), When(Ident("d"), [UpperIdent("F"), String("\"\""), Underscore("_"), String("\"\"")]))
+If([(Ident("e"), Block([Ident("e")]))], Block([Ident("e")]))
+
+[=== formatted below ===]
+

@@ -1,3 +1,5 @@
+use std::panic::catch_unwind;
+
 use roc_cypress::token::Tokenizer;
 use roc_cypress::parse::State;
 use bumpalo::Bump;
@@ -25,22 +27,26 @@ fn main() {
     loop {
         let mut found = false;
         for update in candidate_minimizations(s.clone()) {
-            let mut new_s = s.clone();
+            let mut new_s = String::with_capacity(s.len());
+            let mut offset = 0;
             for (start, end, replacement) in update.replacements {
-                new_s.replace_range(start..end, &replacement);
+                new_s.push_str(&s[offset..start]);
+                new_s.push_str(&replacement);
+                offset = end;
             }
+            new_s.push_str(&s[offset..]);
 
             if let Some(result) = parse_once_and_extract_error(&new_s) {
                 if result == original_error {
-                    eprintln!("Successfully minimized: {}", new_s);
+                    eprintln!("Successfully minimized, new length: {}", new_s.len());
                     s = new_s;
                     found = true;
                     break;
-                } else {
-                    eprintln!("Failed to minimize: {}", result);
+                // } else {
+                //     eprintln!("Failed to minimize: {}", result);
                 }
-            } else {
-                eprintln!("No error found");
+            // } else {
+            //     eprintln!("No error found");
             }
         }
 
@@ -65,13 +71,23 @@ fn parse_once_and_extract_error(text: &str) -> Option<String> {
 
     match res {
         Ok(res) => res,
-        Err(_) => Some("Panic during parsing".to_string()),
+        Err(e) => {
+            if let Some(s) = e.downcast_ref::<&'static str>() {
+                return Some(s.to_string());
+            }
+            if let Some(s) = e.downcast_ref::<String>() {
+                return Some(s.clone());
+            }
+            Some("Panic during parsing".to_string())
+        },
     }
 }
 
 fn check_legacy_parse(text: &str) -> bool {
-    let bump = Bump::new();
-    parse_legacy_full(&bump, text) || parse_legacy_expr(&bump, text)
+    std::panic::catch_unwind(|| {
+        let bump = Bump::new();
+        parse_legacy_full(&bump, text) || parse_legacy_expr(&bump, text)
+    }).unwrap_or(false)
 }
 
 fn parse_legacy_full<'a>(bump: &'a Bump, text: &'a str) -> bool {
@@ -97,19 +113,19 @@ fn parse_once(text: &str) -> Option<String> {
     tokenizer.tokenize();
     let (messages, tb) = tokenizer.finish();
     assert_eq!(messages, vec![]);
-    eprint!("tokens:");
-    let mut last = 0;
-    for (i, (begin, indent)) in tb.lines.iter().enumerate() {
-        for tok in &tb.kinds[last as usize .. *begin as usize] {
-            eprint!(" {:?}", tok);
-        }
-        eprint!("\n{}: {:?} {}.{}:", i, begin, indent.num_spaces, indent.num_tabs);
-        last = *begin;
-    }
-    for tok in &tb.kinds[last as usize..] {
-        eprint!(" {:?}", tok);
-    }
-    eprintln!();
+    // eprint!("tokens:");
+    // let mut last = 0;
+    // for (i, (begin, indent)) in tb.lines.iter().enumerate() {
+    //     for tok in &tb.kinds[last as usize .. *begin as usize] {
+    //         eprint!(" {:?}", tok);
+    //     }
+    //     eprint!("\n{}: {:?} {}.{}:", i, begin, indent.num_spaces, indent.num_tabs);
+    //     last = *begin;
+    // }
+    // for tok in &tb.kinds[last as usize..] {
+    //     eprint!(" {:?}", tok);
+    // }
+    // eprintln!();
 
     let mut state = State::from_buf(tb);
     state.start_file();

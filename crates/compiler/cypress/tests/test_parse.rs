@@ -2345,6 +2345,41 @@ fn test_when_in_parens_indented_expr_formatted() {
 }
 
 #[test]
+fn test_when_with_weird_trailing_if() {
+    snapshot_test!(block_indentify(
+        r#"
+        |p=when d is
+        |F->s\a->""
+        |_->""if e then
+        |e
+        |else
+        |e
+        "#
+    ));
+}
+
+#[test]
+fn test_when_upper_bar() {
+    snapshot_test!(block_indentify(
+        r#"
+        |c=when e is
+        |                U|R->f
+        |e
+        "#
+    ));
+}
+
+#[test]
+fn test_when_field_access() {
+    snapshot_test!(block_indentify(
+        r#"
+        |p=when s is H->s .d
+        |e
+        "#
+    ));
+}
+
+#[test]
 fn test_empty_app_header_header_formatted() {
     snapshot_test!(block_indentify(
         r#"
@@ -5085,6 +5120,30 @@ fn test_parens_in_type_def_apply_expr_formatted() {
         r#"
         |U (b a) : b
         |a
+        "#
+    ));
+}
+
+#[test]
+fn test_type_annotated_function() {
+    snapshot_test!(block_indentify(
+        r#"
+        |t:d,T->r
+        |t=e
+        "#
+    ));
+}
+
+#[test]
+fn test_if_after_when() {
+    snapshot_test!(block_indentify(
+        r#"
+        |p=when d is
+        |F->""
+        |_->""if e then
+        |e
+        |else
+        |e
         "#
     ));
 }
