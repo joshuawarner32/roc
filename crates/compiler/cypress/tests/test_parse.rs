@@ -21,7 +21,7 @@ fn tree_to_expect_atom(tree: &Tree, buf: &TokenenizedBuffer) -> ExpectAtom {
 
 fn tree_expect_atom(tree: &Tree, end: usize, buf: &TokenenizedBuffer) -> (usize, ExpectAtom) {
     let node = tree.kinds[end - 1];
-    let index = tree.paird_group_ends[end - 1];
+    let index = tree.indices[end - 1];
 
     let has_begin = match node.index_kind() {
         NodeIndexKind::Begin => {
@@ -74,7 +74,7 @@ fn tree_expect_atom(tree: &Tree, end: usize, buf: &TokenenizedBuffer) -> (usize,
 
     if has_begin {
         assert_eq!(
-            tree.paird_group_ends[begin], end as u32,
+            tree.indices[begin], end as u32,
             "begin/end mismatch at {}->{}, with node {:?}",
             begin, end, node
         );

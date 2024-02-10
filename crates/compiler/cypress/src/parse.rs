@@ -695,7 +695,7 @@ impl State {
             self.tree.kinds[subtree_start as usize],
             ShowTreePosition(&self.tree, subtree_start)
         );
-        self.tree.paird_group_ends[subtree_start as usize] = self.tree.len() as u32;
+        self.tree.indices[subtree_start as usize] = self.tree.len() as u32;
     }
 
     fn push_node(&mut self, kind: N, subtree_start: Option<u32>) {
@@ -709,8 +709,8 @@ impl State {
             indent = 2 * self.frames.len() + 2
         );
         self.tree.kinds.push(kind);
-        let pos = subtree_start.unwrap_or(self.tree.paird_group_ends.len() as u32);
-        self.tree.paird_group_ends.push(pos);
+        let pos = subtree_start.unwrap_or(self.tree.indices.len() as u32);
+        self.tree.indices.push(pos);
     }
 
     fn push_node_begin(&mut self, kind: N) -> u32 {
@@ -3012,7 +3012,7 @@ impl<'b> TreeWalker<'b> {
     pub fn new(tree: &'b Tree) -> Self {
         Self {
             kinds: &tree.kinds,
-            indices: &tree.paird_group_ends,
+            indices: &tree.indices,
             pos: 0,
         }
     }
@@ -3104,7 +3104,7 @@ fn bubble_up<P: UpProp>(prop: &mut P, tree: &Tree) -> Vec<P::Out> {
     let mut accum = prop.init();
 
     for (i, &node) in tree.kinds.iter().enumerate() {
-        let index = tree.paird_group_ends[i];
+        let index = tree.indices[i];
 
         let item = match node.index_kind() {
             NodeIndexKind::Begin | NodeIndexKind::Token | NodeIndexKind::Unused => {
@@ -3147,7 +3147,7 @@ fn bubble_down_mut<P: DownProp>(tree: &Tree, state: &mut Vec<P>) {
     assert_eq!(tree.len() as usize, state.len());
     let mut stack = Vec::<(usize, P, N)>::new();
     for (i, &node) in tree.kinds.iter().enumerate().rev() {
-        let index = tree.paird_group_ends[i];
+        let index = tree.indices[i];
 
         while let Some(&(begin_index, parent_state, parent_node)) = stack.last() {
             if begin_index > i {
@@ -3328,7 +3328,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
     // dbg!(&ctx.toks.kinds);
 
     for (i, &node) in tree.kinds.iter().enumerate() {
-        let index = tree.paird_group_ends[i];
+        let index = tree.indices[i];
         match node {
             N::Ident => buf.push_sp_str_sp(ctx.text(index)),
             N::BeginTopLevelDecls => {}

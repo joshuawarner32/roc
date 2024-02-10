@@ -1,6 +1,6 @@
 pub struct Tree {
     pub kinds: Vec<N>,
-    pub paird_group_ends: Vec<u32>,
+    pub indices: Vec<u32>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -409,7 +409,7 @@ impl Tree {
     pub fn new() -> Tree {
         Tree {
             kinds: Vec::new(),
-            paird_group_ends: Vec::new(),
+            indices: Vec::new(),
         }
     }
 
