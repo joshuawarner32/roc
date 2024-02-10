@@ -98,7 +98,6 @@
 
 use crate::token::{Comment, Indent, TokenenizedBuffer, T};
 use std::fmt;
-use std::os::unix::raw::off_t;
 use std::{
     collections::{btree_map::Keys, VecDeque},
     f32::consts::E,

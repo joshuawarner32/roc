@@ -1,4 +1,4 @@
-use std::panic::catch_unwind;
+
 
 use roc_cypress::token::Tokenizer;
 use roc_cypress::parse::State;
