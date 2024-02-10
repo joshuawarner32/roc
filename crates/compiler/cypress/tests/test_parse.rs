@@ -1,10 +1,13 @@
 use std::collections::VecDeque;
 
-use roc_cypress::parse::*;
 use roc_cypress::canfmt;
+use roc_cypress::parse::*;
 use roc_cypress::token::TokenenizedBuffer;
 use roc_cypress::token::Tokenizer;
 use roc_cypress::token::T;
+use roc_cypress::tree::NodeIndexKind;
+use roc_cypress::tree::Tree;
+use roc_cypress::tree::N;
 
 fn state_to_expect_atom(state: &State) -> ExpectAtom {
     tree_to_expect_atom(&state.tree, &state.buf)
@@ -149,7 +152,6 @@ impl ExpectAtom {
     }
 }
 
-
 fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String {
     // binary search to find the line of msg.pos
     let (line_start, line_end) = match buf
@@ -247,10 +249,13 @@ fn run_snapshot_test(text: &str) -> String {
     eprint!("tokens:");
     let mut last = 0;
     for (i, (begin, indent)) in tb.lines.iter().enumerate() {
-        for tok in &tb.kinds[last as usize .. *begin as usize] {
+        for tok in &tb.kinds[last as usize..*begin as usize] {
             eprint!(" {:?}", tok);
         }
-        eprint!("\n{}: {:?} {}.{}:", i, begin, indent.num_spaces, indent.num_tabs);
+        eprint!(
+            "\n{}: {:?} {}.{}:",
+            i, begin, indent.num_spaces, indent.num_tabs
+        );
         last = *begin;
     }
     for tok in &tb.kinds[last as usize..] {
@@ -276,21 +281,28 @@ fn run_snapshot_test(text: &str) -> String {
 
     let canfmt_output = {
         let bump = bumpalo::Bump::new();
-        let canfmt = canfmt::build(&bump, ParsedCtx {
-            tree: &state.tree,
-            toks: &state.buf,
-            text,
-        });
-        canfmt.iter().map(|i| format!("{:?}", i)).collect::<Vec<_>>().join("\n")
+        let canfmt = canfmt::build(
+            &bump,
+            ParsedCtx {
+                tree: &state.tree,
+                toks: &state.buf,
+                text,
+            },
+        );
+        canfmt
+            .iter()
+            .map(|i| format!("{:?}", i))
+            .collect::<Vec<_>>()
+            .join("\n")
     };
 
     // let format_output = pretty(&state.tree, &state.buf, text).text;
     let format_output = String::new(); // TODO!
 
-    format!("{}\n\n[=== canfmt below ===]\n{}\n\n[=== formatted below ===]\n{}",
-        tree_output,
-        canfmt_output,
-        format_output)
+    format!(
+        "{}\n\n[=== canfmt below ===]\n{}\n\n[=== formatted below ===]\n{}",
+        tree_output, canfmt_output, format_output
+    )
 }
 
 macro_rules! snapshot_test {
@@ -344,7 +356,6 @@ macro_rules! snapshot_test {
 
     }};
 }
-
 
 #[test]
 fn test_ident() {

@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 
-use crate::parse::{BinOp, N};
+use crate::parse::BinOp;
 use crate::parse::{ParsedCtx, TreeWalker};
+use crate::tree::N;
 use bumpalo::collections::vec::Vec;
 use bumpalo::Bump;
 
