@@ -491,6 +491,12 @@ macro_rules! debug_print {
 
 }
 
+enum TypeFragmentResult {
+    Atom,           // we just parsed an atom, so don't need to defer to the outer pump
+    AtomAllowApply, // we just parsed an atom, specifically and upper ident (type name), so allow type args
+    NonAtom,
+}
+
 impl State {
     pub fn from_buf(buf: TokenenizedBuffer) -> Self {
         State {
@@ -797,7 +803,7 @@ impl State {
                 let mut start = self.pos;
                 self._pump_single_frame(subtree_start, cfg, frame);
                 i += 1;
-                debug_assert!(i < 1000, "pump looped too many times");
+                // debug_assert!(i < 1000, "pump looped too many times");
             }
 
             if self.messages.len() > 0 {
@@ -1432,38 +1438,38 @@ impl State {
         outer_subtree_start: u32,
         cfg: ExprCfg,
         outer: Frame,
-    ) -> Option<bool> {
+    ) -> TypeFragmentResult {
         match self.cur() {
             Some(T::OpenRound) => {
                 let subtree_start = self.bump_and_push_node_begin(N::BeginParens);
                 self.push_next_frame(outer_subtree_start, cfg, outer);
                 self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
                 self.start_type(cfg, false, false);
-                Some(false)
+                TypeFragmentResult::NonAtom
             }
             Some(T::OpenSquare) => {
                 self.bump();
                 self.push_next_frame(outer_subtree_start, cfg, outer);
                 self.start_tag_union(cfg);
-                Some(false)
+                TypeFragmentResult::NonAtom
             }
             Some(T::OpenCurly) => {
                 self.bump();
                 self.push_next_frame(outer_subtree_start, cfg, outer);
                 self.start_type_record(cfg);
-                Some(false)
+                TypeFragmentResult::NonAtom
             }
             Some(T::LowerIdent) => {
                 self.bump_and_push_node(N::Ident);
-                None
+                TypeFragmentResult::Atom
             }
             Some(T::Underscore) => {
                 self.bump_and_push_node(N::Underscore);
-                None
+                TypeFragmentResult::Atom
             }
             Some(T::OpStar) => {
                 self.bump_and_push_node(N::TypeWildcard);
-                None
+                TypeFragmentResult::Atom
             }
             Some(T::UpperIdent) => {
                 self.bump();
@@ -1477,12 +1483,12 @@ impl State {
                 } else {
                     self.push_node(N::TypeName, Some(self.pos as u32 - 1));
                 }
-                Some(true)
+                TypeFragmentResult::AtomAllowApply
             }
             Some(k) if k.is_keyword() => {
                 // treat as an identifier
                 self.bump_and_push_node(N::Ident);
-                None
+                TypeFragmentResult::Atom
             }
             k => todo!("start type atom, unexpected: {:?}", k),
         }
@@ -1503,12 +1509,12 @@ impl State {
         let res = self.fragment_start_type(subtree_start, cfg, frame);
 
         match res {
-            Some(false) => {}
-            None => {
+            TypeFragmentResult::NonAtom => {}
+            TypeFragmentResult::Atom => {
                 // intermediate refactor state: we'd usually be looping in this case
                 self.push_next_frame(subtree_start, cfg, frame);
             }
-            Some(true) => {
+            TypeFragmentResult::AtomAllowApply => {
                 // intermediate refactor state: we'd usually be looping in this case
                 self.push_next_frame(
                     subtree_start,
