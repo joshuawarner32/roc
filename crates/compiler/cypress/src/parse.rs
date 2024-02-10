@@ -122,7 +122,6 @@ enum TypePrec {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Prec {
     Outer,
-    DeclSeq,               // BinOp::DeclSeq,
     Decl,                  // BinOp::Assign, BinOp::Backpassing,
     MultiBackpassingComma, // BinOp::MultiBackpassingComma. Used for parsing the comma in `x, y, z <- foo`
     Pizza,                 // BinOp::Pizza,
@@ -139,7 +138,6 @@ pub enum Prec {
 pub enum BinOp {
     // shouldn't be pub. only pub because of canfmt. should just use a different enum.
     AssignBlock,
-    DeclSeq,
     Assign,
     Backpassing,
     Pizza,
@@ -169,8 +167,7 @@ pub enum BinOp {
 impl Prec {
     fn next(self) -> Prec {
         match self {
-            Prec::Outer => Prec::DeclSeq,
-            Prec::DeclSeq => Prec::MultiBackpassingComma,
+            Prec::Outer => Prec::MultiBackpassingComma,
             Prec::MultiBackpassingComma => Prec::Pizza,
             Prec::Decl => Prec::Pizza,
             Prec::Pizza => Prec::AndOr,
@@ -196,7 +193,6 @@ impl BinOp {
     fn prec(self) -> Prec {
         match self {
             // BinOp::AssignBlock => Prec::Outer,
-            BinOp::DeclSeq => Prec::DeclSeq,
             BinOp::AssignBlock
             | BinOp::Assign
             | BinOp::As // is this right?
@@ -223,7 +219,6 @@ impl BinOp {
     fn grouping_assoc(self) -> Assoc {
         match self {
             BinOp::AssignBlock => Assoc::Right,
-            BinOp::DeclSeq => Assoc::Right,
             BinOp::Assign
             | BinOp::As // is this right?
             | BinOp::Backpassing
@@ -256,7 +251,7 @@ impl BinOp {
 
     fn n_arity(self) -> bool {
         match self {
-            BinOp::Apply | BinOp::Pizza | BinOp::DeclSeq => true,
+            BinOp::Apply | BinOp::Pizza => true,
             _ => false,
         }
     }
@@ -264,7 +259,6 @@ impl BinOp {
     fn to_inline(&self) -> N {
         match self {
             BinOp::AssignBlock => todo!(),
-            BinOp::DeclSeq => todo!(),
             BinOp::As => N::InlineKwAs,
             BinOp::Assign => N::InlineAssign,
             BinOp::Implements => N::InlineAbilityImplements,
@@ -1365,25 +1359,6 @@ impl State {
         }
     }
 
-    // fn next_type_op(&mut self, min_prec: TypePrec) -> Option<TypeBinOp> {
-    //     let (op, width) = match self.cur() {
-    //         // TODO: check for other things that can start a type
-    //         Some(
-    //             T::LowerIdent
-    //             | T::UpperIdent
-    //             | T::Underscore
-    //             | T::OpenCurly
-    //             | T::IntBase10
-    //             | T::String
-    //             | T::OpenRound
-    //             | T::OpenCurly
-    //             | T::OpenSquare
-    //             | T::OpUnaryMinus
-    //             | T::OpBang,
-    //         ) => {
-    //     }
-    // }
-
     fn next_op(&mut self, min_prec: Prec, cfg: ExprCfg) -> Option<BinOp> {
         let (op, width) = match self.cur() {
             // TODO: check for other things that can start an expr
@@ -2436,7 +2411,7 @@ impl State {
         self.push_next_frame_starting_here(
             cfg,
             Frame::StartExpr {
-                min_prec: Prec::DeclSeq,
+                min_prec: Prec::Outer,
             },
         );
     }
@@ -2895,7 +2870,8 @@ impl State {
                     | T::String
                     | T::SingleQuote
                     | T::NoSpaceDotLowerIdent
-                    | T::DotLowerIdent,
+                    | T::DotLowerIdent
+                    | T::DoubleDot,
                 ) => {
                     // ok!
                 }
