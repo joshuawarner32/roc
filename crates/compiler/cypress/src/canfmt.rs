@@ -129,7 +129,7 @@ fn build_type<'a, 'b: 'a>(
             N::DotModuleUpperIdent => {
                 let last = stack.pop().unwrap();
                 let name = match last {
-                    Type::Name(name) => ctx.text(index),
+                    Type::Name(_name) => ctx.text(index),
                     Type::ModuleType(name, _) => name, // TODO! THIS IS WRONG
                     _ => panic!("Expected name"),
                 };
@@ -158,7 +158,7 @@ fn build_type<'a, 'b: 'a>(
                 stack.push(i, Type::Adendum(bump.alloc(first), bump.alloc(second)));
             }
             N::EndTypeRecord => {
-                let mut values = stack.drain_to_index(index);
+                let values = stack.drain_to_index(index);
                 let values = values.collect::<std::vec::Vec<_>>();
                 dbg!(&values);
                 let mut values = values.into_iter();
@@ -205,7 +205,7 @@ fn build_type<'a, 'b: 'a>(
                     drop(values);
                     stack.push(i, value);
                 } else {
-                    let mut values = values.into_iter();
+                    let values = values.into_iter();
                     let args = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Type::Tuple(args));
                 }
@@ -235,11 +235,11 @@ fn build_type<'a, 'b: 'a>(
 }
 
 fn build_ability<'a, 'b: 'a>(
-    bump: &'a Bump,
-    ctx: ParsedCtx<'b>,
+    _bump: &'a Bump,
+    _ctx: ParsedCtx<'b>,
     w: &mut TreeWalker<'b>,
 ) -> (&'a [(&'a str, &'a Type<'a>)], usize, u32) {
-    while let Some((node, i, index)) = w.next_index() {
+    while let Some((node, _i, _index)) = w.next_index() {
         match node {
             _ => todo!("{:?}", node),
         }
@@ -267,7 +267,7 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
         )
     ) {
         w.next();
-        while let Some((node, i, index)) = w.cur_index() {
+        while let Some((node, _i, _index)) = w.cur_index() {
             match node {
                 N::EndHeaderApp
                 | N::EndHeaderHosted
@@ -362,12 +362,12 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
                 stack.push(i, Expr::Apply(first, args));
             }
             N::EndList => {
-                let mut values = stack.drain_to_index(index);
+                let values = stack.drain_to_index(index);
                 let args = bump.alloc_slice_fill_iter(values);
                 stack.push(i, Expr::List(args));
             }
             N::EndPatternList => {
-                let mut values = stack.drain_to_index(index);
+                let values = stack.drain_to_index(index);
                 let args = bump.alloc_slice_fill_iter(values);
                 stack.push(i, Expr::PatternList(args));
             }
@@ -525,7 +525,7 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
                     drop(values);
                     stack.push(i, value);
                 } else {
-                    let mut values = values.into_iter();
+                    let values = values.into_iter();
                     let args = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Expr::Tuple(args));
                 }
@@ -538,7 +538,7 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
                     drop(values);
                     stack.push(i, value);
                 } else {
-                    let mut values = values.into_iter();
+                    let values = values.into_iter();
                     let args = bump.alloc_slice_fill_iter(values);
                     stack.push(i, Expr::Tuple(args));
                 }
@@ -593,8 +593,8 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
                 stack.push(i, Expr::UnaryOp(UnaryOp::Not, body));
             }
             N::InlineAbilityImplements => {
-                let (body, i, index) = build_ability(bump, ctx, &mut w);
-                let mut values = stack.drain_to_index(index);
+                let (_body, _i, index) = build_ability(bump, ctx, &mut w);
+                let values = stack.drain_to_index(index);
                 assert_eq!(
                     values.len(),
                     1,
