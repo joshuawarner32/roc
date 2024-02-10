@@ -121,7 +121,6 @@ enum TypePrec {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Prec {
-    Outer,
     Decl,                  // BinOp::Assign, BinOp::Backpassing,
     MultiBackpassingComma, // BinOp::MultiBackpassingComma. Used for parsing the comma in `x, y, z <- foo`
     Pizza,                 // BinOp::Pizza,
@@ -137,7 +136,6 @@ pub enum Prec {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOp {
     // shouldn't be pub. only pub because of canfmt. should just use a different enum.
-    AssignBlock,
     Assign,
     Backpassing,
     Pizza,
@@ -167,7 +165,6 @@ pub enum BinOp {
 impl Prec {
     fn next(self) -> Prec {
         match self {
-            Prec::Outer => Prec::MultiBackpassingComma,
             Prec::MultiBackpassingComma => Prec::Pizza,
             Prec::Decl => Prec::Pizza,
             Prec::Pizza => Prec::AndOr,
@@ -192,9 +189,7 @@ enum Assoc {
 impl BinOp {
     fn prec(self) -> Prec {
         match self {
-            // BinOp::AssignBlock => Prec::Outer,
-            BinOp::AssignBlock
-            | BinOp::Assign
+            BinOp::Assign
             | BinOp::As // is this right?
             | BinOp::DefineTypeOrTypeAlias
             | BinOp::DefineOtherTypeThing
@@ -216,9 +211,8 @@ impl BinOp {
         }
     }
 
-    fn grouping_assoc(self) -> Assoc {
+    fn assoc(self) -> Assoc {
         match self {
-            BinOp::AssignBlock => Assoc::Right,
             BinOp::Assign
             | BinOp::As // is this right?
             | BinOp::Backpassing
@@ -241,14 +235,6 @@ impl BinOp {
         }
     }
 
-    fn matching_assoc(self) -> Assoc {
-        if self == BinOp::AssignBlock {
-            return Assoc::Left;
-        } else {
-            self.grouping_assoc()
-        }
-    }
-
     fn n_arity(self) -> bool {
         match self {
             BinOp::Apply | BinOp::Pizza => true,
@@ -258,7 +244,6 @@ impl BinOp {
 
     fn to_inline(&self) -> N {
         match self {
-            BinOp::AssignBlock => todo!(),
             BinOp::As => N::InlineKwAs,
             BinOp::Assign => N::InlineAssign,
             BinOp::Implements => N::InlineAbilityImplements,
@@ -301,7 +286,6 @@ impl From<BinOp> for N {
             BinOp::LessThanOrEq => N::EndBinOpLessThanOrEq,
             BinOp::GreaterThanOrEq => N::EndBinOpGreaterThanOrEq,
             BinOp::Assign => N::EndAssign,
-            BinOp::AssignBlock => N::EndAssign,
             BinOp::Backpassing => N::EndBackpassing,
             BinOp::MultiBackpassingComma => N::EndMultiBackpassingArgs,
             BinOp::Slash => N::EndBinOpSlash,
@@ -944,7 +928,7 @@ impl State {
                     self.push_next_frame_starting_here(cfg, Frame::ContinueExprTupleOrParen);
                     self.push_node(N::BeginParens, None);
                     subtree_start = self.tree.len();
-                    min_prec = Prec::Outer;
+                    min_prec = Prec::Decl;
                     cfg = cfg.disable_multi_backpassing();
                     continue;
                 }
@@ -1330,7 +1314,7 @@ impl State {
             );
 
             let op_prec = op.prec();
-            let assoc = op.matching_assoc();
+            let assoc = op.assoc();
 
             let next_min_prec = if assoc == Assoc::Left {
                 op_prec
@@ -1412,7 +1396,7 @@ impl State {
             _ => return None,
         };
 
-        if op.prec() < min_prec || (op.prec() == min_prec && op.grouping_assoc() == Assoc::Left) {
+        if op.prec() < min_prec || (op.prec() == min_prec && op.assoc() == Assoc::Left) {
             return None;
         }
 
@@ -2411,7 +2395,7 @@ impl State {
         self.push_next_frame_starting_here(
             cfg,
             Frame::StartExpr {
-                min_prec: Prec::Outer,
+                min_prec: Prec::Decl,
             },
         );
     }
