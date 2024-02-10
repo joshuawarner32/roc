@@ -497,6 +497,12 @@ enum TypeFragmentResult {
     NonAtom,
 }
 
+enum ExprFragmentResult {
+    Atom, // we just parsed an atom, so don't need to defer to the outer pump
+    NonAtom,
+    FreshExpr,
+}
+
 impl State {
     pub fn from_buf(buf: TokenenizedBuffer) -> Self {
         State {
@@ -878,14 +884,189 @@ impl State {
         self.pumping = None;
     }
 
-    fn pump_start_expr(&mut self, mut subtree_start: u32, mut cfg: ExprCfg, mut min_prec: Prec) {
-        macro_rules! maybe_return {
-            () => {
-                match self.cur() {
-                    None | Some(T::OpArrow) => return,
-                    _ => {}
-                }
+    fn fragment_start_expr(
+        &mut self,
+        subtree_start: u32, // TODO: remove this. currently used for dbg/expect/expectfx end.
+        cfg: ExprCfg,
+        flush: impl FnOnce(&mut Self),
+        flush_end: impl FnOnce(&mut Self),
+    ) -> ExprFragmentResult {
+        macro_rules! atom {
+            ($kind:expr) => {{
+                let subtree_start = self.tree.len() as u32;
+                self.bump_and_push_node($kind);
+                self.handle_field_access_suffix(subtree_start);
+                ExprFragmentResult::Atom
+            }};
+        }
 
+        match self.cur() {
+            Some(T::LowerIdent) => atom!(N::Ident),
+            Some(T::KwCrash) => atom!(N::Crash),
+            // TODO: do these need to be distinguished in the node?
+            Some(T::Underscore | T::NamedUnderscore) => atom!(N::Underscore),
+            Some(T::Int) => atom!(N::Num),
+            Some(T::String) => atom!(N::String),
+            Some(T::Float) => atom!(N::Float),
+            Some(T::DotNumber) => atom!(N::TupleAccessFunction),
+            Some(T::DotLowerIdent) => atom!(N::FieldAccessFunction),
+            Some(T::OpaqueName) => atom!(N::OpaqueName),
+
+            Some(T::UpperIdent) => {
+                self.bump();
+                let subtree_start = self.tree.len();
+                if self.consume(T::NoSpaceDotLowerIdent) {
+                    self.push_node(N::ModuleName, Some(self.pos as u32 - 2));
+                    self.push_node(N::DotModuleLowerIdent, Some(self.pos as u32 - 1));
+                } else if self.consume(T::NoSpaceDotUpperIdent) {
+                    self.push_node(N::ModuleName, Some(self.pos as u32 - 2));
+                    self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
+                    if self.consume(T::NoSpaceDotUpperIdent) {
+                        self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
+                    }
+                } else {
+                    // TODO: this is probably wrong
+                    self.push_node(N::UpperIdent, Some(self.pos as u32 - 1));
+                }
+                self.handle_field_access_suffix(subtree_start);
+                ExprFragmentResult::Atom
+            }
+
+            Some(T::OpenRound) => {
+                flush(self);
+                let subtree_start = self.bump_and_push_node_begin(N::BeginParens);
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueExprTupleOrParen);
+                self.start_expr(cfg.disable_multi_backpassing());
+                ExprFragmentResult::NonAtom
+            }
+            Some(T::OpenCurly) => {
+                let subtree_start = self.bump_and_push_node_begin(N::BeginRecord);
+                flush(self);
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueRecord { start: true });
+                ExprFragmentResult::NonAtom
+            }
+            Some(T::OpenSquare) => {
+                self.bump();
+                flush(self);
+                self.start_list(cfg);
+                ExprFragmentResult::NonAtom
+            }
+            Some(T::OpBackslash) => {
+                let subtree_start = self.bump_and_push_node_begin(N::BeginLambda);
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueLambdaArgs);
+                self.start_pattern(cfg);
+                ExprFragmentResult::NonAtom
+            }
+            Some(T::KwIf) => {
+                if self.plausible_expr_continue_comes_next() {
+                    atom!(N::Ident)
+                } else {
+                    let subtree_start = self.bump_and_push_node_begin(N::BeginIf);
+                    flush_end(self);
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueIf {
+                            next: IfState::Then,
+                        },
+                    );
+                    ExprFragmentResult::FreshExpr
+                }
+            }
+            Some(T::KwWhen) => {
+                if self.plausible_expr_continue_comes_next() {
+                    atom!(N::Ident)
+                } else {
+                    let subtree_start = self.bump_and_push_node_begin(N::BeginWhen);
+                    flush_end(self);
+                    self.push_next_frame(
+                        subtree_start,
+                        cfg,
+                        Frame::ContinueWhen {
+                            next: WhenState::Is,
+                        },
+                    );
+                    ExprFragmentResult::FreshExpr
+                }
+            }
+            Some(T::OpBang) => {
+                self.bump();
+                flush(self);
+                self.push_next_frame_starting_here(cfg, Frame::PushEndOnly(N::EndUnaryNot));
+                self.push_next_frame_starting_here(
+                    cfg,
+                    Frame::StartExpr {
+                        min_prec: Prec::Atom,
+                    },
+                );
+                ExprFragmentResult::NonAtom // TODO: we should be able to loop in this function
+            }
+            Some(T::OpUnaryMinus) => {
+                self.bump();
+                flush(self);
+                self.push_next_frame_starting_here(cfg, Frame::PushEndOnly(N::EndUnaryMinus));
+                self.push_next_frame_starting_here(
+                    cfg,
+                    Frame::StartExpr {
+                        min_prec: Prec::Atom,
+                    },
+                );
+                ExprFragmentResult::NonAtom // TODO: we should be able to loop in this function
+            }
+            Some(T::KwDbg) => {
+                self.bump();
+                flush_end(self);
+                self.push_next_frame(subtree_start, cfg, Frame::PushEnd(N::Dummy, N::EndDbg));
+                self.start_block_or_expr(cfg);
+                ExprFragmentResult::NonAtom
+            }
+            Some(T::KwExpect) => {
+                self.bump();
+                flush_end(self);
+                self.push_next_frame(subtree_start, cfg, Frame::PushEnd(N::Dummy, N::EndExpect));
+                self.start_block_or_expr(cfg);
+                ExprFragmentResult::NonAtom
+            }
+            Some(T::KwExpectFx) => {
+                self.bump();
+                flush_end(self);
+                self.push_next_frame(subtree_start, cfg, Frame::PushEnd(N::Dummy, N::EndExpectFx));
+                self.start_block_or_expr(cfg);
+                ExprFragmentResult::NonAtom
+            }
+            Some(k) if k.is_keyword() => {
+                // treat as an identifier
+                atom!(N::Ident)
+            }
+            k => {
+                flush_end(self);
+                self.push_error(Error::ExpectedExpr(k));
+                self.fast_forward_past_newline();
+                ExprFragmentResult::NonAtom
+            }
+        }
+    }
+
+    fn pump_start_expr(&mut self, mut subtree_start: u32, mut cfg: ExprCfg, mut min_prec: Prec) {
+        let res = self.fragment_start_expr(
+            subtree_start,
+            cfg,
+            |s| {
+                s.push_next_frame(
+                    subtree_start,
+                    cfg,
+                    Frame::ContinueExpr {
+                        min_prec,
+                        cur_op: None,
+                        num_found: 1,
+                    },
+                );
+            },
+            |s| {},
+        );
+
+        match res {
+            ExprFragmentResult::Atom => {
                 self.push_next_frame(
                     subtree_start,
                     cfg,
@@ -895,215 +1076,10 @@ impl State {
                         num_found: 1,
                     },
                 );
-                return;
-            };
-        }
-
-        macro_rules! atom {
-            ($n:expr) => {{
-                self.bump();
-                let subtree_start = self.tree.len();
-                self.push_node($n, Some(self.pos as u32 - 1));
-                self.handle_field_access_suffix(subtree_start);
-                maybe_return!();
-            }};
-        }
-
-        loop {
-            match self.cur() {
-                Some(T::LowerIdent) => atom!(N::Ident),
-                Some(T::KwCrash) => atom!(N::Crash),
-                // TODO: do these need to be distinguished in the node?
-                Some(T::Underscore | T::NamedUnderscore) => atom!(N::Underscore),
-                Some(T::Int) => atom!(N::Num),
-                Some(T::String) => atom!(N::String),
-                Some(T::Float) => atom!(N::Float),
-                Some(T::DotNumber) => atom!(N::TupleAccessFunction),
-                Some(T::DotLowerIdent) => atom!(N::FieldAccessFunction),
-                Some(T::OpaqueName) => atom!(N::OpaqueName),
-
-                Some(T::UpperIdent) => {
-                    self.bump();
-                    let subtree_start = self.tree.len();
-                    if self.consume(T::NoSpaceDotLowerIdent) {
-                        self.push_node(N::ModuleName, Some(self.pos as u32 - 2));
-                        self.push_node(N::DotModuleLowerIdent, Some(self.pos as u32 - 1));
-                    } else if self.consume(T::NoSpaceDotUpperIdent) {
-                        self.push_node(N::ModuleName, Some(self.pos as u32 - 2));
-                        self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
-                        if self.consume(T::NoSpaceDotUpperIdent) {
-                            self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
-                        }
-                    } else {
-                        // TODO: this is probably wrong
-                        self.push_node(N::UpperIdent, Some(self.pos as u32 - 1));
-                    }
-                    self.handle_field_access_suffix(subtree_start);
-                    maybe_return!();
-                }
-
-                Some(T::OpenRound) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
-                    );
-                    self.push_next_frame_starting_here(cfg, Frame::ContinueExprTupleOrParen);
-                    self.push_node(N::BeginParens, None);
-                    subtree_start = self.tree.len();
-                    min_prec = Prec::Decl;
-                    cfg = cfg.disable_multi_backpassing();
-                    continue;
-                }
-                Some(T::OpenCurly) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
-                    );
-                    self.push_next_frame_starting_here(cfg, Frame::ContinueRecord { start: true });
-                    self.push_node(N::BeginRecord, None); // index will be updated later
-                    return;
-                }
-                Some(T::OpenSquare) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
-                    );
-                    self.start_list(cfg);
-                    return;
-                }
-                Some(T::OpBackslash) => {
-                    self.bump();
-                    self.push_next_frame_starting_here(cfg, Frame::ContinueLambdaArgs);
-                    self.push_node(N::BeginLambda, None);
-                    self.start_pattern(cfg);
-                    return;
-                }
-                Some(T::KwIf) => {
-                    if self.plausible_expr_continue_comes_next() {
-                        atom!(N::Ident);
-                    } else {
-                        self.bump();
-                        self.push_next_frame_starting_here(
-                            cfg,
-                            Frame::ContinueIf {
-                                next: IfState::Then,
-                            },
-                        );
-                        self.push_node(N::BeginIf, None);
-                        self.start_expr(cfg);
-                        return;
-                    }
-                }
-                Some(T::KwWhen) => {
-                    if self.plausible_expr_continue_comes_next() {
-                        atom!(N::Ident);
-                    } else {
-                        self.bump();
-                        self.push_next_frame_starting_here(
-                            cfg,
-                            Frame::ContinueWhen {
-                                next: WhenState::Is,
-                            },
-                        );
-                        self.push_node(N::BeginWhen, None);
-                        self.start_expr(cfg);
-                        return;
-                    }
-                }
-                Some(T::OpBang) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
-                    );
-                    self.push_next_frame_starting_here(cfg, Frame::PushEndOnly(N::EndUnaryNot));
-                    self.push_next_frame_starting_here(
-                        cfg,
-                        Frame::StartExpr {
-                            min_prec: Prec::Atom,
-                        },
-                    );
-                    return;
-                }
-                Some(T::OpUnaryMinus) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueExpr {
-                            min_prec,
-                            cur_op: None,
-                            num_found: 1,
-                        },
-                    );
-                    self.push_next_frame_starting_here(cfg, Frame::PushEndOnly(N::EndUnaryMinus));
-                    self.push_next_frame_starting_here(
-                        cfg,
-                        Frame::StartExpr {
-                            min_prec: Prec::Atom,
-                        },
-                    );
-                    return;
-                }
-                Some(T::OpArrow) => return, // when arrow; handled in outer scope
-                Some(T::KwDbg) => {
-                    self.bump();
-                    self.push_next_frame(subtree_start, cfg, Frame::PushEnd(N::Dummy, N::EndDbg));
-                    self.start_block_or_expr(cfg);
-                    return;
-                }
-                Some(T::KwExpect) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::PushEnd(N::Dummy, N::EndExpect),
-                    );
-                    self.start_block_or_expr(cfg);
-                    return;
-                }
-                Some(T::KwExpectFx) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::PushEnd(N::Dummy, N::EndExpectFx),
-                    );
-                    self.start_block_or_expr(cfg);
-                    return;
-                }
-                Some(k) if k.is_keyword() => {
-                    // treat as an identifier
-                    atom!(N::Ident);
-                }
-                k => {
-                    self.push_error(Error::ExpectedExpr(k));
-                    self.fast_forward_past_newline();
-                    return;
-                }
+            }
+            ExprFragmentResult::NonAtom => {}
+            ExprFragmentResult::FreshExpr => {
+                self.start_expr(cfg);
             }
         }
     }
