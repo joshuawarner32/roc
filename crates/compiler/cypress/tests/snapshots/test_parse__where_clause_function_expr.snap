@@ -11,8 +11,8 @@ description: "f : a -> (b -> c) where a implements A\n\nf\n\n"
                 (*
                     Ident=>LowerIdent@2
                     InlineLambdaArrow=>OpArrow@3
-                    ((*
-                            BeginParens
+                    (BeginParens
+                        (*
                             Ident=>LowerIdent@5
                             InlineLambdaArrow=>OpArrow@6
                             Ident=>LowerIdent@7

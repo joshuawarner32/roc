@@ -13,8 +13,8 @@ description: "f : a -> (b -> c)\n    where a implements Hash,\n      b implement
                         (*
                             Ident=>LowerIdent@2
                             InlineLambdaArrow=>OpArrow@3
-                            ((*
-                                    BeginParens
+                            (BeginParens
+                                (*
                                     Ident=>LowerIdent@5
                                     InlineLambdaArrow=>OpArrow@6
                                     Ident=>LowerIdent@7

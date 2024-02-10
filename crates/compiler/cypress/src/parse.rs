@@ -111,15 +111,6 @@ impl TokenenizedBuffer {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum TypePrec {
-    WhereClauses,
-    As,
-    Lambda,
-    Apply,
-    Atom,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Prec {
     Decl,                  // BinOp::Assign, BinOp::Backpassing,
     MultiBackpassingComma, // BinOp::MultiBackpassingComma. Used for parsing the comma in `x, y, z <- foo`
@@ -300,6 +291,24 @@ impl From<BinOp> for N {
             _ => todo!("binop to node {:?}", op),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TypePrec {
+    Clauses,
+    Lambda,
+    Comma,
+    Apply,
+    Atom,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TypeBinOp {
+    Where,
+    As,
+    Arrow,
+    Comma,
+    Apply,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -553,6 +562,19 @@ impl State {
         for _ in 0..n {
             self.bump();
         }
+    }
+
+    fn bump_and_push_node(&mut self, kind: N) {
+        self.bump();
+        self.push_node(kind, Some(self.pos as u32 - 1));
+    }
+
+    fn bump_and_push_node_begin(&mut self, kind: N) -> u32 {
+        debug_assert_eq!(kind.index_kind(), NodeIndexKind::Begin);
+        let subtree_start = self.tree.len();
+        self.bump();
+        self.push_node(kind, None);
+        subtree_start
     }
 
     fn push_error(&mut self, kind: Error) {
@@ -1405,6 +1427,67 @@ impl State {
         Some(op)
     }
 
+    fn fragment_start_type(
+        &mut self,
+        outer_subtree_start: u32,
+        cfg: ExprCfg,
+        outer: Frame,
+    ) -> Option<bool> {
+        match self.cur() {
+            Some(T::OpenRound) => {
+                let subtree_start = self.bump_and_push_node_begin(N::BeginParens);
+                self.push_next_frame(outer_subtree_start, cfg, outer);
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
+                self.start_type(cfg, false, false);
+                Some(false)
+            }
+            Some(T::OpenSquare) => {
+                self.bump();
+                self.push_next_frame(outer_subtree_start, cfg, outer);
+                self.start_tag_union(cfg);
+                Some(false)
+            }
+            Some(T::OpenCurly) => {
+                self.bump();
+                self.push_next_frame(outer_subtree_start, cfg, outer);
+                self.start_type_record(cfg);
+                Some(false)
+            }
+            Some(T::LowerIdent) => {
+                self.bump_and_push_node(N::Ident);
+                None
+            }
+            Some(T::Underscore) => {
+                self.bump_and_push_node(N::Underscore);
+                None
+            }
+            Some(T::OpStar) => {
+                self.bump_and_push_node(N::TypeWildcard);
+                None
+            }
+            Some(T::UpperIdent) => {
+                self.bump();
+                let subtree_start = self.tree.len();
+                if self.consume(T::NoSpaceDotUpperIdent) {
+                    self.push_node(N::ModuleName, Some(self.pos as u32 - 2));
+                    self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
+                    if self.consume(T::NoSpaceDotUpperIdent) {
+                        self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
+                    }
+                } else {
+                    self.push_node(N::TypeName, Some(self.pos as u32 - 1));
+                }
+                Some(true)
+            }
+            Some(k) if k.is_keyword() => {
+                // treat as an identifier
+                self.bump_and_push_node(N::Ident);
+                None
+            }
+            k => todo!("start type atom, unexpected: {:?}", k),
+        }
+    }
+
     fn pump_start_type(
         &mut self,
         subtree_start: u32,
@@ -1412,136 +1495,30 @@ impl State {
         allow_clauses: bool,
         allow_commas: bool,
     ) {
-        loop {
-            match self.cur() {
-                Some(T::OpenRound) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueType {
-                            in_apply: None,
-                            allow_clauses,
-                            allow_commas,
-                        },
-                    );
-                    self.push_node(N::BeginParens, None);
-                    self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
-                    continue;
-                }
-                Some(T::OpenSquare) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueType {
-                            in_apply: None,
-                            allow_clauses,
-                            allow_commas,
-                        },
-                    );
-                    self.start_tag_union(subtree_start, cfg);
-                    return;
-                }
-                Some(T::OpenCurly) => {
-                    self.bump();
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueType {
-                            in_apply: None,
-                            allow_clauses,
-                            allow_commas,
-                        },
-                    );
-                    self.start_type_record(cfg);
-                    return;
-                }
-                Some(T::LowerIdent) => {
-                    self.bump();
-                    self.push_node(N::Ident, Some(self.pos as u32 - 1));
+        let frame = Frame::ContinueType {
+            in_apply: None,
+            allow_clauses,
+            allow_commas,
+        };
+        let res = self.fragment_start_type(subtree_start, cfg, frame);
 
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueType {
-                            in_apply: None,
-                            allow_clauses,
-                            allow_commas,
-                        },
-                    );
-                    return;
-                }
-                Some(T::Underscore) => {
-                    self.bump();
-                    self.push_node(N::Underscore, Some(self.pos as u32 - 1));
-
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueType {
-                            in_apply: None,
-                            allow_clauses,
-                            allow_commas,
-                        },
-                    );
-                    return;
-                }
-                Some(T::OpStar) => {
-                    self.bump();
-                    self.push_node(N::TypeWildcard, Some(self.pos as u32 - 1));
-
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueType {
-                            in_apply: None,
-                            allow_clauses,
-                            allow_commas,
-                        },
-                    );
-                    return;
-                }
-                Some(T::UpperIdent) => {
-                    self.bump();
-                    let subtree_start = self.tree.len();
-                    if self.consume(T::NoSpaceDotUpperIdent) {
-                        self.push_node(N::ModuleName, Some(self.pos as u32 - 2));
-                        self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
-                        if self.consume(T::NoSpaceDotUpperIdent) {
-                            self.push_node(N::DotModuleUpperIdent, Some(self.pos as u32 - 1));
-                        }
-                    } else {
-                        self.push_node(N::TypeName, Some(self.pos as u32 - 1));
-                    }
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueType {
-                            in_apply: Some(false),
-                            allow_clauses,
-                            allow_commas,
-                        },
-                    );
-                    return;
-                }
-                Some(k) if k.is_keyword() => {
-                    // treat as an identifier
-                    self.bump();
-                    self.push_node(N::Ident, Some(self.pos as u32 - 1));
-
-                    self.push_next_frame(
-                        subtree_start,
-                        cfg,
-                        Frame::ContinueType {
-                            in_apply: None,
-                            allow_clauses,
-                            allow_commas,
-                        },
-                    );
-                    return;
-                }
-                k => todo!("start type, unexpected: {:?}", k),
+        match res {
+            Some(false) => {}
+            None => {
+                // intermediate refactor state: we'd usually be looping in this case
+                self.push_next_frame(subtree_start, cfg, frame);
+            }
+            Some(true) => {
+                // intermediate refactor state: we'd usually be looping in this case
+                self.push_next_frame(
+                    subtree_start,
+                    cfg,
+                    Frame::ContinueType {
+                        in_apply: Some(false),
+                        allow_clauses,
+                        allow_commas,
+                    },
+                );
             }
         }
     }
@@ -1557,7 +1534,7 @@ impl State {
                 }
                 Some(T::OpenSquare) => {
                     self.bump();
-                    self.start_tag_union(subtree_start, cfg);
+                    self.start_tag_union(cfg);
                     return;
                 }
                 Some(T::OpenCurly) => {
@@ -2601,8 +2578,9 @@ impl State {
         self.start_pattern(cfg.disable_multi_backpassing());
     }
 
-    fn start_tag_union(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        self.push_node(N::BeginTypeTagUnion, None);
+    fn start_tag_union(&mut self, cfg: ExprCfg) {
+        let subtree_start = self.push_node_begin(N::BeginTypeTagUnion);
+
         if self.consume_end_tag_union(subtree_start, cfg) {
             return;
         }
