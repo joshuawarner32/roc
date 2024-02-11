@@ -279,6 +279,8 @@ fn run_snapshot_test(text: &str) -> String {
 
     let tree_output = state_to_expect_atom(&state).debug_vis();
 
+    eprintln!("tree_output:\n{}", tree_output);
+
     let canfmt_output = {
         let bump = bumpalo::Bump::new();
         let canfmt = canfmt::build(

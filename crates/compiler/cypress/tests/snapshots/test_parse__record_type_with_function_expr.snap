@@ -1,0 +1,42 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "x : { init : {} -> Model, update : Model, Str -> Model, view : Model -> Str }\n\n42\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (BeginTypeRecord
+                Ident=>LowerIdent@3
+                (*
+                    (BeginTypeRecord EndTypeRecord)
+                    InlineLambdaArrow=>OpArrow@7
+                    TypeName=>UpperIdent@8
+                EndTypeLambda)
+                Ident=>LowerIdent@10
+                (*
+                    TypeName=>UpperIdent@12
+                    TypeName=>UpperIdent@14
+                    InlineLambdaArrow=>OpArrow@15
+                    TypeName=>UpperIdent@16
+                EndTypeLambda)
+                Ident=>LowerIdent@18
+                (*
+                    TypeName=>UpperIdent@20
+                    InlineLambdaArrow=>OpArrow@21
+                    TypeName=>UpperIdent@22
+                EndTypeLambda)
+            EndTypeRecord)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Num=>Int@24
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("x"), Record([("init", Lambda([Record([])], Name("Model"))), ("update", Lambda([Name("Model"), Name("Str")], Name("Model"))), ("view", Lambda([Name("Model")], Name("Str")))]))
+IntBase10("42")
+
+[=== formatted below ===]
+

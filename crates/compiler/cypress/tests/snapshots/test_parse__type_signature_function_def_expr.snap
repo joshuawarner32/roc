@@ -1,0 +1,38 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "foo : Int, Float -> Bool\nfoo = \\x, _ -> 42\n\n42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                TypeName=>UpperIdent@2
+                TypeName=>UpperIdent@4
+                InlineLambdaArrow=>OpArrow@5
+                TypeName=>UpperIdent@6
+            EndTypeLambda)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@7
+            InlineAssign=>OpAssign@8
+            (BeginLambda
+                Ident=>LowerIdent@10
+                Underscore=>Underscore@12
+                InlineLambdaArrow=>OpArrow@13
+                Num=>Int@14
+            EndLambda)
+        EndAssign)
+        HintExpr
+        Num=>Int@15
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("foo"), Lambda([Name("Int"), Name("Float")], Name("Bool")))
+Assign(Ident("foo"), Lambda([Ident("x"), Underscore("_")], IntBase10("42")))
+IntBase10("42")
+
+[=== formatted below ===]
+

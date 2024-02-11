@@ -1579,7 +1579,7 @@ impl State {
                 }
                 return;
             }
-            Some(T::OpArrow) => {
+            Some(T::OpArrow) if allow_commas => {
                 self.bump();
                 if in_apply == Some(true) {
                     self.push_node(N::EndTypeApply, Some(subtree_start));
