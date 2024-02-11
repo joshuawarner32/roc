@@ -228,6 +228,11 @@ fn build_type<'a, 'b: 'a>(
 
                 return (stack.pop().unwrap(), i, index);
             }
+            N::EndImplements | N::EndAbilityMethod => {
+                assert_eq!(stack.stack.len(), 1, "{:?}", stack.stack);
+
+                return (stack.pop().unwrap(), i, index);
+            }
             _ => todo!("{:?}", node),
         }
     }
@@ -236,16 +241,25 @@ fn build_type<'a, 'b: 'a>(
 }
 
 fn build_ability<'a, 'b: 'a>(
-    _bump: &'a Bump,
-    _ctx: ParsedCtx<'b>,
+    bump: &'a Bump,
+    ctx: ParsedCtx<'b>,
     w: &mut TreeWalker<'b>,
-) -> (&'a [(&'a str, &'a Type<'a>)], usize, u32) {
-    while let Some((node, _i, _index)) = w.next_index() {
-        match node {
-            _ => todo!("{:?}", node),
+) -> (&'a [(&'a str, Type<'a>)], usize, u32) {
+    let mut items = Vec::new_in(bump);
+    loop {
+        if w.cur() == Some(N::EndImplements) {
+            let (_, i, index) = w.next_index().unwrap();
+            return (items.into_bump_slice(), i, index);
+        }
+        assert_eq!(w.next(), Some(N::BeginAbilityMethod));
+        if w.cur() == Some(N::Ident) {
+            let name = ctx.text(w.next_index().unwrap().2);
+            let (ty, _, _) = build_type(bump, ctx, w);
+            items.push((name, ty));
+        } else {
+            todo!("{:?}", w.cur());
         }
     }
-    panic!();
 }
 
 pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {

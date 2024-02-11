@@ -210,6 +210,8 @@ pub enum N {
 
     BeginImplements,
     EndImplements,
+    BeginAbilityMethod,
+    EndAbilityMethod,
     BeginTypeRecord,
     EndTypeRecord,
     BeginCollection,
@@ -272,6 +274,7 @@ impl N {
             | N::BeginLambda
             | N::BeginTopLevelDecls
             | N::BeginImplements
+            | N::BeginAbilityMethod
             | N::BeginTypeRecord
             | N::BeginCollection
             | N::BeginDbg
@@ -299,6 +302,7 @@ impl N {
             | N::EndLambda
             | N::EndTopLevelDecls
             | N::EndImplements
+            | N::EndAbilityMethod
             | N::EndTypeRecord
             | N::EndCollection
             | N::EndDbg

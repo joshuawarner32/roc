@@ -1,0 +1,56 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "Ab1 implements ab1 : a -> {} where a implements Ab1\n\nAb2 implements ab2 : a -> {} where a implements Ab2\n\n1\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginImplements
+            UpperIdent=>UpperIdent@0
+            InlineAbilityImplements=>KwImplements@1
+        EndImplements)
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@2
+            InlineTypeColon=>OpColon@3
+            (*
+                (*
+                    Ident=>LowerIdent@4
+                    InlineLambdaArrow=>OpArrow@5
+                    (BeginTypeRecord EndTypeRecord)
+                EndTypeLambda)
+                InlineKwWhere=>KwWhere@8
+                Ident=>LowerIdent@9
+                InlineKwImplements=>KwImplements@10
+                AbilityName=>UpperIdent@11
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        (BeginImplements
+            UpperIdent=>UpperIdent@12
+            InlineAbilityImplements=>KwImplements@13
+        EndImplements)
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@14
+            InlineTypeColon=>OpColon@15
+            (*
+                (*
+                    Ident=>LowerIdent@16
+                    InlineLambdaArrow=>OpArrow@17
+                    (BeginTypeRecord EndTypeRecord)
+                EndTypeLambda)
+                InlineKwWhere=>KwWhere@20
+                Ident=>LowerIdent@21
+                InlineKwImplements=>KwImplements@22
+                AbilityName=>UpperIdent@23
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Num=>Int@24
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("ab1"), WhereClause(Lambda([Name("a")], Record([])), Name("a"), ["Ab1"]))
+TypeAlias(Ident("ab2"), WhereClause(Lambda([Name("a")], Record([])), Name("a"), ["Ab2"]))
+IntBase10("1")
+
+[=== formatted below ===]
+

@@ -354,6 +354,7 @@ pub enum Frame {
     FinishLambda,
     FinishBlockItem,
     StartType {
+        min_prec: TypePrec,
         allow_clauses: bool,
         allow_commas: bool,
     },
@@ -380,7 +381,7 @@ pub enum Frame {
     ContinuePatternList,
     ContinueTypeTagUnion,
     ContinueTypeTagUnionArgs,
-    ContinueImplementsMethodDecl,
+    ContinueImplementsMethodDecl(Option<u32>),
     ContinueTypeRecord,
     PushEnd(N, N),
 }
@@ -849,9 +850,10 @@ impl State {
             Frame::ContinueIf { next } => self.pump_continue_if(subtree_start, cfg, next),
             Frame::ContinueWhen { next } => self.pump_continue_when(subtree_start, cfg, next),
             Frame::StartType {
+                min_prec,
                 allow_clauses,
                 allow_commas,
-            } => self.pump_start_type(subtree_start, cfg, allow_clauses, allow_commas),
+            } => self.pump_start_type(subtree_start, cfg, min_prec, allow_clauses, allow_commas),
             Frame::ContinueType {
                 in_apply,
                 allow_clauses,
@@ -876,8 +878,8 @@ impl State {
             Frame::ContinueTypeTagUnionArgs => {
                 self.pump_continue_tag_union_args(subtree_start, cfg)
             }
-            Frame::ContinueImplementsMethodDecl => {
-                self.pump_continue_implements_method_decl(subtree_start, cfg)
+            Frame::ContinueImplementsMethodDecl(method_subtree_start) => {
+                self.pump_continue_implements_method_decl(subtree_start, method_subtree_start, cfg)
             }
             Frame::ContinueTypeRecord => self.pump_continue_type_record(subtree_start, cfg),
         }
@@ -1293,18 +1295,18 @@ impl State {
                 }
                 BinOp::DefineTypeOrTypeAlias => {
                     self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-                    self.start_type(cfg, true, true);
+                    self.start_type(cfg, TypePrec::Clauses, true, true);
                     return;
                 }
                 BinOp::DefineOtherTypeThing => {
                     // TODO: is this correct????
                     self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-                    self.start_type(cfg, true, true);
+                    self.start_type(cfg, TypePrec::Clauses, true, true);
                     return;
                 }
                 BinOp::Implements => {
                     let cfg = cfg.set_block_indent_floor(Some(cur_indent));
-                    self.continue_implements_method_decl_body(subtree_start, cfg);
+                    self.continue_implements_method_decl_body(subtree_start, None, cfg);
                     return;
                 }
                 _ => {}
@@ -1420,7 +1422,7 @@ impl State {
                 let subtree_start = self.bump_and_push_node_begin(N::BeginParens);
                 self.push_next_frame(outer_subtree_start, cfg, outer);
                 self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
-                self.start_type(cfg, false, false);
+                self.start_type(cfg, TypePrec::Lambda, false, false);
                 TypeFragmentResult::NonAtom
             }
             Some(T::OpenSquare) => {
@@ -1474,6 +1476,7 @@ impl State {
         &mut self,
         subtree_start: u32,
         cfg: ExprCfg,
+        min_prec: TypePrec,
         allow_clauses: bool,
         allow_commas: bool,
     ) {
@@ -1567,7 +1570,7 @@ impl State {
                         cfg,
                         Frame::ContinueTypeCommaSep { allow_clauses },
                     );
-                    self.start_type(cfg, false, false);
+                    self.start_type(cfg, TypePrec::Apply, false, false);
                     return;
                 }
 
@@ -1592,7 +1595,7 @@ impl State {
                     },
                 );
                 self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
-                self.start_type(cfg, false, false);
+                self.start_type(cfg, TypePrec::Apply, false, false);
                 return;
             }
             Some(T::KwWhere) if allow_clauses => {
@@ -1605,7 +1608,7 @@ impl State {
 
                     self.push_node(N::InlineKwWhere, Some(self.pos as u32 - 1));
                     self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
-                    self.start_type(cfg, false, false);
+                    self.start_type(cfg, TypePrec::Apply, false, false);
                     return;
                 }
             }
@@ -1627,7 +1630,7 @@ impl State {
                     },
                 );
                 self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndTypeAs));
-                self.start_type(cfg, false, false);
+                self.start_type(cfg, TypePrec::Apply, false, false);
             }
             // TODO: check for other things that can start an expr
             Some(
@@ -1639,7 +1642,6 @@ impl State {
                 | T::Underscore,
             ) if in_apply.is_some() => {
                 if self.at_newline() {
-                    // are we at the start of a line?
                     if !self.buf.lines[self.line]
                         .1
                         .is_indented_more_than(cfg.expr_indent_floor)
@@ -1663,7 +1665,7 @@ impl State {
                         allow_commas,
                     },
                 );
-                self.start_type(cfg, false, false);
+                self.start_type(cfg, TypePrec::Apply, false, false);
             }
             _ => {
                 if in_apply == Some(true) {
@@ -1690,14 +1692,14 @@ impl State {
                         cfg,
                         Frame::ContinueTypeCommaSep { allow_clauses },
                     );
-                    self.start_type(cfg, false, false);
+                    self.start_type(cfg, TypePrec::Apply, false, false);
                 }
             }
             Some(T::OpArrow) => {
                 self.bump();
                 self.push_node(N::InlineLambdaArrow, Some(self.pos as u32 - 1));
                 self.push_next_frame(subtree_start, cfg, Frame::FinishTypeFunction);
-                self.start_type(cfg, false, false);
+                self.start_type(cfg, TypePrec::Apply, false, false);
             }
 
             // TODO: if there isn't an outer square/round/curly and we don't eventually get the arrow,
@@ -1722,7 +1724,7 @@ impl State {
         self.push_node(N::EndWhereClause, Some(subtree_start));
         if self.consume(T::Comma) {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
-            self.start_type(cfg, false, false);
+            self.start_type(cfg, TypePrec::Apply, false, false);
         }
     }
 
@@ -2103,6 +2105,7 @@ impl State {
                             subtree_start,
                             ExprCfg::default(),
                             Frame::StartType {
+                                min_prec: TypePrec::Lambda,
                                 allow_clauses: false,
                                 allow_commas: true,
                             },
@@ -2377,10 +2380,17 @@ impl State {
         self.start_block_item(cfg);
     }
 
-    fn start_type(&mut self, cfg: ExprCfg, allow_clauses: bool, allow_commas: bool) {
+    fn start_type(
+        &mut self,
+        cfg: ExprCfg,
+        min_prec: TypePrec,
+        allow_clauses: bool,
+        allow_commas: bool,
+    ) {
         self.push_next_frame_starting_here(
             cfg,
             Frame::StartType {
+                min_prec,
                 allow_clauses,
                 allow_commas,
             },
@@ -2510,7 +2520,7 @@ impl State {
     fn pump_continue_type_tuple_or_paren(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::Comma) {
             self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTupleOrParen);
-            self.start_type(cfg, false, true);
+            self.start_type(cfg, TypePrec::Comma, false, true);
         } else {
             self.expect(T::CloseRound);
             self.push_node_end(N::BeginParens, N::EndParens, subtree_start);
@@ -2610,14 +2620,24 @@ impl State {
             return;
         }
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeTagUnionArgs);
-        self.start_type(cfg, false, true);
+        self.start_type(cfg, TypePrec::Comma, false, true);
     }
 
-    fn pump_continue_implements_method_decl(&mut self, subtree_start: u32, cfg: ExprCfg) {
-        self.continue_implements_method_decl_body(subtree_start, cfg);
+    fn pump_continue_implements_method_decl(
+        &mut self,
+        subtree_start: u32,
+        method_subtree_start: Option<u32>,
+        cfg: ExprCfg,
+    ) {
+        self.continue_implements_method_decl_body(subtree_start, method_subtree_start, cfg);
     }
 
-    fn continue_implements_method_decl_body(&mut self, subtree_start: u32, cfg: ExprCfg) {
+    fn continue_implements_method_decl_body(
+        &mut self,
+        subtree_start: u32,
+        method_subtree_start: Option<u32>,
+        cfg: ExprCfg,
+    ) {
         // We continue as long as the indent is the same as the start of the implements block.
         if dbg!(self
             .cur_indent()
@@ -2625,12 +2645,33 @@ impl State {
             .ok_or(Error::InconsistentIndent)
             .expect("TODO: error handling"))
         {
+            if let Some(method_subtree_start) = method_subtree_start {
+                self.push_node_end(
+                    N::BeginAbilityMethod,
+                    N::EndAbilityMethod,
+                    method_subtree_start,
+                );
+            }
+            let method_subtree_start = Some(self.push_node_begin(N::BeginAbilityMethod));
             self.expect_and_push_node(T::LowerIdent, N::Ident);
+            let cur_indent = self.cur_indent();
             self.expect(T::OpColon); // TODO: need to add a node?
-            self.push_next_frame(subtree_start, cfg, Frame::ContinueImplementsMethodDecl);
-            self.start_type(cfg, false, true);
+            self.push_next_frame(
+                subtree_start,
+                cfg,
+                Frame::ContinueImplementsMethodDecl(method_subtree_start),
+            );
+            let cfg = cfg.set_expr_indent_floor(Some(cur_indent));
+            self.start_type(cfg, TypePrec::Lambda, false, true);
         } else {
-            self.push_node(N::EndImplements, Some(subtree_start));
+            if let Some(method_subtree_start) = method_subtree_start {
+                self.push_node_end(
+                    N::BeginAbilityMethod,
+                    N::EndAbilityMethod,
+                    method_subtree_start,
+                );
+            }
+            self.push_node_end(N::Dummy, N::EndImplements, subtree_start);
         }
     }
 
@@ -2651,7 +2692,7 @@ impl State {
         self.expect(T::OpColon); // TODO: need to add a node?
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeRecord);
-        self.start_type(cfg, false, true);
+        self.start_type(cfg, TypePrec::Lambda, false, true);
     }
 
     fn consume_end_type_record(&mut self, subtree_start: u32, cfg: ExprCfg) -> bool {
@@ -2683,13 +2724,13 @@ impl State {
         self.expect(T::OpColon); // TODO: need to add a node?
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeRecord);
-        self.start_type(cfg, false, true);
+        self.start_type(cfg, TypePrec::Comma, false, true);
     }
 
     fn maybe_start_type_adendum(&mut self, subtree_start: u32, cfg: ExprCfg) {
         if self.consume(T::NoSpace) {
             self.push_next_frame(subtree_start, cfg, Frame::PushEndOnly(N::EndTypeAdendum));
-            self.start_type(cfg, false, false);
+            self.start_type(cfg, TypePrec::Atom, false, false);
         }
     }
 

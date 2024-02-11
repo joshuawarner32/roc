@@ -1,0 +1,30 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "t:d,T->r\nt=e\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (*
+                Ident=>LowerIdent@2
+                TypeName=>UpperIdent@4
+                InlineLambdaArrow=>OpArrow@5
+                Ident=>LowerIdent@6
+            EndTypeLambda)
+        EndTypeOrTypeAlias)
+        (BeginAssign
+            Ident=>LowerIdent@7
+            InlineAssign=>OpAssign@8
+            Ident=>LowerIdent@9
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("t"), Lambda([Name("d"), Name("T")], Name("r")))
+Assign(Ident("t"), Ident("e"))
+
+[=== formatted below ===]
+

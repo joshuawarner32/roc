@@ -1,0 +1,36 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "Hash implements hash : a -> U64 where a implements Hash\n\n1\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginImplements
+            UpperIdent=>UpperIdent@0
+            InlineAbilityImplements=>KwImplements@1
+        EndImplements)
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@2
+            InlineTypeColon=>OpColon@3
+            (*
+                (*
+                    Ident=>LowerIdent@4
+                    InlineLambdaArrow=>OpArrow@5
+                    TypeName=>UpperIdent@6
+                EndTypeLambda)
+                InlineKwWhere=>KwWhere@7
+                Ident=>LowerIdent@8
+                InlineKwImplements=>KwImplements@9
+                AbilityName=>UpperIdent@10
+            EndWhereClause)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Num=>Int@11
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("hash"), WhereClause(Lambda([Name("a")], Name("U64")), Name("a"), ["Hash"]))
+IntBase10("1")
+
+[=== formatted below ===]
+

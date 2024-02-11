@@ -1,0 +1,28 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "Hash implements\n    hash : a\n        -> U64\n\n1\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginImplements
+            UpperIdent=>UpperIdent@0
+            InlineAbilityImplements=>KwImplements@1
+            (BeginAbilityMethod
+                Ident=>LowerIdent@2
+                (*
+                    Ident=>LowerIdent@4
+                    InlineLambdaArrow=>OpArrow@5
+                    TypeName=>UpperIdent@6
+                EndTypeLambda)
+            EndAbilityMethod)
+        EndImplements)
+        HintExpr
+        Num=>Int@7
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+IntBase10("1")
+
+[=== formatted below ===]
+
