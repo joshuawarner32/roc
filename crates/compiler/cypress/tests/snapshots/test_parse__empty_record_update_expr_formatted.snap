@@ -1,0 +1,19 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "{ e &  }\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginRecordUpdate
+            Ident=>LowerIdent@1
+            InlineRecordUpdateAmpersand=>OpAmpersand@2
+        EndRecordUpdate)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+RecordUpdate([Ident("e")])
+
+[=== formatted below ===]
+

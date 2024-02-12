@@ -2472,6 +2472,11 @@ impl State {
                     debug_assert_eq!(self.tree.kinds[subtree_start as usize], N::BeginRecord);
                     self.tree.kinds[subtree_start as usize] = N::BeginRecordUpdate;
                     field_subtree_start = self.tree.len();
+
+                    if self.consume_record_end(is_update, subtree_start) {
+                        return;
+                    }
+
                     self.expect_lower_ident_and_push_node();
                 }
             } else {
