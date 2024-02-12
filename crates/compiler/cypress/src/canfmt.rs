@@ -220,6 +220,8 @@ fn build_type<'a, 'b: 'a>(
             N::InlineLambdaArrow
             | N::InlineKwWhere
             | N::InlineKwImplements
+            | N::InlineTypeArrow
+            | N::InlineTypeWhere
             | N::BeginTypeRecord
             | N::BeginParens
             | N::InlineKwAs

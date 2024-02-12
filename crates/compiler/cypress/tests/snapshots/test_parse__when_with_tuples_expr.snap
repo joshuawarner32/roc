@@ -8,13 +8,10 @@ description: "when (1, 2) is\n (1, x) -> x\n (_, b) -> 3 + b\n\n"
         (BeginWhen
             (BeginParens Num=>Int@2 Num=>Int@4 EndParens)
             InlineKwIs=>KwIs@6
-            (BeginPatternParens=>LowerIdent@13
-                Num=>Int@8
-                Ident=>LowerIdent@10
-            EndPatternParens)
+            (BeginPatternParens Num=>Int@8 Ident=>LowerIdent@10 EndPatternParens)
             InlineWhenArrow=>OpArrow@12
             Ident=>LowerIdent@13
-            (BeginPatternParens=>OpArrow@19
+            (BeginPatternParens
                 Underscore=>Underscore@15
                 Ident=>LowerIdent@17
             EndPatternParens)

@@ -12,7 +12,7 @@ description: "f : (Str)a -> (Str)a\nf = \\x -> x\n\nf (\"Str\", 42)\n\n"
                     (BeginParens TypeName=>UpperIdent@3 EndParens)
                     Ident=>LowerIdent@6
                 EndTypeAdendum)
-                InlineLambdaArrow=>OpArrow@7
+                InlineTypeArrow=>OpArrow@7
                 (*
                     (BeginParens TypeName=>UpperIdent@9 EndParens)
                     Ident=>LowerIdent@12

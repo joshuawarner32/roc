@@ -21,7 +21,7 @@ description: "when Delmin (Del rx) 0 is\n    Delmin (Del ry ) _ -> Node Black 0 
             EndApply)
             InlineKwIs=>KwIs@7
             UpperIdent=>UpperIdent@8
-            (BeginPatternParens=>?broken?@21
+            (BeginPatternParens
                 UpperIdent=>UpperIdent@10
                 Ident=>LowerIdent@11
             EndPatternParens)

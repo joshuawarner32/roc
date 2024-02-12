@@ -9,7 +9,7 @@ description: "table : {\n    height : Pixels\n    } -> Table\ntable = \\{height}
             InlineTypeColon=>OpColon@1
             (*
                 (BeginTypeRecord Ident=>LowerIdent@3 TypeName=>UpperIdent@5 EndTypeRecord)
-                InlineLambdaArrow=>OpArrow@7
+                InlineTypeArrow=>OpArrow@7
                 TypeName=>UpperIdent@8
             EndTypeLambda)
         EndTypeOrTypeAlias)
@@ -17,7 +17,7 @@ description: "table : {\n    height : Pixels\n    } -> Table\ntable = \\{height}
             Ident=>LowerIdent@9
             InlineAssign=>OpAssign@10
             (BeginLambda
-                (BeginPatternRecord=>?broken?@21
+                (BeginPatternRecord
                     Ident=>LowerIdent@13
                     PatternAny=>CloseCurly@14
                 EndPatternRecord)

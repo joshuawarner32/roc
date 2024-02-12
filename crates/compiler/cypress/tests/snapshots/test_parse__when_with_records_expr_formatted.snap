@@ -8,13 +8,13 @@ description: "when x is\n    { y } -> 2\n    { z, w } -> 4\n"
         (BeginWhen
             Ident=>LowerIdent@1
             InlineKwIs=>KwIs@2
-            (BeginPatternRecord=>Comma@10
+            (BeginPatternRecord
                 Ident=>LowerIdent@4
                 PatternAny=>CloseCurly@5
             EndPatternRecord)
             InlineWhenArrow=>OpArrow@6
             Num=>Int@7
-            (BeginPatternRecord=>?broken?@18
+            (BeginPatternRecord
                 Ident=>LowerIdent@9
                 PatternAny=>Comma@10
                 Ident=>LowerIdent@11

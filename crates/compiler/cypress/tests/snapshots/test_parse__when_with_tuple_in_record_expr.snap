@@ -14,20 +14,17 @@ description: "when {foo: (1, 2)} is\n {foo: (1, x)} -> x\n {foo: (_, b)} -> 3 + 
                 EndRecordFieldPair)
             EndRecord)
             InlineKwIs=>KwIs@10
-            (BeginPatternRecord=>OpenCurly@22
+            (BeginPatternRecord
                 Ident=>LowerIdent@12
                 InlineColon=>OpColon@13
-                (BeginPatternParens=>LowerIdent@21
-                    Num=>Int@15
-                    Ident=>LowerIdent@17
-                EndPatternParens)
+                (BeginPatternParens Num=>Int@15 Ident=>LowerIdent@17 EndPatternParens)
             EndPatternRecord)
             InlineWhenArrow=>OpArrow@20
             Ident=>LowerIdent@21
-            (BeginPatternRecord=>Int@32
+            (BeginPatternRecord
                 Ident=>LowerIdent@23
                 InlineColon=>OpColon@24
-                (BeginPatternParens=>OpArrow@31
+                (BeginPatternParens
                     Underscore=>Underscore@26
                     Ident=>LowerIdent@28
                 EndPatternParens)

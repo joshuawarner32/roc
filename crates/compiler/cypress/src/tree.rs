@@ -237,6 +237,9 @@ pub enum N {
     EndRecordFieldPair,
     InlineKwIf,
     InlineRecordUpdateAmpersand,
+    InlineTypeWhere,
+    InlineTypeAs,
+    InlineTypeArrow,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -287,6 +290,8 @@ impl N {
             | N::BeginHeaderInterface
             | N::BeginHeaderPackage
             | N::BeginHeaderPlatform
+            | N::BeginPatternParens
+            | N::BeginPatternRecord
             | N::BeginBackpassing => NodeIndexKind::Begin,
             N::EndFile
             | N::EndList
@@ -351,8 +356,9 @@ impl N {
             | N::InlineBinOpEquals
             | N::InlineBinOpNotEquals
             | N::InlineBinOpMinus
-            | N::BeginPatternParens
-            | N::BeginPatternRecord
+            | N::InlineTypeWhere
+            | N::InlineTypeAs
+            | N::InlineTypeArrow
             | N::InlineMultiBackpassingComma => NodeIndexKind::Token,
             N::Num
             | N::String

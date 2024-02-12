@@ -9,7 +9,7 @@ description: "doStuff : UserId -> Task Str _\n42\n"
             InlineTypeColon=>OpColon@1
             (*
                 TypeName=>UpperIdent@2
-                InlineLambdaArrow=>OpArrow@3
+                InlineTypeArrow=>OpArrow@3
                 (*
                     TypeName=>UpperIdent@4
                     (* TypeName=>UpperIdent@5 Underscore=>Underscore@6 EndTypeApply)

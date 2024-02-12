@@ -11,7 +11,7 @@ description: "Hash implements\n    hash : a -> U64\n    hash2 : a -> U64\n\n1\n"
                 Ident=>LowerIdent@2
                 (*
                     Ident=>LowerIdent@4
-                    InlineLambdaArrow=>OpArrow@5
+                    InlineTypeArrow=>OpArrow@5
                     TypeName=>UpperIdent@6
                 EndTypeLambda)
             EndAbilityMethod)
@@ -19,7 +19,7 @@ description: "Hash implements\n    hash : a -> U64\n    hash2 : a -> U64\n\n1\n"
                 Ident=>LowerIdent@7
                 (*
                     Ident=>LowerIdent@9
-                    InlineLambdaArrow=>OpArrow@10
+                    InlineTypeArrow=>OpArrow@10
                     TypeName=>UpperIdent@11
                 EndTypeLambda)
             EndAbilityMethod)
