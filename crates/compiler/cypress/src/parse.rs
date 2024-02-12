@@ -371,6 +371,7 @@ pub enum Frame {
     FinishTypeOrTypeAlias,
     ContinueRecord {
         start: bool,
+        is_update: bool,
     },
     ContinuePatternRecord {
         start: bool,
@@ -865,7 +866,9 @@ impl State {
             Frame::FinishTypeFunction => self.pump_finish_type_function(subtree_start, cfg),
             Frame::ContinueWhereClause => self.pump_continue_where_clause(subtree_start, cfg),
             Frame::FinishTypeOrTypeAlias => self.pump_finish_type_or_type_alias(subtree_start, cfg),
-            Frame::ContinueRecord { start } => self.pump_continue_record(subtree_start, cfg, start),
+            Frame::ContinueRecord { start, is_update } => {
+                self.pump_continue_record(subtree_start, cfg, start, is_update)
+            }
             Frame::ContinuePatternRecord { start } => {
                 self.pump_continue_pattern_record(subtree_start, cfg, start)
             }
@@ -944,7 +947,14 @@ impl State {
             Some(T::OpenCurly) => {
                 let subtree_start = self.bump_and_push_node_begin(N::BeginRecord);
                 flush(self);
-                self.push_next_frame(subtree_start, cfg, Frame::ContinueRecord { start: true });
+                self.push_next_frame(
+                    subtree_start,
+                    cfg,
+                    Frame::ContinueRecord {
+                        start: true,
+                        is_update: false,
+                    },
+                );
                 ExprFragmentResult::NonAtom
             }
             Some(T::OpenSquare) => {
@@ -1819,6 +1829,7 @@ impl State {
             | N::EndList
             | N::EndLambda
             | N::EndRecord
+            | N::EndRecordUpdate
             | N::EndFieldAccess
             | N::EndIndexAccess
             | N::EndBinOpSlash
@@ -2414,35 +2425,67 @@ impl State {
         }
     }
 
-    fn pump_continue_record(&mut self, subtree_start: u32, cfg: ExprCfg, mut start: bool) {
-        // TODO: allow { existingRecord & foo: bar } syntax
+    fn pump_continue_record(
+        &mut self,
+        subtree_start: u32,
+        cfg: ExprCfg,
+        mut start: bool,
+        mut is_update: bool,
+    ) {
         loop {
             if !start {
-                if self.consume_end(T::CloseCurly) {
-                    self.push_node(N::EndRecord, Some(subtree_start));
-                    self.update_end(N::BeginRecord, subtree_start);
-                    self.handle_field_access_suffix(subtree_start);
+                if self.consume_record_end(is_update, subtree_start) {
                     return;
                 }
-
                 self.expect(T::Comma);
+            }
+
+            if self.consume_record_end(is_update, subtree_start) {
+                return;
+            }
+
+            let mut field_subtree_start = self.tree.len();
+
+            if start {
+                match self.cur() {
+                    Some(T::LowerIdent) => {
+                        self.bump();
+                        self.push_node(N::Ident, Some(self.pos as u32 - 1));
+                    }
+                    Some(k) if k.is_keyword() => {
+                        self.bump();
+                        self.push_node(N::Ident, Some(self.pos as u32 - 1));
+                    }
+                    Some(T::UpperIdent) => {
+                        self.bump();
+                        self.push_node(N::ModuleName, Some(self.pos as u32 - 1));
+                    }
+                    t => {
+                        self.push_error(Error::ExpectViolation(T::LowerIdent, t));
+                        self.fast_forward_past_newline();
+                    }
+                }
+                self.consume_and_push_node(T::NoSpaceDotUpperIdent, N::DotModuleUpperIdent);
+                self.handle_field_access_suffix(field_subtree_start);
+                if self.consume_and_push_node(T::OpAmpersand, N::InlineRecordUpdateAmpersand) {
+                    is_update = true;
+                    debug_assert_eq!(self.tree.kinds[subtree_start as usize], N::BeginRecord);
+                    self.tree.kinds[subtree_start as usize] = N::BeginRecordUpdate;
+                    field_subtree_start = self.tree.len();
+                    self.expect_lower_ident_and_push_node();
+                }
+            } else {
+                self.expect_lower_ident_and_push_node();
             }
 
             start = false;
 
-            if self.consume_end(T::CloseCurly) {
-                self.push_node(N::EndRecord, Some(subtree_start));
-                self.update_end(N::BeginRecord, subtree_start);
-                self.handle_field_access_suffix(subtree_start);
-                return;
-            }
-
-            let field_subtree_start = self.tree.len();
-
-            self.expect_lower_ident_and_push_node();
-
             if self.consume_and_push_node(T::OpColon, N::InlineColon) {
-                self.push_next_frame(subtree_start, cfg, Frame::ContinueRecord { start });
+                self.push_next_frame(
+                    subtree_start,
+                    cfg,
+                    Frame::ContinueRecord { start, is_update },
+                );
                 self.push_next_frame(
                     field_subtree_start,
                     cfg,
@@ -2451,6 +2494,20 @@ impl State {
                 self.start_expr(cfg.disable_multi_backpassing());
                 return;
             }
+        }
+    }
+
+    fn consume_record_end(&mut self, is_update: bool, subtree_start: u32) -> bool {
+        if self.consume_end(T::CloseCurly) {
+            if is_update {
+                self.push_node_end(N::BeginRecordUpdate, N::EndRecordUpdate, subtree_start);
+            } else {
+                self.push_node_end(N::BeginRecord, N::EndRecord, subtree_start);
+            }
+            self.handle_field_access_suffix(subtree_start);
+            true
+        } else {
+            false
         }
     }
 

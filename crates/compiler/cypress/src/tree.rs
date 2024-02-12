@@ -236,6 +236,7 @@ pub enum N {
     BeginPatternRecord,
     EndRecordFieldPair,
     InlineKwIf,
+    InlineRecordUpdateAmpersand,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -330,6 +331,7 @@ impl N {
             | N::InlineAbilityImplements
             | N::InlineKwIs
             | N::InlineKwIf
+            | N::InlineRecordUpdateAmpersand
             | N::InlineLambdaArrow
             | N::InlineColon
             | N::InlineTypeColon

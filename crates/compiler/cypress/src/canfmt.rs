@@ -53,6 +53,7 @@ pub enum Expr<'a> {
     PatternAs(&'a Expr<'a>, &'a str),
     PatternAny,
     PatternDoubleDot,
+    RecordUpdate(&'a [Expr<'a>]),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -504,11 +505,16 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
                 let args = bump.alloc_slice_fill_iter(values);
                 stack.push(i, Expr::Record(args));
             }
+            N::EndRecordUpdate => {
+                let values = stack.drain_to_index(index);
+                let args = bump.alloc_slice_fill_iter(values);
+                stack.push(i, Expr::RecordUpdate(args)); // TODO: add the original record as a separate field
+            }
             N::EndRecordFieldPair => {
                 let mut values = stack.drain_to_index(index);
                 let name = match values.next().unwrap() {
                     Expr::Ident(name) => name,
-                    _ => panic!("Expected ident"),
+                    n => panic!("Expected ident, found {:?}", n),
                 };
                 let value = values.next().unwrap();
                 drop(values);
@@ -645,6 +651,7 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
             | N::BeginBlock
             | N::BeginParens
             | N::BeginRecord
+            | N::BeginRecordUpdate
             | N::BeginBackpassing
             | N::BeginTypeOrTypeAlias
             | N::BeginWhen
@@ -666,6 +673,7 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
             | N::BeginPatternList
             | N::BeginImplements
             | N::EndMultiBackpassingArgs
+            | N::InlineRecordUpdateAmpersand
             | N::HintExpr
             | N::InlineMultiBackpassingComma => {}
             _ => todo!("{:?}", node),

@@ -1,0 +1,24 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "{ Foo.Bar.baz & x: 5, y: 0 }\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        HintExpr
+        (BeginRecordUpdate
+            (*
+                (* ModuleName=>UpperIdent@1 DotModuleUpperIdent)
+                DotIdent=>NoSpaceDotLowerIdent@3
+            EndFieldAccess)
+            InlineRecordUpdateAmpersand=>OpAmpersand@4
+            (* Ident=>LowerIdent@5 InlineColon=>OpColon@6 Num=>Int@7 EndRecordFieldPair)
+            (* Ident=>LowerIdent@9 InlineColon=>OpColon@10 Num=>Int@11 EndRecordFieldPair)
+        EndRecordUpdate)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+RecordUpdate([RecordAccess(ModuleUpperName("Foo", ".Bar"), ".baz"), RecordFieldPair("x", IntBase10("5")), RecordFieldPair("y", IntBase10("0"))])
+
+[=== formatted below ===]
+
