@@ -9,7 +9,7 @@ description: "f : I64 -> (I64, I64)\nf = \\x -> (x, x + 1)\n\nf 42\n\n"
             InlineTypeColon=>OpColon@1
             (*
                 TypeName=>UpperIdent@2
-                InlineLambdaArrow=>OpArrow@3
+                InlineTypeArrow=>OpArrow@3
                 (BeginParens TypeName=>UpperIdent@5 TypeName=>UpperIdent@7 EndParens)
             EndTypeLambda)
         EndTypeOrTypeAlias)

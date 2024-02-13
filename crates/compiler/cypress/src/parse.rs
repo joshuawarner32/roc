@@ -362,14 +362,14 @@ impl TypeBinOp {
     }
 }
 
-impl From<TypeBinOp> for N {
-    fn from(op: TypeBinOp) -> Self {
-        match op {
-            TypeBinOp::Where => N::EndWhereClause,
-            TypeBinOp::As => N::EndTypeAs,
-            TypeBinOp::Arrow => N::EndTypeLambda,
-            TypeBinOp::Comma => panic!(),
-            TypeBinOp::Apply => N::EndTypeApply,
+impl TypeBinOp {
+    fn to_node(self) -> Option<N> {
+        match self {
+            TypeBinOp::Where => Some(N::EndWhereClause),
+            TypeBinOp::As => Some(N::EndTypeAs),
+            TypeBinOp::Arrow => Some(N::EndTypeLambda),
+            TypeBinOp::Comma => None,
+            TypeBinOp::Apply => Some(N::EndTypeApply),
         }
     }
 }
@@ -1618,14 +1618,18 @@ impl State {
     ) {
         let Some(op) = self.next_type_op(cfg, allow_apply, min_prec) else {
             if let Some(cur_op) = cur_op {
-                self.push_node(cur_op.into(), Some(subtree_start));
+                if let Some(n) = cur_op.to_node() {
+                    self.push_node(n, Some(subtree_start));
+                }
             }
             return;
         };
 
         if let Some(cur_op) = cur_op {
             if op != cur_op || !op.n_arity() {
-                self.push_node(cur_op.into(), Some(subtree_start));
+                if let Some(n) = cur_op.to_node() {
+                    self.push_node(n, Some(subtree_start));
+                }
             }
         }
 

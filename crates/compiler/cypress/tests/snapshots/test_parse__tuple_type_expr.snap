@@ -9,7 +9,7 @@ description: "f: (Str, Str) -> (Str, Str)\nf = \\x -> x\n\nf (1, 2)\n"
             InlineTypeColon=>OpColon@1
             (*
                 (BeginParens TypeName=>UpperIdent@3 TypeName=>UpperIdent@5 EndParens)
-                InlineLambdaArrow=>OpArrow@7
+                InlineTypeArrow=>OpArrow@7
                 (BeginParens TypeName=>UpperIdent@9 TypeName=>UpperIdent@11 EndParens)
             EndTypeLambda)
         EndTypeOrTypeAlias)

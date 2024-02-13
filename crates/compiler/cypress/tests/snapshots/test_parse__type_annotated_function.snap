@@ -10,7 +10,7 @@ description: "t:d,T->r\nt=e\n"
             (*
                 Ident=>LowerIdent@2
                 TypeName=>UpperIdent@4
-                InlineLambdaArrow=>OpArrow@5
+                InlineTypeArrow=>OpArrow@5
                 Ident=>LowerIdent@6
             EndTypeLambda)
         EndTypeOrTypeAlias)

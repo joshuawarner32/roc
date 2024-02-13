@@ -10,7 +10,7 @@ description: "foo : Int, Float -> Bool\nfoo = \\x, _ -> 42\n\n42\n"
             (*
                 TypeName=>UpperIdent@2
                 TypeName=>UpperIdent@4
-                InlineLambdaArrow=>OpArrow@5
+                InlineTypeArrow=>OpArrow@5
                 TypeName=>UpperIdent@6
             EndTypeLambda)
         EndTypeOrTypeAlias)
