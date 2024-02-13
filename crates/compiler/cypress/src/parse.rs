@@ -1458,6 +1458,7 @@ impl State {
             Some(T::OpBackArrow) => (BinOp::Backpassing, 1),
             Some(T::KwImplements) => (BinOp::Implements, 1),
             Some(T::OpEquals) => (BinOp::Equals, 1),
+            Some(T::OpNotEquals) => (BinOp::NotEquals, 1),
             Some(T::OpLessThan) => (BinOp::LessThan, 1),
             Some(T::OpLessThanOrEq) => (BinOp::LessThanOrEq, 1),
             Some(T::OpGreaterThan) => (BinOp::GreaterThan, 1),

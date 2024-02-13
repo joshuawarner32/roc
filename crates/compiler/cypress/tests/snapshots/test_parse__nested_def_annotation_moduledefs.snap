@@ -1,0 +1,55 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "main =\n    wrappedNotEq : a, a -> Bool\n    wrappedNotEq = \\num1, num2 ->\n        num1 != num2\n\n    wrappedNotEq 2 3\n\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginAssign
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            (BeginBlock
+                (BeginTypeOrTypeAlias
+                    Ident=>LowerIdent@2
+                    InlineTypeColon=>OpColon@3
+                    (*
+                        Ident=>LowerIdent@4
+                        Ident=>LowerIdent@6
+                        InlineTypeArrow=>OpArrow@7
+                        TypeName=>UpperIdent@8
+                    EndTypeLambda)
+                EndTypeOrTypeAlias)
+                (BeginAssign
+                    Ident=>LowerIdent@9
+                    InlineAssign=>OpAssign@10
+                    (BeginLambda
+                        Ident=>LowerIdent@12
+                        Ident=>LowerIdent@14
+                        InlineLambdaArrow=>OpArrow@15
+                        (BeginBlock
+                            (*
+                                HintExpr
+                                Ident=>LowerIdent@16
+                                InlineBinOpNotEquals=>OpNotEquals@17
+                                Ident=>LowerIdent@18
+                            EndBinOpNotEquals)
+                        EndBlock)
+                    EndLambda)
+                EndAssign)
+                (*
+                    HintExpr
+                    Ident=>LowerIdent@19
+                    InlineApply=>LowerIdent@19
+                    Num=>Int@20
+                    InlineApply=>Int@20
+                    Num=>Int@21
+                EndApply)
+            EndBlock)
+        EndAssign)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Assign(Ident("main"), Block([TypeAlias(Ident("wrappedNotEq"), Lambda([Name("a"), Name("a")], Name("Bool"))), Assign(Ident("wrappedNotEq"), Lambda([Ident("num1"), Ident("num2")], Block([BinOp(Ident("num1"), NotEquals, Ident("num2"))]))), Apply(Ident("wrappedNotEq"), [IntBase10("2"), IntBase10("3")])]))
+
+[=== formatted below ===]
+
