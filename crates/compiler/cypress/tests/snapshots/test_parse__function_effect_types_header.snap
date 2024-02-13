@@ -1,0 +1,31 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "platform \"cli\"\n    requires {}{ main : Task {} [] } # TODO FIXME\n    exposes []\n    packages {}\n    imports [ Task.{ Task } ]\n    provides [ mainForHost ]\n\n"
+---
+(BeginFile
+    (BeginHeaderPlatform
+        (BeginCollection EndCollection)
+        (BeginCollection
+            Ident=>LowerIdent@7
+            (*
+                TypeName=>UpperIdent@9
+                (BeginTypeRecord EndTypeRecord)
+                (BeginTypeTagUnion EndTypeTagUnion)
+            EndTypeApply)
+        EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection EndCollection)
+        (BeginCollection
+            TypeName=>UpperIdent@23
+            (BeginCollection TypeName=>UpperIdent@26 EndCollection)
+        EndCollection)
+        (BeginCollection Ident=>LowerIdent@31 EndCollection)
+    EndHeaderPlatform)
+    (BeginTopLevelDecls EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+
+
+[=== formatted below ===]
+

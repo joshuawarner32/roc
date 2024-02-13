@@ -2516,6 +2516,33 @@ impl State {
                         Some(T::UpperIdent) => {
                             s.bump();
                             s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+                            if s.consume(T::Dot) {
+                                s.expect_collection(
+                                    T::OpenCurly,
+                                    N::BeginCollection,
+                                    T::CloseCurly,
+                                    N::EndCollection,
+                                    |s| {
+                                        match s.cur() {
+                                            Some(T::LowerIdent) => {
+                                                s.bump();
+                                                s.push_node(N::Ident, Some(s.pos as u32 - 1));
+                                            }
+                                            Some(T::UpperIdent) => {
+                                                s.bump();
+                                                s.push_node(N::TypeName, Some(s.pos as u32 - 1));
+                                            }
+                                            t => {
+                                                s.push_error(Error::ExpectViolation(
+                                                    T::LowerIdent,
+                                                    t,
+                                                ));
+                                                s.fast_forward_past_newline(); // TODO: this should fastforward to the close square
+                                            }
+                                        }
+                                    },
+                                );
+                            }
                         }
                         t => {
                             s.push_error(Error::ExpectViolation(T::LowerIdent, t));
