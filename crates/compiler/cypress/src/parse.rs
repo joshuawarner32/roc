@@ -1830,7 +1830,8 @@ impl State {
                 | T::OpenCurly
                 | T::OpenSquare
                 | T::OpenRound
-                | T::Underscore,
+                | T::Underscore
+                | T::OpStar,
             ) if allow_apply => {
                 if self.at_newline() {
                     if self.buf.lines[self.line]
@@ -2945,7 +2946,7 @@ impl State {
         self.expect(T::OpColon); // TODO: need to add a node?
 
         self.push_next_frame(subtree_start, cfg, Frame::ContinueTypeRecord);
-        self.start_type(cfg, TypePrec::Comma);
+        self.start_type(cfg, TypePrec::Lambda);
     }
 
     fn maybe_start_type_adendum(&mut self, subtree_start: u32, cfg: ExprCfg) {

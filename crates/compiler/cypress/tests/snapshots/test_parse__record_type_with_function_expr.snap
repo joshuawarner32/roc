@@ -11,20 +11,20 @@ description: "x : { init : {} -> Model, update : Model, Str -> Model, view : Mod
                 Ident=>LowerIdent@3
                 (*
                     (BeginTypeRecord EndTypeRecord)
-                    InlineLambdaArrow=>OpArrow@7
+                    InlineTypeArrow=>OpArrow@7
                     TypeName=>UpperIdent@8
                 EndTypeLambda)
                 Ident=>LowerIdent@10
                 (*
                     TypeName=>UpperIdent@12
                     TypeName=>UpperIdent@14
-                    InlineLambdaArrow=>OpArrow@15
+                    InlineTypeArrow=>OpArrow@15
                     TypeName=>UpperIdent@16
                 EndTypeLambda)
                 Ident=>LowerIdent@18
                 (*
                     TypeName=>UpperIdent@20
-                    InlineLambdaArrow=>OpArrow@21
+                    InlineTypeArrow=>OpArrow@21
                     TypeName=>UpperIdent@22
                 EndTypeLambda)
             EndTypeRecord)

@@ -1,0 +1,35 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "f : {\n    getLine : Effect Str,\n    putLine : Str -> Effect Int,\n    text : Str,\n    value : Int *,\n}\n\n42\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (BeginTypeOrTypeAlias
+            Ident=>LowerIdent@0
+            InlineTypeColon=>OpColon@1
+            (BeginTypeRecord
+                Ident=>LowerIdent@3
+                (* TypeName=>UpperIdent@5 TypeName=>UpperIdent@6 EndTypeApply)
+                Ident=>LowerIdent@8
+                (*
+                    TypeName=>UpperIdent@10
+                    InlineTypeArrow=>OpArrow@11
+                    (* TypeName=>UpperIdent@12 TypeName=>UpperIdent@13 EndTypeApply)
+                EndTypeLambda)
+                Ident=>LowerIdent@15
+                TypeName=>UpperIdent@17
+                Ident=>LowerIdent@19
+                (* TypeName=>UpperIdent@21 TypeWildcard=>OpStar@22 EndTypeApply)
+            EndTypeRecord)
+        EndTypeOrTypeAlias)
+        HintExpr
+        Num=>Int@25
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+TypeAlias(Ident("f"), Record([("getLine", Apply(Name("Effect"), [Name("Str")])), ("putLine", Lambda([Name("Str")], Apply(Name("Effect"), [Name("Int")]))), ("text", Name("Str")), ("value", Apply(Name("Int"), [Wildcard]))]))
+IntBase10("42")
+
+[=== formatted below ===]
+
