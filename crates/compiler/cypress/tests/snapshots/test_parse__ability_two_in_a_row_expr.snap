@@ -14,10 +14,10 @@ description: "Ab1 implements ab1 : a -> {} where a implements Ab1\n\nAb2 impleme
             (*
                 (*
                     Ident=>LowerIdent@4
-                    InlineLambdaArrow=>OpArrow@5
+                    InlineTypeArrow=>OpArrow@5
                     (BeginTypeRecord EndTypeRecord)
                 EndTypeLambda)
-                InlineKwWhere=>KwWhere@8
+                InlineTypeWhere=>KwWhere@8
                 Ident=>LowerIdent@9
                 InlineKwImplements=>KwImplements@10
                 AbilityName=>UpperIdent@11
@@ -33,10 +33,10 @@ description: "Ab1 implements ab1 : a -> {} where a implements Ab1\n\nAb2 impleme
             (*
                 (*
                     Ident=>LowerIdent@16
-                    InlineLambdaArrow=>OpArrow@17
+                    InlineTypeArrow=>OpArrow@17
                     (BeginTypeRecord EndTypeRecord)
                 EndTypeLambda)
-                InlineKwWhere=>KwWhere@20
+                InlineTypeWhere=>KwWhere@20
                 Ident=>LowerIdent@21
                 InlineKwImplements=>KwImplements@22
                 AbilityName=>UpperIdent@23

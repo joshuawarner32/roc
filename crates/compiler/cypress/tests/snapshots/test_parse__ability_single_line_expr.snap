@@ -14,10 +14,10 @@ description: "Hash implements hash : a -> U64 where a implements Hash\n\n1\n\n"
             (*
                 (*
                     Ident=>LowerIdent@4
-                    InlineLambdaArrow=>OpArrow@5
+                    InlineTypeArrow=>OpArrow@5
                     TypeName=>UpperIdent@6
                 EndTypeLambda)
-                InlineKwWhere=>KwWhere@7
+                InlineTypeWhere=>KwWhere@7
                 Ident=>LowerIdent@8
                 InlineKwImplements=>KwImplements@9
                 AbilityName=>UpperIdent@10

@@ -218,10 +218,9 @@ fn build_type<'a, 'b: 'a>(
                 stack.push(i, Type::TagUnion(args));
             }
             N::InlineLambdaArrow
-            | N::InlineKwWhere
+            | N::InlineTypeWhere
             | N::InlineKwImplements
             | N::InlineTypeArrow
-            | N::InlineTypeWhere
             | N::BeginTypeRecord
             | N::BeginParens
             | N::InlineKwAs
@@ -649,7 +648,7 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
             | N::InlineBinOpLessThanOrEq
             | N::InlineBinOpGreaterThanOrEq
             | N::InlineLambdaArrow
-            | N::InlineKwWhere
+            | N::InlineTypeWhere
             | N::BeginBlock
             | N::BeginParens
             | N::BeginRecord

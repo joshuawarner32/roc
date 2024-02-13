@@ -9,7 +9,7 @@ description: "f : a where a implements A\n\nf\n\n"
             InlineTypeColon=>OpColon@1
             (*
                 Ident=>LowerIdent@2
-                InlineKwWhere=>KwWhere@3
+                InlineTypeWhere=>KwWhere@3
                 Ident=>LowerIdent@4
                 InlineKwImplements=>KwImplements@5
                 AbilityName=>UpperIdent@6

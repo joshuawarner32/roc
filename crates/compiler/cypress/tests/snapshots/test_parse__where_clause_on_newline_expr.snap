@@ -10,10 +10,10 @@ description: "f : a -> U64\n    where a implements Hash\n\nf\n\n"
             (*
                 (*
                     Ident=>LowerIdent@2
-                    InlineLambdaArrow=>OpArrow@3
+                    InlineTypeArrow=>OpArrow@3
                     TypeName=>UpperIdent@4
                 EndTypeLambda)
-                InlineKwWhere=>KwWhere@5
+                InlineTypeWhere=>KwWhere@5
                 Ident=>LowerIdent@6
                 InlineKwImplements=>KwImplements@7
                 AbilityName=>UpperIdent@8

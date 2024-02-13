@@ -164,8 +164,6 @@ pub enum N {
 
     Dummy,
 
-    InlineKwWhere,
-
     BeginFile,
     EndFile,
 
@@ -330,7 +328,6 @@ impl N {
             | N::InlineBinOpStar
             | N::InlineKwThen
             | N::InlineKwElse
-            | N::InlineKwWhere
             | N::InlineKwAs
             | N::InlineKwImplements
             | N::InlineAbilityImplements

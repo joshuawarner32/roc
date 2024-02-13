@@ -1633,32 +1633,14 @@ impl State {
             self.push_node(inline, Some(self.pos as u32 - 1));
         }
 
-        // match op {
-        //     TypeBinOp::Assign => {
-        //         if self.at_newline() {
-        //             self.push_next_frame(subtree_start, cfg, Frame::FinishAssign);
-        //             self.start_block(cfg);
-        //             return;
-        //         }
-        //     }
-        //     BinOp::DefineTypeOrTypeAlias => {
-        //         self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-        //         self.start_type(cfg, TypePrec::Clauses);
-        //         return;
-        //     }
-        //     BinOp::DefineOtherTypeThing => {
-        //         // TODO: is this correct????
-        //         self.push_next_frame(subtree_start, cfg, Frame::FinishTypeOrTypeAlias);
-        //         self.start_type(cfg, TypePrec::Clauses);
-        //         return;
-        //     }
-        //     BinOp::Implements => {
-        //         let cfg = cfg.set_block_indent_floor(Some(cur_indent));
-        //         self.continue_implements_method_decl_body(subtree_start, None, cfg);
-        //         return;
-        //     }
-        //     _ => {}
-        // }
+        match op {
+            TypeBinOp::Where => {
+                self.push_next_frame(subtree_start, cfg, Frame::ContinueWhereClause);
+                self.start_type(cfg, TypePrec::Apply);
+                return;
+            }
+            _ => {}
+        }
 
         debug_print!(
             "{:indent$}next op {:?}",

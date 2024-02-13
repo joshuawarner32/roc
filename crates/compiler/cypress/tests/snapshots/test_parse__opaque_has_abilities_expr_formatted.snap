@@ -20,7 +20,7 @@ description: "A := U8 implements [Eq, Hash]\n\nA := a where a implements Other\n
             InlineTypeColonEqual=>OpColonEqual@10
             (*
                 Ident=>LowerIdent@11
-                InlineKwWhere=>KwWhere@12
+                InlineTypeWhere=>KwWhere@12
                 Ident=>LowerIdent@13
                 InlineKwImplements=>KwImplements@14
                 AbilityName=>UpperIdent@15
@@ -37,7 +37,7 @@ description: "A := U8 implements [Eq, Hash]\n\nA := a where a implements Other\n
             InlineTypeColonEqual=>OpColonEqual@23
             (*
                 Ident=>LowerIdent@24
-                InlineKwWhere=>KwWhere@25
+                InlineTypeWhere=>KwWhere@25
                 Ident=>LowerIdent@26
                 InlineKwImplements=>KwImplements@27
                 AbilityName=>UpperIdent@28
@@ -140,7 +140,7 @@ description: "A := U8 implements [Eq, Hash]\n\nA := a where a implements Other\n
             InlineTypeColonEqual=>OpColonEqual@97
             (*
                 Ident=>LowerIdent@98
-                InlineKwWhere=>KwWhere@99
+                InlineTypeWhere=>KwWhere@99
                 Ident=>LowerIdent@100
                 InlineKwImplements=>KwImplements@101
                 AbilityName=>UpperIdent@102

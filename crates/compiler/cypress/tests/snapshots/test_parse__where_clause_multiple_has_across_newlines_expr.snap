@@ -12,16 +12,16 @@ description: "f : a -> (b -> c)\n    where a implements Hash,\n      b implement
                     (*
                         (*
                             Ident=>LowerIdent@2
-                            InlineLambdaArrow=>OpArrow@3
+                            InlineTypeArrow=>OpArrow@3
                             (BeginParens
                                 (*
                                     Ident=>LowerIdent@5
-                                    InlineLambdaArrow=>OpArrow@6
+                                    InlineTypeArrow=>OpArrow@6
                                     Ident=>LowerIdent@7
                                 EndTypeLambda)
                             EndParens)
                         EndTypeLambda)
-                        InlineKwWhere=>KwWhere@9
+                        InlineTypeWhere=>KwWhere@9
                         Ident=>LowerIdent@10
                         InlineKwImplements=>KwImplements@11
                         AbilityName=>UpperIdent@12
