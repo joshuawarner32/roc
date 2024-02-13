@@ -224,6 +224,7 @@ fn build_type<'a, 'b: 'a>(
             | N::BeginTypeRecord
             | N::BeginParens
             | N::InlineKwAs
+            | N::InlineTypeAs
             | N::BeginTypeTagUnion => {}
             N::EndTypeOrTypeAlias => {
                 assert_eq!(stack.stack.len(), 1, "{:?}", stack.stack);

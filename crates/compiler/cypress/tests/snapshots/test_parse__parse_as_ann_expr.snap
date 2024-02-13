@@ -13,7 +13,7 @@ description: "foo : Foo.Bar.Baz x y as Blah a b\n\n42\n\n"
                     Ident=>LowerIdent@5
                     Ident=>LowerIdent@6
                 EndTypeApply)
-                InlineKwAs=>KwAs@7
+                InlineTypeAs=>KwAs@7
                 (*
                     TypeName=>UpperIdent@8
                     Ident=>LowerIdent@9
