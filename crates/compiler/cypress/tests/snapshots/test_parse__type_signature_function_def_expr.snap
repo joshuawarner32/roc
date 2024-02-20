@@ -14,7 +14,7 @@ description: "foo : Int, Float -> Bool\nfoo = \\x, _ -> 42\n\n42\n"
                 TypeName=>UpperIdent@6
             EndTypeLambda)
         EndTypeOrTypeAlias)
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@7
             InlineAssign=>OpAssign@8
             (BeginLambda
@@ -23,7 +23,7 @@ description: "foo : Int, Float -> Bool\nfoo = \\x, _ -> 42\n\n42\n"
                 InlineLambdaArrow=>OpArrow@13
                 Num=>Int@14
             EndLambda)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@15
     EndTopLevelDecls)

@@ -4,7 +4,7 @@ description: "c=when e is\n                U|R->f\ne\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginWhen
@@ -15,7 +15,7 @@ description: "c=when e is\n                U|R->f\ne\n"
                 InlineWhenArrow=>OpArrow@8
                 Ident=>LowerIdent@9
             EndWhen)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@10
     EndTopLevelDecls)

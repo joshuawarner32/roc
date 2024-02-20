@@ -1,8 +1,9 @@
 use std::fmt::Debug;
 
 use crate::parse::BinOp;
-use crate::parse::{ParsedCtx, TreeWalker};
-use crate::tree::N;
+use crate::parse::ParsedCtx;
+use crate::tree::TreeWalker;
+use crate::tree::{TreeStack, N};
 use bumpalo::collections::vec::Vec;
 use bumpalo::Bump;
 
@@ -76,40 +77,6 @@ pub enum Type<'a> {
     Adendum(&'a Type<'a>, &'a Type<'a>),
     ModuleType(&'a str, &'a str),
     As(&'a Type<'a>, &'a Type<'a>),
-}
-
-struct TreeStack<V> {
-    stack: std::vec::Vec<(usize, V)>,
-}
-
-impl<'a, V: Debug> std::fmt::Debug for TreeStack<V> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.stack.fmt(f)
-    }
-}
-
-impl<V> TreeStack<V> {
-    fn new() -> Self {
-        Self {
-            stack: std::vec::Vec::new(),
-        }
-    }
-
-    fn push(&mut self, index: usize, item: V) {
-        self.stack.push((index, item));
-    }
-
-    fn drain_to_index(&mut self, index: u32) -> impl ExactSizeIterator<Item = V> + '_ {
-        let mut begin = self.stack.len();
-        while begin > 0 && self.stack[begin - 1].0 >= index as usize {
-            begin -= 1;
-        }
-        self.stack.drain(begin..).map(|(_, e)| e)
-    }
-
-    fn pop(&mut self) -> Option<V> {
-        self.stack.pop().map(|(_, e)| e)
-    }
 }
 
 fn build_type<'a, 'b: 'a>(
@@ -227,12 +194,12 @@ fn build_type<'a, 'b: 'a>(
             | N::InlineTypeAs
             | N::BeginTypeTagUnion => {}
             N::EndTypeOrTypeAlias => {
-                assert_eq!(stack.stack.len(), 1, "{:?}", stack.stack);
+                assert_eq!(stack.len(), 1, "{:?}", stack);
 
                 return (stack.pop().unwrap(), i, index);
             }
             N::EndImplements | N::EndAbilityMethod => {
-                assert_eq!(stack.stack.len(), 1, "{:?}", stack.stack);
+                assert_eq!(stack.len(), 1, "{:?}", stack);
 
                 return (stack.pop().unwrap(), i, index);
             }
@@ -423,7 +390,7 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
                 drop(values);
                 stack.push(i, Expr::Lambda(args, bump.alloc(body)));
             }
-            N::EndAssign => {
+            N::EndAssignDecl => {
                 let mut values = stack.drain_to_index(index);
                 assert_eq!(
                     values.len(),
@@ -664,7 +631,7 @@ pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
             | N::InlineKwThen
             | N::InlineKwElse
             | N::BeginLambda
-            | N::BeginAssign
+            | N::BeginAssignDecl
             | N::BeginTopLevelDecls
             | N::EndTopLevelDecls
             | N::BeginDbg

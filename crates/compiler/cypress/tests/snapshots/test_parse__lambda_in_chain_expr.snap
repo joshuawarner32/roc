@@ -10,24 +10,25 @@ description: "\"a string\"\n|> Str.toUtf8\n|> List.map \\byte -> byte + 1\n|> Li
             InlinePizza=>OpPizza@1
             (* ModuleName=>UpperIdent@2 DotModuleLowerIdent)
             InlinePizza=>OpPizza@4
-            (* ModuleName=>UpperIdent@5 DotModuleLowerIdent)
-        EndPizza)
-        HintExpr
-        (BeginLambda
-            Ident=>LowerIdent@8
-            InlineLambdaArrow=>OpArrow@9
             (*
-                (* Ident=>LowerIdent@10 InlineBinOpPlus=>OpPlus@11 Num=>Int@12 EndBinOpPlus)
-                InlinePizza=>OpPizza@13
-                (* ModuleName=>UpperIdent@14 DotModuleLowerIdent)
-            EndPizza)
-        EndLambda)
+                (* ModuleName=>UpperIdent@5 DotModuleLowerIdent)
+                InlineApply=>NoSpaceDotLowerIdent@6
+                (BeginLambda
+                    Ident=>LowerIdent@8
+                    InlineLambdaArrow=>OpArrow@9
+                    (*
+                        (* Ident=>LowerIdent@10 InlineBinOpPlus=>OpPlus@11 Num=>Int@12 EndBinOpPlus)
+                        InlinePizza=>OpPizza@13
+                        (* ModuleName=>UpperIdent@14 DotModuleLowerIdent)
+                    EndPizza)
+                EndLambda)
+            EndApply)
+        EndPizza)
     EndTopLevelDecls)
 EndFile)
 
 [=== canfmt below ===]
-Pizza([String("\"a string\""), ModuleLowerName("Str", ".toUtf8"), ModuleLowerName("List", ".map")])
-Lambda([Ident("byte")], Pizza([BinOp(Ident("byte"), Plus, IntBase10("1")), ModuleLowerName("List", ".reverse")]))
+Pizza([String("\"a string\""), ModuleLowerName("Str", ".toUtf8"), Apply(ModuleLowerName("List", ".map"), [Lambda([Ident("byte")], Pizza([BinOp(Ident("byte"), Plus, IntBase10("1")), ModuleLowerName("List", ".reverse")]))])])
 
 [=== formatted below ===]
 

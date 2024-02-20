@@ -4,7 +4,7 @@ description: "p=when d is\nF->s\\a->\"\"\n_->\"\"if e then\ne\nelse\ne\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginWhen
@@ -25,7 +25,7 @@ description: "p=when d is\nF->s\\a->\"\"\n_->\"\"if e then\ne\nelse\ne\n"
                 InlineWhenArrow=>OpArrow@13
                 String=>String@14
             EndWhen)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         (BeginIf
             Ident=>LowerIdent@16

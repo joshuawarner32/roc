@@ -4,11 +4,11 @@ description: "abc =\n    def\nghi\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock HintExpr Ident=>LowerIdent@2 EndBlock)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@3
     EndTopLevelDecls)

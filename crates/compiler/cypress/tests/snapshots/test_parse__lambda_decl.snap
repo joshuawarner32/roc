@@ -4,7 +4,7 @@ description: "abc = \\def ->\n    ghi\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginLambda
@@ -12,7 +12,7 @@ description: "abc = \\def ->\n    ghi\n"
                 InlineLambdaArrow=>OpArrow@4
                 (BeginBlock HintExpr Ident=>LowerIdent@5 EndBlock)
             EndLambda)
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

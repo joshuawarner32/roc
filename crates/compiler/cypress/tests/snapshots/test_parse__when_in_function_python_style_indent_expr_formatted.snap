@@ -4,7 +4,7 @@ description: "func = \\x ->\n    when n is\n        0 -> 0\n42\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginLambda
@@ -21,7 +21,7 @@ description: "func = \\x ->\n    when n is\n        0 -> 0\n42\n"
                     EndWhen)
                 EndBlock)
             EndLambda)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@11
     EndTopLevelDecls)

@@ -4,12 +4,12 @@ description: "_ = crash \"\"\n_ = crash \"\" \"\"\n_ = crash 15 123\n_ = try foo
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Underscore=>Underscore@0
             InlineAssign=>OpAssign@1
             (* Crash=>KwCrash@2 InlineApply=>KwCrash@2 String=>String@3 EndApply)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Underscore=>Underscore@4
             InlineAssign=>OpAssign@5
             (*
@@ -19,8 +19,8 @@ description: "_ = crash \"\"\n_ = crash \"\" \"\"\n_ = crash 15 123\n_ = try foo
                 InlineApply=>String@7
                 String=>String@8
             EndApply)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Underscore=>Underscore@9
             InlineAssign=>OpAssign@10
             (*
@@ -30,8 +30,8 @@ description: "_ = crash \"\"\n_ = crash \"\" \"\"\n_ = crash 15 123\n_ = try foo
                 InlineApply=>Int@12
                 Num=>Int@13
             EndApply)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Underscore=>Underscore@14
             InlineAssign=>OpAssign@15
             (*
@@ -47,20 +47,20 @@ description: "_ = crash \"\"\n_ = crash \"\" \"\"\n_ = crash 15 123\n_ = try foo
                     EndLambda)
                 EndParens)
             EndApply)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Underscore=>Underscore@25
             InlineAssign=>OpAssign@26
             (BeginBlock
-                (BeginAssign
+                (BeginAssignDecl
                     Underscore=>Underscore@27
                     InlineAssign=>OpAssign@28
                     (* Crash=>KwCrash@29 InlineApply=>KwCrash@29 String=>String@30 EndApply)
-                EndAssign)
+                EndAssignDecl)
                 HintExpr
                 Crash=>KwCrash@31
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         (BeginRecord
             (*

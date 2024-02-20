@@ -4,7 +4,7 @@ description: "(@Thunk it) = id (@A {})\nit {}\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             (BeginParens
                 (*
                     OpaqueName=>OpaqueName@1
@@ -24,7 +24,7 @@ description: "(@Thunk it) = id (@A {})\nit {}\n"
                     EndApply)
                 EndParens)
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         (*
             HintExpr
             Ident=>LowerIdent@11

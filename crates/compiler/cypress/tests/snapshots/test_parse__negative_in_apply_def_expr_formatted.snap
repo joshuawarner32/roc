@@ -4,7 +4,7 @@ description: "a = A\n    -g\n    a\na\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (*
@@ -14,7 +14,7 @@ description: "a = A\n    -g\n    a\na\n"
                 InlineApply=>LowerIdent@4
                 Ident=>LowerIdent@5
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@6
     EndTopLevelDecls)

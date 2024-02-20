@@ -4,21 +4,21 @@ description: "a = \"Hello,\\n\\nWorld!\"\nb =\n    \"\"\"\n    Hello,\\n\\nWorld
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             String=>String@2
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Ident=>LowerIdent@3
             InlineAssign=>OpAssign@4
             (BeginBlock HintExpr String=>String@5 EndBlock)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Ident=>LowerIdent@6
             InlineAssign=>OpAssign@7
             (BeginBlock HintExpr String=>String@8 EndBlock)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@9
     EndTopLevelDecls)

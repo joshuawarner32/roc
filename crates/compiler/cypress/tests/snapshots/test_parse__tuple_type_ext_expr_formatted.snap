@@ -19,7 +19,7 @@ description: "f : (Str, Str)a -> (Str, Str)a\nf = \\x -> x\n\nf (1, 2)\n"
                 EndTypeAdendum)
             EndTypeLambda)
         EndTypeOrTypeAlias)
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@17
             InlineAssign=>OpAssign@18
             (BeginLambda
@@ -27,7 +27,7 @@ description: "f : (Str, Str)a -> (Str, Str)a\nf = \\x -> x\n\nf (1, 2)\n"
                 InlineLambdaArrow=>OpArrow@21
                 Ident=>LowerIdent@22
             EndLambda)
-        EndAssign)
+        EndAssignDecl)
         (*
             HintExpr
             Ident=>LowerIdent@23

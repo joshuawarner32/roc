@@ -4,7 +4,11 @@ description: "# leading comment\nx=5\n\n42\n\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign Ident=>LowerIdent@0 InlineAssign=>OpAssign@1 Num=>Int@2 EndAssign)
+        (BeginAssignDecl
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            Num=>Int@2
+        EndAssignDecl)
         HintExpr
         Num=>Int@3
     EndTopLevelDecls)

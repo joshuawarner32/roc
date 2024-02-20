@@ -1,13 +1,8 @@
-use std::collections::VecDeque;
-
 use roc_cypress::canfmt;
+use roc_cypress::fmt;
 use roc_cypress::parse::*;
 use roc_cypress::token::TokenenizedBuffer;
 use roc_cypress::token::Tokenizer;
-use roc_cypress::token::T;
-use roc_cypress::tree::NodeIndexKind;
-use roc_cypress::tree::Tree;
-use roc_cypress::tree::N;
 use roc_cypress::validate::state_to_expect_atom;
 
 fn format_message(text: &str, buf: &TokenenizedBuffer, msg: &Message) -> String {
@@ -156,8 +151,15 @@ fn run_snapshot_test(text: &str) -> String {
             .join("\n")
     };
 
-    // let format_output = pretty(&state.tree, &state.buf, text).text;
-    let format_output = String::new(); // TODO!
+    let format_output = {
+        let doc = fmt::fmt(ParsedCtx {
+            tree: &state.tree,
+            toks: &state.buf,
+            text,
+        });
+
+        format!("{}", doc)
+    };
 
     format!(
         "{}\n\n[=== canfmt below ===]\n{}\n\n[=== formatted below ===]\n{}",
@@ -5016,6 +5018,17 @@ fn test_if_after_when() {
         |e
         |else
         |e
+        "#
+    ));
+}
+
+#[test]
+fn test_func_expr() {
+    snapshot_test!(block_indentify(
+        r#"
+        |m=\t->
+        | h
+        | e
         "#
     ));
 }

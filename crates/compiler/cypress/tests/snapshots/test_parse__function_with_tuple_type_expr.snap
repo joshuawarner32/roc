@@ -13,7 +13,7 @@ description: "f : I64 -> (I64, I64)\nf = \\x -> (x, x + 1)\n\nf 42\n\n"
                 (BeginParens TypeName=>UpperIdent@5 TypeName=>UpperIdent@7 EndParens)
             EndTypeLambda)
         EndTypeOrTypeAlias)
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@9
             InlineAssign=>OpAssign@10
             (BeginLambda
@@ -24,7 +24,7 @@ description: "f : I64 -> (I64, I64)\nf = \\x -> (x, x + 1)\n\nf 42\n\n"
                     (* Ident=>LowerIdent@17 InlineBinOpPlus=>OpPlus@18 Num=>Int@19 EndBinOpPlus)
                 EndParens)
             EndLambda)
-        EndAssign)
+        EndAssignDecl)
         (*
             HintExpr
             Ident=>LowerIdent@21

@@ -5,7 +5,7 @@ description: "Email str = Email \"blah@example.com\"\nstr\n\n"
 (BeginFile
     (BeginTopLevelDecls
         ((*
-                BeginAssign
+                BeginAssignDecl
                 UpperIdent=>UpperIdent@0
                 InlineApply=>UpperIdent@0
                 Ident=>LowerIdent@1
@@ -16,7 +16,7 @@ description: "Email str = Email \"blah@example.com\"\nstr\n\n"
                 InlineApply=>UpperIdent@3
                 String=>String@4
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@5
     EndTopLevelDecls)

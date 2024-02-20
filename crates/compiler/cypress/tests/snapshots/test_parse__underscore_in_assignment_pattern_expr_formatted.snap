@@ -4,7 +4,7 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             (BeginParens
                 (*
                     UpperIdent=>UpperIdent@1
@@ -22,8 +22,8 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
                 InlineApply=>Int@7
                 Num=>Int@8
             EndApply)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             (BeginParens
                 (*
                     UpperIdent=>UpperIdent@10
@@ -41,8 +41,8 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
                 InlineApply=>Int@16
                 Num=>Int@17
             EndApply)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             (BeginParens
                 (*
                     UpperIdent=>UpperIdent@19
@@ -60,8 +60,8 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
                 InlineApply=>Int@25
                 Num=>Int@26
             EndApply)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Underscore=>Underscore@27
             InlineAssign=>OpAssign@28
             (*
@@ -71,8 +71,8 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
                 InlineApply=>Int@30
                 Num=>Int@31
             EndApply)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             (BeginParens
                 (*
                     UpperIdent=>UpperIdent@33
@@ -122,7 +122,7 @@ description: "(Pair x _) = Pair 0 1\n(Pair _ y) = Pair 0 1\n(Pair _ _) = Pair 0 
                     EndApply)
                 EndParens)
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@57
     EndTopLevelDecls)

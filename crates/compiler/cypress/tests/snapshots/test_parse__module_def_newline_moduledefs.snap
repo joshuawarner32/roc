@@ -4,15 +4,19 @@ description: "main =\n    i = 64\n\n    i\n\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock
-                (BeginAssign Ident=>LowerIdent@2 InlineAssign=>OpAssign@3 Num=>Int@4 EndAssign)
+                (BeginAssignDecl
+                    Ident=>LowerIdent@2
+                    InlineAssign=>OpAssign@3
+                    Num=>Int@4
+                EndAssignDecl)
                 HintExpr
                 Ident=>LowerIdent@5
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

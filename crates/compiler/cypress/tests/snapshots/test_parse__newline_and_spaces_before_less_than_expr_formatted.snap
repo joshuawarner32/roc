@@ -4,7 +4,7 @@ description: "x =\n    1\n    < 2\n\n42\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock
@@ -15,7 +15,7 @@ description: "x =\n    1\n    < 2\n\n42\n"
                     Num=>Int@4
                 EndBinOpLessThan)
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@5
     EndTopLevelDecls)

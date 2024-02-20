@@ -4,7 +4,7 @@ description: "x = foo (baz {\n  bar: blah\n})\nx\n\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (*
@@ -24,7 +24,7 @@ description: "x = foo (baz {\n  bar: blah\n})\nx\n\n"
                     EndApply)
                 EndParens)
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@11
     EndTopLevelDecls)

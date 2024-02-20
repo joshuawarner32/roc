@@ -14,14 +14,14 @@ description: "UserId x : [ UserId I64 ]\nUserId x = UserId 42\n\nx\n\n"
             (BeginTypeTagUnion Tag=>UpperIdent@4 TypeName=>UpperIdent@5 EndTypeTagUnion)
         EndTypeOrTypeAlias)
         ((*
-                BeginAssign
+                BeginAssignDecl
                 UpperIdent=>UpperIdent@7
                 InlineApply=>UpperIdent@7
                 Ident=>LowerIdent@8
             EndApply)
             InlineAssign=>OpAssign@9
             (* UpperIdent=>UpperIdent@10 InlineApply=>UpperIdent@10 Num=>Int@11 EndApply)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@12
     EndTopLevelDecls)

@@ -4,11 +4,11 @@ description: "x =\n    5\n\n42\n\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock HintExpr Num=>Int@2 EndBlock)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@3
     EndTopLevelDecls)

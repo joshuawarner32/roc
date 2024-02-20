@@ -9,7 +9,7 @@ description: "{ x, y } : Foo\n{ x, y } = { x: \"foo\", y: 3.14 }\n\nx\n"
             InlineTypeColon=>OpColon@5
             TypeName=>UpperIdent@6
         EndTypeOrTypeAlias)
-        (BeginAssign
+        (BeginAssignDecl
             (BeginRecord Ident=>LowerIdent@8 Ident=>LowerIdent@10 EndRecord)
             InlineAssign=>OpAssign@12
             (BeginRecord
@@ -20,7 +20,7 @@ description: "{ x, y } : Foo\n{ x, y } = { x: \"foo\", y: 3.14 }\n\nx\n"
                 EndRecordFieldPair)
                 (* Ident=>LowerIdent@18 InlineColon=>OpColon@19 Num=>Int@20 EndRecordFieldPair)
             EndRecord)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@22
     EndTopLevelDecls)

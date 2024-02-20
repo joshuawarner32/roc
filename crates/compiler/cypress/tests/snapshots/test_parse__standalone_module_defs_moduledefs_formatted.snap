@@ -4,17 +4,21 @@ description: "# comment 1\nfoo = 1\n\n# comment 2\nbar = \"hi\"\nbaz = \"stuff\"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign Ident=>LowerIdent@0 InlineAssign=>OpAssign@1 Num=>Int@2 EndAssign)
-        (BeginAssign
+        (BeginAssignDecl
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            Num=>Int@2
+        EndAssignDecl)
+        (BeginAssignDecl
             Ident=>LowerIdent@3
             InlineAssign=>OpAssign@4
             String=>String@5
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Ident=>LowerIdent@6
             InlineAssign=>OpAssign@7
             String=>String@8
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

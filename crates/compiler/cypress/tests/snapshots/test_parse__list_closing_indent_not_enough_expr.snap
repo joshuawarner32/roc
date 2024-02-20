@@ -4,7 +4,7 @@ description: "myList = [\n    0,\n    [\n        a,\n        b,\n],\n    1,\n]\n
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginList
@@ -12,7 +12,7 @@ description: "myList = [\n    0,\n    [\n        a,\n        b,\n],\n    1,\n]\n
                 (BeginList Ident=>LowerIdent@6 Ident=>LowerIdent@8 EndList)
                 Num=>Int@12
             EndList)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@15
     EndTopLevelDecls)

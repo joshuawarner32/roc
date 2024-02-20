@@ -4,11 +4,11 @@ description: "abc = def\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             Ident=>LowerIdent@2
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

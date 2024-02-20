@@ -4,7 +4,7 @@ description: "p=when s is H->s .d\ne\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginWhen
@@ -18,7 +18,7 @@ description: "p=when s is H->s .d\ne\n"
                     FieldAccessFunction=>DotLowerIdent@8
                 EndApply)
             EndWhen)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@9
     EndTopLevelDecls)

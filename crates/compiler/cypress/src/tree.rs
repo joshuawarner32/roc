@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 pub struct Tree {
     pub kinds: Vec<N>,
     pub indices: Vec<u32>,
@@ -90,9 +92,10 @@ pub enum N {
     EndPizza,
 
     /// Assignment declaration, e.g. `x = 1`
-    BeginAssign,
+    BeginAssignDecl,
     InlineAssign,
-    EndAssign,
+    EndAssignDecl,
+    EndAssign, // used if the '=' is (incorrectly) part of an expression
 
     /// Binary operators, e.g. `x + y`
     InlineBinOpPlus,
@@ -254,7 +257,7 @@ pub enum NodeIndexKind {
 impl N {
     pub fn is_decl(self) -> bool {
         match self {
-            N::EndAssign | N::EndTypeOrTypeAlias | N::EndBackpassing | N::EndImplements => true,
+            N::EndAssignDecl | N::EndTypeOrTypeAlias | N::EndBackpassing | N::EndImplements => true,
             _ => false,
         }
     }
@@ -268,7 +271,7 @@ impl N {
             | N::BeginParens
             | N::BeginTuple
             | N::BeginBlock
-            | N::BeginAssign
+            | N::BeginAssignDecl
             | N::BeginTypeOrTypeAlias
             | N::BeginTypeTagUnion
             | N::BeginIf
@@ -297,8 +300,8 @@ impl N {
             | N::EndRecordUpdate
             | N::EndParens
             | N::EndTuple
+            | N::EndAssignDecl
             | N::EndBlock
-            | N::EndAssign
             | N::EndTypeOrTypeAlias
             | N::EndTypeTagUnion
             | N::EndIf
@@ -392,6 +395,7 @@ impl N {
             | N::EndBinOpEquals
             | N::EndBinOpNotEquals
             | N::EndTypeAdendum
+            | N::EndAssign
             | N::EndMultiBackpassingArgs
             | N::EndFieldAccess
             | N::EndIndexAccess
@@ -424,5 +428,79 @@ impl Tree {
 
     pub fn len(&self) -> u32 {
         self.kinds.len() as u32
+    }
+}
+
+pub struct TreeWalker<'b> {
+    kinds: &'b [N],
+    indices: &'b [u32],
+    pos: usize,
+}
+
+impl<'b> TreeWalker<'b> {
+    pub fn new(tree: &'b Tree) -> Self {
+        Self {
+            kinds: &tree.kinds,
+            indices: &tree.indices,
+            pos: 0,
+        }
+    }
+
+    pub fn next(&mut self) -> Option<N> {
+        let res = self.kinds.get(self.pos).copied();
+        self.pos += 1;
+        res
+    }
+
+    pub fn cur(&self) -> Option<N> {
+        self.kinds.get(self.pos).copied()
+    }
+
+    pub fn cur_index(&self) -> Option<(N, usize, u32)> {
+        self.cur().map(|n| (n, self.pos, self.indices[self.pos]))
+    }
+
+    pub fn next_index(&mut self) -> Option<(N, usize, u32)> {
+        let res = self.cur_index();
+        self.pos += 1;
+        res
+    }
+}
+
+pub struct TreeStack<V> {
+    stack: std::vec::Vec<(usize, V)>,
+}
+
+impl<'a, V: Debug> std::fmt::Debug for TreeStack<V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.stack.fmt(f)
+    }
+}
+
+impl<V> TreeStack<V> {
+    pub fn new() -> Self {
+        Self {
+            stack: std::vec::Vec::new(),
+        }
+    }
+
+    pub fn push(&mut self, index: usize, item: V) {
+        self.stack.push((index, item));
+    }
+
+    pub fn drain_to_index(&mut self, index: u32) -> impl ExactSizeIterator<Item = V> + '_ {
+        let mut begin = self.stack.len();
+        while begin > 0 && self.stack[begin - 1].0 >= index as usize {
+            begin -= 1;
+        }
+        self.stack.drain(begin..).map(|(_, e)| e)
+    }
+
+    pub fn pop(&mut self) -> Option<V> {
+        self.stack.pop().map(|(_, e)| e)
+    }
+
+    pub fn len(&self) -> usize {
+        self.stack.len()
     }
 }

@@ -4,7 +4,7 @@ description: "x =\n    when n is\n        0 -> 0\n42\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock
@@ -17,7 +17,7 @@ description: "x =\n    when n is\n        0 -> 0\n42\n"
                     Num=>Int@7
                 EndWhen)
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@8
     EndTopLevelDecls)

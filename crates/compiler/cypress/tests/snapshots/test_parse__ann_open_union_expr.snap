@@ -16,11 +16,11 @@ description: "foo : [True, Perhaps Thing]*\nfoo = True\n\n42\n"
                 TypeWildcard=>OpStar@9
             EndTypeAdendum)
         EndTypeOrTypeAlias)
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@10
             InlineAssign=>OpAssign@11
             UpperIdent=>UpperIdent@12
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@13
     EndTopLevelDecls)

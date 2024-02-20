@@ -11,7 +11,7 @@ description: "app \"example\"\n    packages { pf: \"path\" }\n    imports [pf.St
         Ident=>LowerIdent@18
     EndHeaderApp)
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@19
             InlineAssign=>OpAssign@20
             (*
@@ -19,7 +19,7 @@ description: "app \"example\"\n    packages { pf: \"path\" }\n    imports [pf.St
                 InlineApply=>NoSpaceDotLowerIdent@22
                 String=>String@23
             EndApply)
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

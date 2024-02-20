@@ -11,7 +11,7 @@ description: "app \"hello\"\n    packages { pf:\n\"https://github.com/roc-lang/b
         Ident=>LowerIdent@18
     EndHeaderApp)
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@19
             InlineAssign=>OpAssign@20
             (BeginBlock
@@ -22,7 +22,7 @@ description: "app \"hello\"\n    packages { pf:\n\"https://github.com/roc-lang/b
                     String=>String@23
                 EndApply)
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

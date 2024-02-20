@@ -4,7 +4,7 @@ description: "c=\nwhen e is\n                S->c\n a=e\ne\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock
@@ -17,12 +17,12 @@ description: "c=\nwhen e is\n                S->c\n a=e\ne\n"
                     Ident=>LowerIdent@7
                 EndWhen)
             EndBlock)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Ident=>LowerIdent@8
             InlineAssign=>OpAssign@9
             Ident=>LowerIdent@10
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@11
     EndTopLevelDecls)

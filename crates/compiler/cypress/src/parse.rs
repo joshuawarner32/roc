@@ -1946,7 +1946,9 @@ impl State {
         match k {
             N::EndAssign => {
                 self.update_end(N::Dummy, subtree_start);
-                self.tree.kinds[subtree_start as usize] = N::BeginAssign;
+                self.tree.kinds[subtree_start as usize] = N::BeginAssignDecl;
+                let last_index = self.tree.kinds.len() - 1;
+                self.tree.kinds[last_index] = N::EndAssignDecl;
             }
             N::EndBackpassing => {
                 self.update_end(N::Dummy, subtree_start);
@@ -3213,42 +3215,6 @@ impl fmt::Debug for ShowTreePosition<'_> {
     }
 }
 
-pub struct TreeWalker<'b> {
-    kinds: &'b [N],
-    indices: &'b [u32],
-    pos: usize,
-}
-
-impl<'b> TreeWalker<'b> {
-    pub fn new(tree: &'b Tree) -> Self {
-        Self {
-            kinds: &tree.kinds,
-            indices: &tree.indices,
-            pos: 0,
-        }
-    }
-
-    pub fn next(&mut self) -> Option<N> {
-        let res = self.kinds.get(self.pos).copied();
-        self.pos += 1;
-        res
-    }
-
-    pub fn cur(&self) -> Option<N> {
-        self.kinds.get(self.pos).copied()
-    }
-
-    pub fn cur_index(&self) -> Option<(N, usize, u32)> {
-        self.cur().map(|n| (n, self.pos, self.indices[self.pos]))
-    }
-
-    pub fn next_index(&mut self) -> Option<(N, usize, u32)> {
-        let res = self.cur_index();
-        self.pos += 1;
-        res
-    }
-}
-
 #[derive(Copy, Clone)]
 pub struct ParsedCtx<'a> {
     pub tree: &'a Tree,
@@ -3446,7 +3412,7 @@ impl<'a> UpProp for FmtInfoProp<'a> {
     fn leaf(&mut self, node: N, index: u32) -> Self::Out {
         let kind = node.index_kind();
         match node {
-            N::BeginAssign
+            N::BeginAssignDecl
             | N::BeginTopLevelDecls
             | N::HintExpr
             | N::EndIf
@@ -3545,7 +3511,7 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
             N::BeginTopLevelDecls => {}
             N::EndTopLevelDecls => {}
 
-            N::BeginAssign => {
+            N::BeginAssignDecl => {
                 stack.push(St::Assign0);
             }
             N::InlineAssign => {
@@ -3666,7 +3632,7 @@ impl<'a> CommentExtractor<'a> {
         let begin = self.comments.len();
         let kind = node.index_kind();
         match node {
-            N::BeginAssign
+            N::BeginAssignDecl
             | N::BeginTopLevelDecls
             | N::HintExpr
             | N::EndIf

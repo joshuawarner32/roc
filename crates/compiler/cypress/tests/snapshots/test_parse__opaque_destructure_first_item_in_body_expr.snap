@@ -5,7 +5,7 @@ description: "@Thunk it = id (@A {})\nit {}\n\n"
 (BeginFile
     (BeginTopLevelDecls
         ((*
-                BeginAssign
+                BeginAssignDecl
                 OpaqueName=>OpaqueName@0
                 InlineApply=>OpaqueName@0
                 Ident=>LowerIdent@1
@@ -22,7 +22,7 @@ description: "@Thunk it = id (@A {})\nit {}\n\n"
                     EndApply)
                 EndParens)
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         (*
             HintExpr
             Ident=>LowerIdent@9

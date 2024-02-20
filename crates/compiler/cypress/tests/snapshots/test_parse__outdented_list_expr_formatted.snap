@@ -4,11 +4,11 @@ description: "a = [\n    1,\n    2,\n    3,\n]\na\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginList Num=>Int@3 Num=>Int@5 Num=>Int@7 EndList)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@10
     EndTopLevelDecls)

@@ -4,19 +4,19 @@ description: "a =\n    b =\n        c\n    d\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock
-                (BeginAssign
+                (BeginAssignDecl
                     Ident=>LowerIdent@2
                     InlineAssign=>OpAssign@3
                     (BeginBlock HintExpr Ident=>LowerIdent@4 EndBlock)
-                EndAssign)
+                EndAssignDecl)
                 HintExpr
                 Ident=>LowerIdent@5
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

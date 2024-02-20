@@ -4,11 +4,11 @@ description: "myList = [\n    0,\n    1\n]\n42\n\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginList Num=>Int@3 Num=>Int@5 EndList)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@7
     EndTopLevelDecls)

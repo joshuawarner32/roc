@@ -4,7 +4,7 @@ description: "x = foo {\n    bar\n    : blah,\n}\nx\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (*
@@ -18,7 +18,7 @@ description: "x = foo {\n    bar\n    : blah,\n}\nx\n"
                     EndRecordFieldPair)
                 EndRecord)
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@9
     EndTopLevelDecls)

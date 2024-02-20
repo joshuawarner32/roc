@@ -9,13 +9,13 @@ description: "where : { where : I32 }\nwhere = { where: 1 }\n\nwhere.where\n"
             InlineTypeColon=>OpColon@1
             (BeginTypeRecord Ident=>KwWhere@3 TypeName=>UpperIdent@5 EndTypeRecord)
         EndTypeOrTypeAlias)
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>KwWhere@7
             InlineAssign=>OpAssign@8
             (BeginRecord
                 (* Ident=>KwWhere@10 InlineColon=>OpColon@11 Num=>Int@12 EndRecordFieldPair)
             EndRecord)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         (* Ident=>KwWhere@14 DotIdent=>NoSpaceDotLowerIdent@15 EndFieldAccess)
     EndTopLevelDecls)

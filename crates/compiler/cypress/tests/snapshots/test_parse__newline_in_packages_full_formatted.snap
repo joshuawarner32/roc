@@ -11,7 +11,7 @@ description: "app \"hello\"\n    packages {\n        pf:\n        \"https://gith
         Ident=>LowerIdent@19
     EndHeaderApp)
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@20
             InlineAssign=>OpAssign@21
             (BeginBlock
@@ -22,7 +22,7 @@ description: "app \"hello\"\n    packages {\n        pf:\n        \"https://gith
                     String=>String@24
                 EndApply)
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

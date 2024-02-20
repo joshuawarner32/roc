@@ -14,11 +14,11 @@ description: "t:d,T->r\nt=e\n"
                 Ident=>LowerIdent@6
             EndTypeLambda)
         EndTypeOrTypeAlias)
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@7
             InlineAssign=>OpAssign@8
             Ident=>LowerIdent@9
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

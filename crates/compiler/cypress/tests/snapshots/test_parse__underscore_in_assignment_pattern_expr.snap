@@ -5,7 +5,7 @@ description: "Pair x _ = Pair 0 1\nPair _ y = Pair 0 1\nPair _ _ = Pair 0 1\n_ =
 (BeginFile
     (BeginTopLevelDecls
         ((*
-                BeginAssign
+                BeginAssignDecl
                 UpperIdent=>UpperIdent@0
                 InlineApply=>UpperIdent@0
                 Ident=>LowerIdent@1
@@ -20,9 +20,9 @@ description: "Pair x _ = Pair 0 1\nPair _ y = Pair 0 1\nPair _ _ = Pair 0 1\n_ =
                 InlineApply=>Int@5
                 Num=>Int@6
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         ((*
-                BeginAssign
+                BeginAssignDecl
                 UpperIdent=>UpperIdent@7
                 InlineApply=>UpperIdent@7
                 Underscore=>Underscore@8
@@ -37,9 +37,9 @@ description: "Pair x _ = Pair 0 1\nPair _ y = Pair 0 1\nPair _ _ = Pair 0 1\n_ =
                 InlineApply=>Int@12
                 Num=>Int@13
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         ((*
-                BeginAssign
+                BeginAssignDecl
                 UpperIdent=>UpperIdent@14
                 InlineApply=>UpperIdent@14
                 Underscore=>Underscore@15
@@ -54,8 +54,8 @@ description: "Pair x _ = Pair 0 1\nPair _ y = Pair 0 1\nPair _ _ = Pair 0 1\n_ =
                 InlineApply=>Int@19
                 Num=>Int@20
             EndApply)
-        EndAssign)
-        (BeginAssign
+        EndAssignDecl)
+        (BeginAssignDecl
             Underscore=>Underscore@21
             InlineAssign=>OpAssign@22
             (*
@@ -65,9 +65,9 @@ description: "Pair x _ = Pair 0 1\nPair _ y = Pair 0 1\nPair _ _ = Pair 0 1\n_ =
                 InlineApply=>Int@24
                 Num=>Int@25
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         ((*
-                BeginAssign
+                BeginAssignDecl
                 UpperIdent=>UpperIdent@26
                 InlineApply=>UpperIdent@26
                 (BeginParens
@@ -114,7 +114,7 @@ description: "Pair x _ = Pair 0 1\nPair _ y = Pair 0 1\nPair _ _ = Pair 0 1\n_ =
                     EndApply)
                 EndParens)
             EndApply)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@49
     EndTopLevelDecls)

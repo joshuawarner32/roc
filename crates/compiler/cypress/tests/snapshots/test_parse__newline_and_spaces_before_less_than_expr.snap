@@ -4,11 +4,11 @@ description: "x = 1\n    < 2\n\n42\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (* Num=>Int@2 InlineBinOpLessThan=>OpLessThan@3 Num=>Int@4 EndBinOpLessThan)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Num=>Int@5
     EndTopLevelDecls)

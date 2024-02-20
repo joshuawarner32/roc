@@ -26,11 +26,11 @@ description: "platform \"test/types\"\n    requires { Flags, Model, } { main : A
                 (* TypeName=>UpperIdent@32 TypeName=>UpperIdent@33 EndTypeApply)
             EndTypeApply)
         EndTypeOrTypeAlias)
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@34
             InlineAssign=>OpAssign@35
             Ident=>LowerIdent@36
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

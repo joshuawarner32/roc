@@ -1,0 +1,28 @@
+---
+source: crates/compiler/cypress/tests/test_parse.rs
+description: "m=\\t->\n h\n e\n"
+---
+(BeginFile
+    (BeginTopLevelDecls
+        (*
+            (*
+                HintExpr
+                Ident=>LowerIdent@0
+                InlineAssign=>OpAssign@1
+                (BeginLambda
+                    Ident=>LowerIdent@3
+                    InlineLambdaArrow=>OpArrow@4
+                    (BeginBlock HintExpr Ident=>LowerIdent@5 EndBlock)
+                EndLambda)
+            EndAssign)
+            InlineApply=>LowerIdent@5
+            Ident=>LowerIdent@6
+        EndApply)
+    EndTopLevelDecls)
+EndFile)
+
+[=== canfmt below ===]
+Apply(Assign(Ident("m"), Lambda([Ident("t")], Block([Ident("h")]))), [Ident("e")])
+
+[=== formatted below ===]
+

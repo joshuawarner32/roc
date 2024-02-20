@@ -4,7 +4,7 @@ description: "x =\n    a : n\n    4\n_\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock
@@ -16,7 +16,7 @@ description: "x =\n    a : n\n    4\n_\n"
                 HintExpr
                 Num=>Int@5
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Underscore=>Underscore@6
     EndTopLevelDecls)

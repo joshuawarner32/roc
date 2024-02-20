@@ -9,11 +9,11 @@ description: "(x, y) : Foo\n(x, y) = (\"foo\", 3.14)\n\nx\n"
             InlineTypeColon=>OpColon@5
             TypeName=>UpperIdent@6
         EndTypeOrTypeAlias)
-        (BeginAssign
+        (BeginAssignDecl
             (BeginParens Ident=>LowerIdent@8 Ident=>LowerIdent@10 EndParens)
             InlineAssign=>OpAssign@12
             (BeginParens String=>String@14 Num=>Int@16 EndParens)
-        EndAssign)
+        EndAssignDecl)
         HintExpr
         Ident=>LowerIdent@18
     EndTopLevelDecls)

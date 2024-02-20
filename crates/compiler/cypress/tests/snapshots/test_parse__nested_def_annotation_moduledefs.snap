@@ -4,7 +4,7 @@ description: "main =\n    wrappedNotEq : a, a -> Bool\n    wrappedNotEq = \\num1
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock
@@ -18,7 +18,7 @@ description: "main =\n    wrappedNotEq : a, a -> Bool\n    wrappedNotEq = \\num1
                         TypeName=>UpperIdent@8
                     EndTypeLambda)
                 EndTypeOrTypeAlias)
-                (BeginAssign
+                (BeginAssignDecl
                     Ident=>LowerIdent@9
                     InlineAssign=>OpAssign@10
                     (BeginLambda
@@ -34,7 +34,7 @@ description: "main =\n    wrappedNotEq : a, a -> Bool\n    wrappedNotEq = \\num1
                             EndBinOpNotEquals)
                         EndBlock)
                     EndLambda)
-                EndAssign)
+                EndAssignDecl)
                 (*
                     HintExpr
                     Ident=>LowerIdent@19
@@ -44,7 +44,7 @@ description: "main =\n    wrappedNotEq : a, a -> Bool\n    wrappedNotEq = \\num1
                     Num=>Int@21
                 EndApply)
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

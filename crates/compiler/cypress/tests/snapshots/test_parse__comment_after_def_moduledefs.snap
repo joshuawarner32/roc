@@ -4,7 +4,11 @@ description: "foo = 1 # comment after\n\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign Ident=>LowerIdent@0 InlineAssign=>OpAssign@1 Num=>Int@2 EndAssign)
+        (BeginAssignDecl
+            Ident=>LowerIdent@0
+            InlineAssign=>OpAssign@1
+            Num=>Int@2
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 

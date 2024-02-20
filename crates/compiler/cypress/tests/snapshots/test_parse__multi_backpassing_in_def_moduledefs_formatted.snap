@@ -4,7 +4,7 @@ description: "main =\n    arg1, arg2 <- f {}\n    \"Roc <3 Zig!\\n\"\n\n"
 ---
 (BeginFile
     (BeginTopLevelDecls
-        (BeginAssign
+        (BeginAssignDecl
             Ident=>LowerIdent@0
             InlineAssign=>OpAssign@1
             (BeginBlock
@@ -24,7 +24,7 @@ description: "main =\n    arg1, arg2 <- f {}\n    \"Roc <3 Zig!\\n\"\n\n"
                 HintExpr
                 String=>String@9
             EndBlock)
-        EndAssign)
+        EndAssignDecl)
     EndTopLevelDecls)
 EndFile)
 
