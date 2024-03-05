@@ -477,7 +477,7 @@ impl<'a, V: Debug> std::fmt::Debug for TreeStack<V> {
     }
 }
 
-impl<V> TreeStack<V> {
+impl<V: Debug> TreeStack<V> {
     pub fn new() -> Self {
         Self {
             stack: std::vec::Vec::new(),
@@ -493,6 +493,7 @@ impl<V> TreeStack<V> {
         while begin > 0 && self.stack[begin - 1].0 >= index as usize {
             begin -= 1;
         }
+        dbg!(&self.stack);
         self.stack.drain(begin..).map(|(_, e)| e)
     }
 

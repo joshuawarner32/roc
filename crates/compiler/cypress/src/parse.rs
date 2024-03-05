@@ -96,7 +96,7 @@
 #![allow(dead_code)] // temporarily during development
 #![allow(unused)] // temporarily during development
 
-use crate::token::{Comment, Indent, TokenenizedBuffer, T};
+use crate::token::{extract_comments, Comment, Indent, TokenenizedBuffer, T};
 use crate::tree::{NodeIndexKind, Tree, N};
 use std::fmt;
 use std::{
@@ -3228,6 +3228,33 @@ impl<'a> ParsedCtx<'a> {
         let len = self.toks.lengths[token_index as usize] as usize;
         &self.text[offset..offset + len]
     }
+
+    pub fn extract_comments(&self) -> Vec<Vec<Comment>> {
+        let mut res = Vec::with_capacity(self.toks.lines.len());
+
+        for (offset, _) in self.toks.lines.iter().skip(1) {
+            let begin = if *offset > 0 {
+                self.toks.offsets[*offset as usize - 1] + self.toks.lengths[*offset as usize - 1]
+            } else {
+                0
+            };
+            // let end = self.toks.offsets[*offset];
+
+            let mut comments = Vec::new();
+            crate::token::extract_comments(self.text, begin as usize, &mut comments);
+            res.push(comments);
+        }
+
+        let mut comments = Vec::new();
+        crate::token::extract_comments(self.text, self.toks.kinds.len(), &mut comments);
+        res.push(comments);
+
+        res
+    }
+
+    pub fn comment_text(&self, comment: Comment) -> &'a str {
+        &self.text[comment.begin..comment.end]
+    }
 }
 
 struct TokenizedBufferFollower<'a> {
@@ -3583,97 +3610,4 @@ fn pretty(tree: &Tree, toks: &TokenenizedBuffer, text: &str) -> FormattedBuffer 
         }
     }
     buf
-}
-
-struct CommentExtractor<'a> {
-    text: &'a str,
-    toks: &'a TokenenizedBuffer,
-    pos: usize,
-    comments: Vec<Comment>,
-    comment_indices: Vec<(usize, usize)>,
-}
-
-impl<'a> CommentExtractor<'a> {
-    fn new(text: &'a str, toks: &'a TokenenizedBuffer) -> Self {
-        Self {
-            text,
-            toks,
-            pos: 0,
-            comments: Vec::new(),
-            comment_indices: Vec::new(),
-        }
-    }
-
-    fn check_next_token(&mut self, tok: T) {
-        panic!();
-        // debug_assert!(tok != T::Newline);
-
-        // while self.toks.kind(self.pos) == Some(T::Newline) {
-        //     self.toks.extract_comments_at(self.text, self.pos, &mut self.comments);
-        //     self.pos += 1;
-        // }
-
-        if self.toks.kind(self.pos) != Some(tok) {
-            panic!(
-                "programming error: misaligned token stream when formatting.\n\
-                Expected {:?} at position {}, found {:?} instead.",
-                tok,
-                self.pos,
-                self.toks.kind(self.pos)
-            );
-        }
-
-        self.pos += 1;
-    }
-}
-
-impl<'a> CommentExtractor<'a> {
-    fn consume(&mut self, node: N) -> &[Comment] {
-        let begin = self.comments.len();
-        let kind = node.index_kind();
-        match node {
-            N::BeginAssignDecl
-            | N::BeginTopLevelDecls
-            | N::HintExpr
-            | N::EndIf
-            | N::EndWhen
-            | N::InlineApply
-            | N::EndLambda
-            | N::EndBlock
-            | N::EndApply
-            | N::EndBinOpPlus
-            | N::EndBinOpStar
-            | N::EndBinOpMinus
-            | N::EndPizza
-            | N::BeginBlock
-            | N::EndTopLevelDecls
-            | N::EndAssign => {}
-
-            N::Ident => self.check_next_token(T::LowerIdent),
-            N::UpperIdent => self.check_next_token(T::UpperIdent),
-            N::Num => self.check_next_token(T::Int),
-            N::Float => self.check_next_token(T::Float),
-            N::InlineAssign => self.check_next_token(T::OpAssign),
-
-            N::BeginIf => self.check_next_token(T::KwIf),
-            N::InlineKwThen => self.check_next_token(T::KwThen),
-            N::InlineKwElse => self.check_next_token(T::KwElse),
-
-            N::BeginWhen => self.check_next_token(T::KwWhen),
-            N::InlineKwIs => self.check_next_token(T::KwIs),
-            N::InlineWhenArrow => self.check_next_token(T::OpArrow),
-
-            N::InlineBinOpPlus => self.check_next_token(T::OpPlus),
-            N::InlineBinOpStar => self.check_next_token(T::OpStar),
-            N::InlineBinOpMinus => self.check_next_token(T::OpBinaryMinus),
-            N::InlinePizza => self.check_next_token(T::OpPizza),
-
-            N::BeginLambda => self.check_next_token(T::OpBackslash),
-            N::InlineLambdaArrow => self.check_next_token(T::OpArrow),
-
-            _ => todo!("comment extract {:?}", node),
-        }
-
-        &self.comments[begin..]
-    }
 }

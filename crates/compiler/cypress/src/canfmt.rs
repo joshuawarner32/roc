@@ -7,6 +7,8 @@ use crate::tree::{TreeStack, N};
 use bumpalo::collections::vec::Vec;
 use bumpalo::Bump;
 
+pub struct Comments<'a>(pub &'a [&'a str]);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Expr<'a> {
     Crash,
@@ -233,8 +235,6 @@ fn build_ability<'a, 'b: 'a>(
 }
 
 pub fn build<'a, 'b: 'a>(bump: &'a Bump, ctx: ParsedCtx<'b>) -> &'a [Expr<'a>] {
-    // let mut ce = CommentExtractor::new(ctx.text, ctx.toks);
-
     let mut w = TreeWalker::new(&ctx.tree);
 
     if w.cur() == Some(N::BeginFile) {

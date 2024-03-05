@@ -80,7 +80,6 @@ pub enum T {
     KwExpect,
     KwExpectFx,
 
-    
     NoSpace,
     NamedUnderscore,
     OpaqueName,
@@ -257,44 +256,63 @@ impl<'a> Tokenizer<'a> {
                     }
                     saw_whitespace = true;
                 }
-                b'.' => {
-                    match self.cursor.peek_at(1) {
-                        Some(b'.') => {
-                            if self.cursor.peek_at(2) == Some(b'.') {
-                                simple_token!(3, TripleDot)
-                            } else {
-                                simple_token!(2, DoubleDot)
-                            }
-                        }
-                        Some(b'0'..=b'9') => {
-                            self.cursor.offset += 1;
-                            self.cursor.chomp_integer();
-                            self.output
-                                .push_token(if sp { T::DotNumber } else { T::NoSpaceDotNumber }, offset, self.cursor.offset - offset);
-                        }
-                        Some(b'a'..=b'z') => {
-                            self.cursor.offset += 1;
-                            self.cursor.chomp_ident_general();
-                            self.output
-                                .push_token(if sp { T::DotLowerIdent } else { T::NoSpaceDotLowerIdent }, offset, self.cursor.offset - offset);
-                        }
-                        Some(b'A'..=b'Z') => {
-                            self.cursor.offset += 1;
-                            self.cursor.chomp_ident_general();
-                            self.output
-                                .push_token(if sp { T::DotUpperIdent } else { T::NoSpaceDotUpperIdent }, offset, self.cursor.offset - offset);
-                        }
-                        Some(b'{') => {
-                            self.cursor.offset += 1;
-                            self.output
-                                .push_token(T::Dot, offset, self.cursor.offset - offset);
-                        }
-                        Some(b) => todo!("handle: {:?}", b as char),
-                        None => {
-                            simple_token!(1, Dot);
+                b'.' => match self.cursor.peek_at(1) {
+                    Some(b'.') => {
+                        if self.cursor.peek_at(2) == Some(b'.') {
+                            simple_token!(3, TripleDot)
+                        } else {
+                            simple_token!(2, DoubleDot)
                         }
                     }
-                }
+                    Some(b'0'..=b'9') => {
+                        self.cursor.offset += 1;
+                        self.cursor.chomp_integer();
+                        self.output.push_token(
+                            if sp {
+                                T::DotNumber
+                            } else {
+                                T::NoSpaceDotNumber
+                            },
+                            offset,
+                            self.cursor.offset - offset,
+                        );
+                    }
+                    Some(b'a'..=b'z') => {
+                        self.cursor.offset += 1;
+                        self.cursor.chomp_ident_general();
+                        self.output.push_token(
+                            if sp {
+                                T::DotLowerIdent
+                            } else {
+                                T::NoSpaceDotLowerIdent
+                            },
+                            offset,
+                            self.cursor.offset - offset,
+                        );
+                    }
+                    Some(b'A'..=b'Z') => {
+                        self.cursor.offset += 1;
+                        self.cursor.chomp_ident_general();
+                        self.output.push_token(
+                            if sp {
+                                T::DotUpperIdent
+                            } else {
+                                T::NoSpaceDotUpperIdent
+                            },
+                            offset,
+                            self.cursor.offset - offset,
+                        );
+                    }
+                    Some(b'{') => {
+                        self.cursor.offset += 1;
+                        self.output
+                            .push_token(T::Dot, offset, self.cursor.offset - offset);
+                    }
+                    Some(b) => todo!("handle: {:?}", b as char),
+                    None => {
+                        simple_token!(1, Dot);
+                    }
+                },
                 b'-' => {
                     match self.cursor.peek_at(1) {
                         Some(b'>') => simple_token!(2, OpArrow),
@@ -314,7 +332,7 @@ impl<'a> Tokenizer<'a> {
                             } else {
                                 simple_token!(1, OpBinaryMinus)
                             }
-                        },
+                        }
                     }
                 }
                 b'!' => {
@@ -464,7 +482,11 @@ impl<'a> Tokenizer<'a> {
 
     fn maybe_add_nospace(&mut self) {
         match self.cursor.peek() {
-            None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'#' | b',' | b']' | b'}' | b')' | b'-' | b'.' | b':') => {}
+            None
+            | Some(
+                b' ' | b'\t' | b'\r' | b'\n' | b'#' | b',' | b']' | b'}' | b')' | b'-' | b'.'
+                | b':',
+            ) => {}
             _ => {
                 self.output.push_token(T::NoSpace, self.cursor.offset, 0);
             }
@@ -512,6 +534,16 @@ impl TriviaSink for () {
     fn push(&mut self, _trivia: Comment) {
         // do nothing
     }
+}
+
+pub fn extract_comments(text: &str, offset: usize, comments: &mut Vec<Comment>) {
+    let mut c = Cursor {
+        buf: text.as_bytes(),
+        offset,
+        messages: (),
+    };
+
+    c.chomp_trivia(comments);
 }
 
 impl<'a, M: MessageSink> Cursor<'a, M> {
@@ -640,7 +672,7 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                     }
                     _ => T::Int,
                 };
-                break res
+                break res;
             }
         } else {
             self.chomp_number_base10();
@@ -670,7 +702,8 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
 
         let suffix = &self.buf[start..pos];
         match suffix {
-            b"dec" | b"i128" | b"i16" | b"i32" | b"i64" | b"i8" | b"nat" | b"u128" | b"u16" | b"u32" | b"u64" | b"u8" => {}
+            b"dec" | b"i128" | b"i16" | b"i32" | b"i64" | b"i8" | b"nat" | b"u128" | b"u16"
+            | b"u32" | b"u64" | b"u8" => {}
             _ => {
                 // dbg!(suffix);
                 self.messages.push(Message {
@@ -785,13 +818,16 @@ impl<'a, M: MessageSink> Cursor<'a, M> {
                 b"platform" => T::KwPlatform,
                 b"hosted" => T::KwHosted,
                 b"expect" => {
-                    if self.peek() == Some(b'-') && self.peek_at(1) == Some(b'f') && self.peek_at(2) == Some(b'x') {
+                    if self.peek() == Some(b'-')
+                        && self.peek_at(1) == Some(b'f')
+                        && self.peek_at(2) == Some(b'x')
+                    {
                         self.offset += 3;
                         T::KwExpectFx
                     } else {
                         T::KwExpect
                     }
-                },
+                }
                 _ => T::LowerIdent,
             }
         } else {
@@ -986,10 +1022,7 @@ mod tests {
     fn test_tokenize_plus() {
         let mut tokenizer = Tokenizer::new("1 + 2");
         tokenizer.tokenize();
-        assert_eq!(
-            tokenizer.output.kinds,
-            vec![T::Int, T::OpPlus, T::Int]
-        );
+        assert_eq!(tokenizer.output.kinds, vec![T::Int, T::OpPlus, T::Int]);
     }
 
     #[test]
@@ -1023,15 +1056,24 @@ mod tests {
     fn test_tokenize_newline() {
         let mut tokenizer = Tokenizer::new("1\n  \t2");
         tokenizer.tokenize();
-        assert_eq!(
-            tokenizer.output.kinds,
-            vec![T::Int, T::Int]
-        );
+        assert_eq!(tokenizer.output.kinds, vec![T::Int, T::Int]);
         assert_eq!(
             tokenizer.output.lines,
             vec![
-                (0, Indent { num_spaces: 0, num_tabs: 0 }),
-                (1, Indent { num_spaces: 2, num_tabs: 1 }),
+                (
+                    0,
+                    Indent {
+                        num_spaces: 0,
+                        num_tabs: 0
+                    }
+                ),
+                (
+                    1,
+                    Indent {
+                        num_spaces: 2,
+                        num_tabs: 1
+                    }
+                ),
             ]
         );
     }
@@ -1045,7 +1087,10 @@ mod tests {
             .collect::<Result<Vec<_>, std::io::Error>>()
             .unwrap();
 
-        assert!(files.len() > 0, "no files found in ../test_syntax/tests/snapshots/pass");
+        assert!(
+            files.len() > 0,
+            "no files found in ../test_syntax/tests/snapshots/pass"
+        );
 
         for file in files {
             if file.extension().map(|e| e != "roc").unwrap_or(true) {
