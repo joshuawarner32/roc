@@ -39,7 +39,7 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
             stack.push(i, Doc::Comment(ctx.comment_text(*comment)));
         }
         match node {
-            N::Ident | N::Num => stack.push(i, Doc::Copy(ctx.text(index))),
+            N::Ident | N::Num | N::Float | N::String => stack.push(i, Doc::Copy(ctx.text(index))),
             N::BeginFile | N::EndFile => {}
             N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
             N::HintExpr => {}
@@ -55,7 +55,7 @@ pub struct CommentAligner<'a> {
     text: &'a str,
     toks: &'a TokenenizedBuffer,
     pos: usize,
-    next_line_index: usize,
+    line_index: usize,
     comments: Vec<Vec<Comment>>,
 }
 
@@ -65,26 +65,27 @@ impl<'a> CommentAligner<'a> {
             text: ctx.text,
             toks: &ctx.toks,
             pos: 0,
-            next_line_index: 0,
+            line_index: 0,
             comments: ctx.extract_comments(),
         }
     }
 
     fn check_next_token(&mut self, tok: T) -> &[Comment] {
-        while self.next_line_index < self.toks.lines.len() - 1
-            && (self.toks.lines[self.next_line_index + 1].0 as usize) < self.pos
+        while self.line_index < self.toks.lines.len() - 1
+            && (self.toks.lines[self.line_index + 1].0 as usize) < self.pos
         {
-            self.next_line_index += 1;
+            self.line_index += 1;
         }
 
-        let res =
-            if self.next_line_index == self.toks.lines.len() && self.pos == self.toks.kinds.len() {
-                self.comments[self.next_line_index].as_slice()
-            } else if self.toks.lines[self.next_line_index].0 as usize == self.pos {
-                self.comments[self.next_line_index].as_slice()
-            } else {
-                &[]
-            };
+        let res = if self.line_index == self.toks.lines.len() && self.pos == self.toks.kinds.len() {
+            self.comments[self.line_index].as_slice()
+        } else if self.line_index < self.toks.lines.len() - 1
+            && self.toks.lines[self.line_index + 1].0 as usize == self.pos
+        {
+            self.comments[self.line_index].as_slice()
+        } else {
+            &[]
+        };
 
         if self.toks.kind(self.pos) != Some(tok) {
             panic!(

@@ -19,4 +19,7 @@ IntBase10("-5")
 IntBase10("2")
 
 [=== formatted below ===]
+f
+-5
+2
 
