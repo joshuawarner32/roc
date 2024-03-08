@@ -17,4 +17,7 @@ EndFile)
 BinOp(Ident("x"), Equals, Ident("y"))
 
 [=== formatted below ===]
+x
+==
+y
 

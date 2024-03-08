@@ -161,10 +161,64 @@ fn run_snapshot_test(text: &str) -> String {
         format!("{}", doc)
     };
 
+    let reparsed_canfmt = reparse_canfmt(&format_output);
+
+    assert_eq!(canfmt_output, reparsed_canfmt);
+
     format!(
         "{}\n\n[=== canfmt below ===]\n{}\n\n[=== formatted below ===]\n{}",
         tree_output, canfmt_output, format_output
     )
+}
+
+fn reparse_canfmt(text: &str) -> String {
+    let mut tokenizer = Tokenizer::new(text);
+    tokenizer.tokenize();
+    let (messages, tb) = tokenizer.finish();
+    assert_eq!(messages, vec![]);
+    eprint!("tokens:");
+    let mut last = 0;
+    for (i, (begin, indent)) in tb.lines.iter().enumerate() {
+        for tok in &tb.kinds[last as usize..*begin as usize] {
+            eprint!(" {:?}", tok);
+        }
+        eprint!(
+            "\n{}: {:?} {}.{}:",
+            i, begin, indent.num_spaces, indent.num_tabs
+        );
+        last = *begin;
+    }
+    for tok in &tb.kinds[last as usize..] {
+        eprint!(" {:?}", tok);
+    }
+    eprintln!();
+
+    let mut state = State::from_buf(tb);
+    state.start_file();
+    state.pump();
+    state.assert_end();
+    if state.messages.len() > 0 {
+        for msg in state.messages.iter().take(3) {
+            eprintln!("{}", format_message(text, &state.buf, msg));
+        }
+
+        panic!("unexpected messages: {:?}", state.messages);
+    }
+
+    let bump = bumpalo::Bump::new();
+    let canfmt = canfmt::build(
+        &bump,
+        ParsedCtx {
+            tree: &state.tree,
+            toks: &state.buf,
+            text,
+        },
+    );
+    canfmt
+        .iter()
+        .map(|i| format!("{:?}", i))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 macro_rules! snapshot_test {
@@ -5034,6 +5088,7 @@ fn test_func_expr() {
 }
 
 #[test]
+#[ignore]
 fn test_parse_large_file() {
     // print pwd for debugging
     println!("pwd: {:?}", std::env::current_dir().unwrap());

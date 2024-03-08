@@ -12,4 +12,7 @@ EndFile)
 BinOp(IntBase10("1"), Plus, IntBase10("2"))
 
 [=== formatted below ===]
+1
++
+2
 

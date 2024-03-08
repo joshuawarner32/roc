@@ -17,4 +17,8 @@ EndFile)
 Lambda([Ident("x")], Block([IntBase10("1")]))
 
 [=== formatted below ===]
+\
+x
+->
+1
 
