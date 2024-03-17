@@ -8,26 +8,84 @@ use crate::{
 
 #[derive(Debug)]
 pub enum Doc<'a> {
+    Newline,
+    Space,
     Copy(&'a str),
     Literal(&'static str),
     Comment(&'a str),
     Concat(Vec<Doc<'a>>),
+    Group(Vec<Doc<'a>>),
+}
+
+impl<'a> Doc<'a> {
+    fn contains_comment(&self) -> bool {
+        match self {
+            Doc::Newline | Doc::Space | Doc::Copy(_) | Doc::Literal(_) => false,
+            Doc::Comment(_) => true,
+            Doc::Concat(v) | Doc::Group(v) => v.iter().any(|d| d.contains_comment()),
+        }
+    }
+
+    fn render(&self, max_width: usize, honor_newlines: bool, text: &mut String) {
+        match self {
+            Doc::Newline => {
+                if honor_newlines {
+                    text.push('\n');
+                } else {
+                    text.push(' ');
+                }
+            }
+            Doc::Space => text.push(' '),
+            Doc::Copy(s) => text.push_str(s),
+            Doc::Literal(s) => text.push_str(s),
+            Doc::Comment(s) => {
+                assert!(!honor_newlines);
+                text.push_str(s)
+            }
+            Doc::Concat(v) => {
+                for d in v {
+                    d.render(max_width, honor_newlines, text);
+                }
+            }
+            Doc::Group(v) => {
+                let mut honor_newlines = honor_newlines;
+                if honor_newlines
+                    && !self.contains_comment()
+                    && self.width_without_newlines() <= max_width
+                {
+                    honor_newlines = false;
+                }
+
+                for d in v {
+                    d.render(max_width, honor_newlines, text);
+                }
+            }
+        }
+    }
+
+    fn width_without_newlines(&self) -> usize {
+        match self {
+            Doc::Newline => 1,
+            Doc::Space => 1,
+            Doc::Copy(s) => s.len(),
+            Doc::Literal(s) => s.len(),
+            Doc::Comment(s) => s.len(),
+            Doc::Concat(v) => v.iter().map(|d| d.width_without_newlines()).sum(),
+            Doc::Group(v) => v.iter().map(|d| d.width_without_newlines()).sum(),
+        }
+    }
 }
 
 impl Display for Doc<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Doc::Copy(s) => f.write_str(s),
-            Doc::Literal(s) => f.write_str(s),
-            Doc::Comment(s) => f.write_str(s),
-            Doc::Concat(v) => {
-                for d in v {
-                    write!(f, "{}\n", d)?;
-                }
-                Ok(())
-            }
-        }
+        let mut text = String::new();
+        self.render(10, true, &mut text);
+        write!(f, "{}", text)
     }
+}
+
+fn op(text: &'static str) -> Doc {
+    Doc::Concat(vec![Doc::Newline, Doc::Literal(text), Doc::Space])
 }
 
 pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
@@ -80,33 +138,36 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
             }
             N::BeginList | N::BeginTypeTagUnion => stack.push(i, Doc::Literal("[")),
             N::EndList | N::EndTypeTagUnion => stack.push(i, Doc::Literal("]")),
-            N::InlineLambdaArrow => stack.push(i, Doc::Literal("->")),
-            N::InlineTypeArrow => stack.push(i, Doc::Literal("->")),
+            N::InlineLambdaArrow | N::InlineTypeArrow => stack.push(i, Doc::Literal("->")),
             N::InlineTypeWhere => stack.push(i, Doc::Literal("where")),
 
-            N::InlinePizza => stack.push(i, Doc::Literal("|>")),
-            N::InlineBinOpAnd => stack.push(i, Doc::Literal("&&")),
-            N::InlineBinOpCaret => stack.push(i, Doc::Literal("^")),
-            N::InlineBinOpDoubleSlash => stack.push(i, Doc::Literal("//")),
-            N::InlineBinOpEquals => stack.push(i, Doc::Literal("==")),
-            N::InlineBinOpGreaterThan => stack.push(i, Doc::Literal(">")),
-            N::InlineBinOpGreaterThanOrEq => stack.push(i, Doc::Literal(">=")),
-            N::InlineBinOpLessThan => stack.push(i, Doc::Literal("<")),
-            N::InlineBinOpLessThanOrEq => stack.push(i, Doc::Literal("<=")),
-            N::InlineBinOpMinus => stack.push(i, Doc::Literal("-")),
-            N::InlineBinOpNotEquals => stack.push(i, Doc::Literal("!=")),
-            N::InlineBinOpOr => stack.push(i, Doc::Literal("||")),
-            N::InlineBinOpPercent => stack.push(i, Doc::Literal("%")),
-            N::InlineBinOpPlus => stack.push(i, Doc::Literal("+")),
-            N::InlineBinOpSlash => stack.push(i, Doc::Literal("/")),
-            N::InlineBinOpStar => stack.push(i, Doc::Literal("*")),
+            N::InlinePizza => stack.push(i, op("|>")),
+            N::InlineBinOpAnd => stack.push(i, op("&&")),
+            N::InlineBinOpCaret => stack.push(i, op("^")),
+            N::InlineBinOpDoubleSlash => stack.push(i, op("//")),
+            N::InlineBinOpEquals => stack.push(i, op("==")),
+            N::InlineBinOpGreaterThan => stack.push(i, op(">")),
+            N::InlineBinOpGreaterThanOrEq => stack.push(i, op(">=")),
+            N::InlineBinOpLessThan => stack.push(i, op("<")),
+            N::InlineBinOpLessThanOrEq => stack.push(i, op("<=")),
+            N::InlineBinOpMinus => stack.push(i, op("-")),
+            N::InlineBinOpNotEquals => stack.push(i, op("!=")),
+            N::InlineBinOpOr => stack.push(i, op("||")),
+            N::InlineBinOpPercent => stack.push(i, op("%")),
+            N::InlineBinOpPlus => stack.push(i, op("+")),
+            N::InlineBinOpSlash => stack.push(i, op("/")),
+            N::InlineBinOpStar => stack.push(i, op("*")),
 
             N::InlineColon | N::InlineTypeColon => stack.push(i, Doc::Literal(":")),
 
             N::InlineTypeColonEqual => stack.push(i, Doc::Literal(":=")),
 
-            N::EndPizza
-            | N::EndBinOpAnd
+            N::EndPizza => {
+                let items = stack.drain_to_index(index);
+                let res = Doc::Group(items.collect());
+                stack.push(i, res);
+            }
+            N::EndBinOpAnd
             | N::EndBinOpCaret
             | N::EndBinOpDoubleSlash
             | N::EndBinOpEquals
@@ -133,7 +194,6 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
 }
 
 pub struct CommentAligner<'a> {
-    text: &'a str,
     toks: &'a TokenenizedBuffer,
     pos: usize,
     line_index: usize,
@@ -143,7 +203,6 @@ pub struct CommentAligner<'a> {
 impl<'a> CommentAligner<'a> {
     pub fn new(ctx: ParsedCtx<'a>) -> Self {
         Self {
-            text: ctx.text,
             toks: &ctx.toks,
             pos: 0,
             line_index: 0,
@@ -152,7 +211,7 @@ impl<'a> CommentAligner<'a> {
     }
 
     fn check_next(&mut self, tok: T, is_expected: impl FnOnce(T) -> bool) -> &[Comment] {
-        // HACK! tok is only used for debug printing. Remove + refactor.
+        // HACK! `tok` is only used for debug printing. Remove + refactor.
 
         while self.line_index < self.toks.lines.len() - 1
             && (self.toks.lines[self.line_index + 1].0 as usize) < self.pos
