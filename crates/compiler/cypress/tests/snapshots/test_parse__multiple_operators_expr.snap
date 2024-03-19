@@ -16,4 +16,5 @@ EndFile)
 BinOp(BinOp(IntBase10("31"), Star, IntBase10("42")), Plus, IntBase10("534"))
 
 [=== formatted below ===]
-
+31 * 42
++ 534

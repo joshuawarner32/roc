@@ -17,4 +17,4 @@ EndFile)
 Lambda([UpperIdent("Thing")], IntBase10("42"))
 
 [=== formatted below ===]
-
+\Thing -> 42

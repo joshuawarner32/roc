@@ -158,6 +158,8 @@ fn run_snapshot_test(text: &str) -> String {
             text,
         });
 
+        dbg!(&doc);
+
         format!("{}", doc)
     };
 

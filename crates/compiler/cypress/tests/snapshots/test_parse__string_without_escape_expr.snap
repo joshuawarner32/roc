@@ -10,4 +10,4 @@ EndFile)
 String("\"123 abc 456 def\"")
 
 [=== formatted below ===]
-
+"123 abc 456 def"

@@ -8,7 +8,8 @@ use crate::{
 
 #[derive(Debug)]
 pub enum Doc<'a> {
-    Newline,
+    OptionalNewline,
+    ForcedNewline,
     Space,
     Copy(&'a str),
     Literal(&'static str),
@@ -18,17 +19,17 @@ pub enum Doc<'a> {
 }
 
 impl<'a> Doc<'a> {
-    fn contains_comment(&self) -> bool {
+    fn must_be_multiline(&self) -> bool {
         match self {
-            Doc::Newline | Doc::Space | Doc::Copy(_) | Doc::Literal(_) => false,
-            Doc::Comment(_) => true,
-            Doc::Concat(v) | Doc::Group(v) => v.iter().any(|d| d.contains_comment()),
+            Doc::OptionalNewline | Doc::Space | Doc::Copy(_) | Doc::Literal(_) => false,
+            Doc::ForcedNewline | Doc::Comment(_) => true,
+            Doc::Concat(v) | Doc::Group(v) => v.iter().any(|d| d.must_be_multiline()),
         }
     }
 
     fn render(&self, max_width: usize, honor_newlines: bool, text: &mut String) {
         match self {
-            Doc::Newline => {
+            Doc::OptionalNewline => {
                 if honor_newlines {
                     text.push('\n');
                 } else {
@@ -38,6 +39,10 @@ impl<'a> Doc<'a> {
             Doc::Space => text.push(' '),
             Doc::Copy(s) => text.push_str(s),
             Doc::Literal(s) => text.push_str(s),
+            Doc::ForcedNewline => {
+                assert!(!honor_newlines);
+                text.push('\n')
+            }
             Doc::Comment(s) => {
                 assert!(!honor_newlines);
                 text.push_str(s)
@@ -50,7 +55,7 @@ impl<'a> Doc<'a> {
             Doc::Group(v) => {
                 let mut honor_newlines = honor_newlines;
                 if honor_newlines
-                    && !self.contains_comment()
+                    && !self.must_be_multiline()
                     && self.width_without_newlines() <= max_width
                 {
                     honor_newlines = false;
@@ -65,7 +70,8 @@ impl<'a> Doc<'a> {
 
     fn width_without_newlines(&self) -> usize {
         match self {
-            Doc::Newline => 1,
+            Doc::OptionalNewline => 1,
+            Doc::ForcedNewline => panic!("should not be called"),
             Doc::Space => 1,
             Doc::Copy(s) => s.len(),
             Doc::Literal(s) => s.len(),
@@ -85,7 +91,11 @@ impl Display for Doc<'_> {
 }
 
 fn op(text: &'static str) -> Doc {
-    Doc::Concat(vec![Doc::Newline, Doc::Literal(text), Doc::Space])
+    Doc::Concat(vec![Doc::OptionalNewline, Doc::Literal(text), Doc::Space])
+}
+
+fn spaced(text: &'static str) -> Doc {
+    Doc::Concat(vec![Doc::Space, Doc::Literal(text), Doc::Space])
 }
 
 pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
@@ -138,7 +148,7 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
             }
             N::BeginList | N::BeginTypeTagUnion => stack.push(i, Doc::Literal("[")),
             N::EndList | N::EndTypeTagUnion => stack.push(i, Doc::Literal("]")),
-            N::InlineLambdaArrow | N::InlineTypeArrow => stack.push(i, Doc::Literal("->")),
+            N::InlineLambdaArrow | N::InlineTypeArrow => stack.push(i, spaced("->")),
             N::InlineTypeWhere => stack.push(i, Doc::Literal("where")),
 
             N::InlinePizza => stack.push(i, op("|>")),
@@ -162,12 +172,8 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
 
             N::InlineTypeColonEqual => stack.push(i, Doc::Literal(":=")),
 
-            N::EndPizza => {
-                let items = stack.drain_to_index(index);
-                let res = Doc::Group(items.collect());
-                stack.push(i, res);
-            }
-            N::EndBinOpAnd
+            N::EndPizza
+            | N::EndBinOpAnd
             | N::EndBinOpCaret
             | N::EndBinOpDoubleSlash
             | N::EndBinOpEquals
@@ -181,7 +187,11 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
             | N::EndBinOpPercent
             | N::EndBinOpPlus
             | N::EndBinOpSlash
-            | N::EndBinOpStar => {}
+            | N::EndBinOpStar => {
+                let items = stack.drain_to_index(index);
+                let res = Doc::Group(items.collect());
+                stack.push(i, res);
+            }
 
             N::BeginBlock | N::EndBlock => {}
             N::InlineApply | N::EndApply => {}

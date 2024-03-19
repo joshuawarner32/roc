@@ -17,4 +17,4 @@ EndFile)
 Lambda([Ident("abc")], Ident("def"))
 
 [=== formatted below ===]
-
+\abc -> def

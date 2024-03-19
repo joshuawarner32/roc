@@ -21,4 +21,7 @@ EndFile)
 Pizza([Ident("abc"), Ident("def"), Ident("ghi"), Ident("jkl")])
 
 [=== formatted below ===]
-
+abc
+|> def
+|> ghi
+|> jkl
