@@ -163,6 +163,8 @@ fn run_snapshot_test(text: &str) -> String {
         format!("{}", doc)
     };
 
+    println!("output:\n{}", format_output);
+
     let reparsed_canfmt = reparse_canfmt(&format_output);
 
     assert_eq!(canfmt_output, reparsed_canfmt);

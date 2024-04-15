@@ -16,6 +16,7 @@ pub enum Doc<'a> {
     Comment(&'a str),
     Concat(Vec<Doc<'a>>),
     Group(Vec<Doc<'a>>),
+    Indent(Box<Doc<'a>>),
 }
 
 impl<'a> Doc<'a> {
@@ -24,14 +25,18 @@ impl<'a> Doc<'a> {
             Doc::OptionalNewline | Doc::Space | Doc::Copy(_) | Doc::Literal(_) => false,
             Doc::ForcedNewline | Doc::Comment(_) => true,
             Doc::Concat(v) | Doc::Group(v) => v.iter().any(|d| d.must_be_multiline()),
+            Doc::Indent(d) => d.must_be_multiline(),
         }
     }
 
-    fn render(&self, max_width: usize, honor_newlines: bool, text: &mut String) {
+    fn render(&self, indent: usize, max_width: usize, honor_newlines: bool, text: &mut String) {
         match self {
             Doc::OptionalNewline => {
                 if honor_newlines {
                     text.push('\n');
+                    for _ in 0..indent {
+                        text.push(' ');
+                    }
                 } else {
                     text.push(' ');
                 }
@@ -49,7 +54,7 @@ impl<'a> Doc<'a> {
             }
             Doc::Concat(v) => {
                 for d in v {
-                    d.render(max_width, honor_newlines, text);
+                    d.render(indent, max_width, honor_newlines, text);
                 }
             }
             Doc::Group(v) => {
@@ -62,8 +67,11 @@ impl<'a> Doc<'a> {
                 }
 
                 for d in v {
-                    d.render(max_width, honor_newlines, text);
+                    d.render(indent, max_width, honor_newlines, text);
                 }
+            }
+            Doc::Indent(d) => {
+                d.render(indent + 1, max_width, honor_newlines, text);
             }
         }
     }
@@ -78,6 +86,7 @@ impl<'a> Doc<'a> {
             Doc::Comment(s) => s.len(),
             Doc::Concat(v) => v.iter().map(|d| d.width_without_newlines()).sum(),
             Doc::Group(v) => v.iter().map(|d| d.width_without_newlines()).sum(),
+            Doc::Indent(d) => d.width_without_newlines(),
         }
     }
 }
@@ -85,7 +94,7 @@ impl<'a> Doc<'a> {
 impl Display for Doc<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut text = String::new();
-        self.render(10, true, &mut text);
+        self.render(0, 10, true, &mut text);
         write!(f, "{}", text)
     }
 }
@@ -118,7 +127,13 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
             | N::ModuleName
             | N::OpaqueName
             | N::Tag
-            | N::Underscore => stack.push(i, Doc::Copy(ctx.text(index))),
+            | N::Underscore
+            | N::AbilityName
+            | N::DotIdent
+            | N::DotModuleUpperIdent
+            | N::DotModuleLowerIdent
+            | N::TupleAccessFunction
+            | N::FieldAccessFunction => stack.push(i, Doc::Copy(ctx.text(index))),
             N::InlineAssign => stack.push(i, Doc::Literal("=")),
             N::BeginWhen => stack.push(i, Doc::Literal("when")),
             N::EndWhen => {}
@@ -133,23 +148,34 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
             N::EndDbg => {}
             N::BeginLambda => stack.push(i, Doc::Literal("\\")),
             N::EndLambda => {}
-            N::BeginParens => stack.push(i, Doc::Literal("(")),
-            N::EndParens => stack.push(i, Doc::Literal(")")),
+            N::PatternAny => {}
+            N::EndPatternAs => {}
+            N::BeginParens | N::BeginPatternParens => stack.push(i, Doc::Literal("(")),
+            N::EndParens | N::EndPatternParens => stack.push(i, Doc::Literal(")")),
             N::BeginFile | N::EndFile => {}
             N::BeginTopLevelDecls | N::EndTopLevelDecls => {}
             N::BeginAssignDecl | N::EndAssignDecl => {}
             N::HintExpr => {}
             N::BeginTypeOrTypeAlias | N::EndTypeOrTypeAlias => {}
-            N::BeginRecord | N::BeginTypeRecord | N::BeginPatternRecord => {
+            N::BeginRecord | N::BeginTypeRecord | N::BeginPatternRecord | N::BeginRecordUpdate => {
                 stack.push(i, Doc::Literal("{"))
             }
-            N::EndRecord | N::EndTypeRecord | N::EndPatternRecord => {
+            N::EndRecord | N::EndTypeRecord | N::EndPatternRecord | N::EndRecordUpdate => {
                 stack.push(i, Doc::Literal("}"))
             }
-            N::BeginList | N::BeginTypeTagUnion => stack.push(i, Doc::Literal("[")),
-            N::EndList | N::EndTypeTagUnion => stack.push(i, Doc::Literal("]")),
+            N::BeginList | N::BeginTypeTagUnion | N::BeginPatternList => {
+                stack.push(i, Doc::Literal("["))
+            }
+            N::EndList | N::EndTypeTagUnion | N::EndPatternList => stack.push(i, Doc::Literal("]")),
             N::InlineLambdaArrow | N::InlineTypeArrow => stack.push(i, spaced("->")),
+            N::InlineBackArrow => stack.push(i, spaced("<-")),
             N::InlineTypeWhere => stack.push(i, Doc::Literal("where")),
+
+            N::InlineAbilityImplements | N::InlineKwImplements => {
+                stack.push(i, Doc::Literal("implements"))
+            }
+
+            N::InlineRecordUpdateAmpersand => stack.push(i, Doc::Literal("&")),
 
             N::InlinePizza => stack.push(i, op("|>")),
             N::InlineBinOpAnd => stack.push(i, op("&&")),
@@ -167,6 +193,9 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
             N::InlineBinOpPlus => stack.push(i, op("+")),
             N::InlineBinOpSlash => stack.push(i, op("/")),
             N::InlineBinOpStar => stack.push(i, op("*")),
+
+            N::PatternDoubleDot => stack.push(i, op("..")),
+            N::InlineMultiBackpassingComma => stack.push(i, op(",")),
 
             N::InlineColon | N::InlineTypeColon => stack.push(i, Doc::Literal(":")),
 
@@ -193,8 +222,25 @@ pub fn fmt<'b>(ctx: ParsedCtx<'b>) -> Doc {
                 stack.push(i, res);
             }
 
+            N::EndTypeApply => {}
             N::BeginBlock | N::EndBlock => {}
+            N::BeginBackpassing | N::EndBackpassing => {}
+            N::BeginExpect | N::EndExpect => {}
+            N::BeginExpectFx | N::EndExpectFx => {}
+            N::BeginAbilityMethod | N::EndAbilityMethod => {}
+            N::BeginImplements | N::EndImplements => {}
             N::InlineApply | N::EndApply => {}
+            N::EndRecordFieldPair => {}
+            N::EndAssign => {}
+            N::EndWhereClause => {}
+            N::EndTypeLambda => {}
+
+            N::BeginHeaderApp => stack.push(i, Doc::Literal("app")),
+            N::BeginHeaderPlatform => stack.push(i, Doc::Literal("platform")),
+            N::BeginHeaderPackage => stack.push(i, Doc::Literal("package")),
+            N::BeginHeaderInterface => stack.push(i, Doc::Literal("interface")),
+            N::BeginHeaderHosted => stack.push(i, Doc::Literal("hosted")),
+
             node => todo!("{:?}", node),
         }
     }
@@ -293,19 +339,38 @@ impl<'a> CommentAligner<'a> {
             | N::EndBinOpPercent
             | N::EndBinOpSlash
             | N::EndDbg
-            | N::EndTypeLambda => &[],
+            | N::EndTypeLambda
+            | N::BeginImplements
+            | N::EndImplements
+            | N::EndRecordFieldPair
+            | N::BeginExpect
+            | N::EndExpect
+            | N::BeginExpectFx
+            | N::EndExpectFx
+            | N::BeginBackpassing
+            | N::EndBackpassing
+            | N::BeginAbilityMethod
+            | N::EndAbilityMethod
+            | N::EndPatternAs
+            | N::EndWhereClause
+            | N::PatternAny
+            | N::EndMultiBackpassingArgs => &[],
 
             N::BeginTypeOrTypeAlias | N::EndTypeOrTypeAlias => &[],
             N::InlineColon | N::InlineTypeColon => self.check_next_token(T::OpColon),
 
+            N::TupleAccessFunction => self.check_next_token(T::DotNumber),
+            N::FieldAccessFunction => self.check_next_token(T::DotLowerIdent),
             N::InlineTypeColonEqual => self.check_next_token(T::OpColonEqual),
 
             N::Ident => self.check_next(T::LowerIdent, |t| t == T::LowerIdent || t.is_keyword()),
-            N::UpperIdent | N::TypeName | N::ModuleName | N::Tag => {
+            N::UpperIdent | N::TypeName | N::ModuleName | N::Tag | N::AbilityName => {
                 self.check_next_token(T::UpperIdent)
             }
             N::OpaqueName | N::OpaqueRef => self.check_next_token(T::OpaqueName),
             N::Num => self.check_next_token(T::Int),
+            N::DotIdent | N::DotModuleLowerIdent => self.check_next_token(T::DotLowerIdent),
+            N::DotModuleUpperIdent => self.check_next_token(T::DotUpperIdent),
             N::Underscore => self.check_next(T::Underscore, |t| {
                 t == T::Underscore || t == T::NamedUnderscore
             }),
@@ -317,11 +382,19 @@ impl<'a> CommentAligner<'a> {
 
             N::BeginDbg => self.check_next_token(T::KwDbg),
 
+            N::BeginHeaderApp => self.check_next_token(T::KwApp),
+            N::BeginHeaderPlatform => self.check_next_token(T::KwPlatform),
+            N::BeginHeaderPackage => self.check_next_token(T::KwPackage),
+            N::BeginHeaderInterface => self.check_next_token(T::KwInterface),
+            N::BeginHeaderHosted => self.check_next_token(T::KwHosted),
+
             N::BeginIf => self.check_next_token(T::KwIf),
             N::InlineKwThen => self.check_next_token(T::KwThen),
             N::InlineKwElse => self.check_next_token(T::KwElse),
 
-            N::InlineKwImplements => self.check_next_token(T::KwImplements),
+            N::InlineAbilityImplements | N::InlineKwImplements => {
+                self.check_next_token(T::KwImplements)
+            }
 
             N::BeginWhen => self.check_next_token(T::KwWhen),
             N::InlineKwIs => self.check_next_token(T::KwIs),
@@ -332,10 +405,10 @@ impl<'a> CommentAligner<'a> {
             N::InlineTypeArrow => self.check_next_token(T::OpArrow),
             N::InlineTypeWhere => self.check_next_token(T::KwWhere),
 
-            N::BeginRecord | N::BeginTypeRecord | N::BeginPatternRecord => {
+            N::BeginRecord | N::BeginTypeRecord | N::BeginPatternRecord | N::BeginRecordUpdate => {
                 self.check_next_token(T::OpenCurly)
             }
-            N::EndRecord | N::EndTypeRecord | N::EndPatternRecord => {
+            N::EndRecord | N::EndTypeRecord | N::EndPatternRecord | N::EndRecordUpdate => {
                 self.check_next_token(T::CloseCurly)
             }
             N::BeginList | N::BeginPatternList | N::BeginTypeTagUnion => {
@@ -344,9 +417,14 @@ impl<'a> CommentAligner<'a> {
             N::EndList | N::EndPatternList | N::EndTypeTagUnion => {
                 self.check_next_token(T::CloseSquare)
             }
-            N::BeginParens => self.check_next_token(T::OpenRound),
-            N::EndParens => self.check_next_token(T::CloseRound),
+            N::BeginParens | N::BeginPatternParens => self.check_next_token(T::OpenRound),
+            N::EndParens | N::EndPatternParens => self.check_next_token(T::CloseRound),
 
+            N::InlineMultiBackpassingComma => self.check_next_token(T::Comma),
+
+            N::InlineRecordUpdateAmpersand => self.check_next_token(T::OpAmpersand),
+
+            N::InlineBackArrow => self.check_next_token(T::OpBackArrow),
             N::InlinePizza => self.check_next_token(T::OpPizza),
             N::InlineBinOpAnd => self.check_next_token(T::OpAnd),
             N::InlineBinOpCaret => self.check_next_token(T::OpCaret),
@@ -363,6 +441,7 @@ impl<'a> CommentAligner<'a> {
             N::InlineBinOpPlus => self.check_next_token(T::OpPlus),
             N::InlineBinOpSlash => self.check_next_token(T::OpSlash),
             N::InlineBinOpStar => self.check_next_token(T::OpStar),
+            N::PatternDoubleDot => self.check_next_token(T::DoubleDot),
 
             _ => todo!("comment extract {:?}", node),
         }
