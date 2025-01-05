@@ -633,6 +633,7 @@ mod test_snapshots {
         pass/pizza_question.moduledefs,
         pass/plus_if.expr,
         pass/plus_when.expr,
+        pass/pnc_closure_newline_apply.expr,
         pass/pos_inf_float.expr,
         pass/positive_float.expr,
         pass/positive_int.expr,

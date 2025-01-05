@@ -3098,7 +3098,6 @@ fn stmts_to_defs<'a>(
                 break;
             }
             Stmt::Expr(e) => {
-                dbg!(e);
                 if i + 1 < stmts.len() {
                     if let Expr::Apply(
                         Loc {

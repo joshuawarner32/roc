@@ -787,8 +787,8 @@ fn fmt_apply(
     if use_commas_and_parens {
         if needs_indent {
             buf.ensure_ends_with_newline();
-            buf.indent(indent);
         }
+        buf.indent(indent);
         buf.push(')');
     }
 }

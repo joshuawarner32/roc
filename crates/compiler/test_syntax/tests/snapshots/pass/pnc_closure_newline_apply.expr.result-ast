@@ -1,0 +1,37 @@
+@0-10 SpaceAfter(
+    Apply(
+        @0-9 Apply(
+            @0-1 Tag(
+                "P",
+            ),
+            [
+                @2-7 SpaceAfter(
+                    Closure(
+                        [
+                            @3-4 Identifier {
+                                ident: "t",
+                            },
+                        ],
+                        @6-7 Var {
+                            module_name: "",
+                            ident: "n",
+                        },
+                    ),
+                    [
+                        Newline,
+                    ],
+                ),
+            ],
+            ParensAndCommas,
+        ),
+        [
+            @9-10 Num(
+                "4",
+            ),
+        ],
+        Space,
+    ),
+    [
+        Newline,
+    ],
+)
