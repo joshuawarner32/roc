@@ -1,6 +1,6 @@
 use bumpalo::collections::{String, Vec};
 use bumpalo::Bump;
-use roc_module::called_via::{BinOp, UnaryOp};
+use roc_module::called_via::{BinOp, CalledVia, UnaryOp};
 use roc_region::all::{Loc, Position, Region};
 
 use crate::ast::ImplementsAbilities;
@@ -428,9 +428,11 @@ impl<'a> Normalize<'a> for ValueDef<'a> {
             Dbg {
                 condition,
                 preceding_comment: _,
+                parens_and_commas,
             } => Dbg {
                 condition: arena.alloc(condition.normalize(arena)),
                 preceding_comment: Region::zero(),
+                parens_and_commas,
             },
             Expect {
                 condition,
@@ -721,10 +723,12 @@ impl<'a> Normalize<'a> for Expr<'a> {
                 first,
                 extra_args,
                 continuation,
+                parens_and_commas,
             } => Expr::DbgStmt {
                 first: arena.alloc(first.normalize(arena)),
                 extra_args: extra_args.normalize(arena),
                 continuation: arena.alloc(continuation.normalize(arena)),
+                parens_and_commas,
             },
             Expr::LowLevelDbg(x, a, b) => Expr::LowLevelDbg(
                 x,
@@ -817,23 +821,28 @@ fn fold_defs<'a>(
                                     value: Expr::Dbg, ..
                                 },
                                 args,
-                                _,
+                                called_via,
                             ),
                         ..
                     }) => {
-                        let rest = fold_defs(arena, defs, final_expr);
-                        let new_final = Expr::DbgStmt {
-                            first: args[0],
-                            extra_args: &args[1..],
-                            continuation: arena.alloc(Loc::at_zero(rest)),
-                        };
-                        if new_defs.is_empty() {
-                            return new_final;
+                        if let Some((first, extra_args)) = args.split_first() {
+                            let rest = fold_defs(arena, defs, final_expr);
+                            let new_final = Expr::DbgStmt {
+                                first,
+                                extra_args,
+                                continuation: arena.alloc(Loc::at_zero(rest)),
+                                parens_and_commas: called_via == CalledVia::ParensAndCommas,
+                            };
+                            if new_defs.is_empty() {
+                                return new_final;
+                            }
+                            return Expr::Defs(
+                                arena.alloc(new_defs),
+                                arena.alloc(Loc::at_zero(new_final)),
+                            );
+                        } else {
+                            new_defs.push_value_def(vd, Region::zero(), &[], &[]);
                         }
-                        return Expr::Defs(
-                            arena.alloc(new_defs),
-                            arena.alloc(Loc::at_zero(new_final)),
-                        );
                     }
                     _ => {
                         new_defs.push_value_def(vd, Region::zero(), &[], &[]);

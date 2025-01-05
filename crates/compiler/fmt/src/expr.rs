@@ -206,8 +206,17 @@ fn format_expr_only(
             first: condition,
             extra_args,
             continuation,
+            parens_and_commas,
         } => {
-            fmt_dbg_stmt(buf, condition, extra_args, continuation, parens, indent);
+            fmt_dbg_stmt(
+                buf,
+                condition,
+                extra_args,
+                continuation,
+                parens,
+                indent,
+                *parens_and_commas,
+            );
         }
         Expr::LowLevelDbg(_, _, _) => {
             unreachable!("LowLevelDbg should only exist after desugaring, not during formatting")
@@ -1330,6 +1339,7 @@ pub fn expr_lift_spaces<'a, 'b: 'a>(
             first,
             extra_args,
             continuation,
+            parens_and_commas,
         } => {
             let continuation_lifted =
                 expr_lift_spaces_after(Parens::NotNeeded, arena, &continuation.value);
@@ -1341,6 +1351,7 @@ pub fn expr_lift_spaces<'a, 'b: 'a>(
                     extra_args,
                     continuation: arena
                         .alloc(Loc::at(continuation.region, continuation_lifted.item)),
+                    parens_and_commas: *parens_and_commas,
                 },
                 after: continuation_lifted.after,
             }
@@ -1775,6 +1786,7 @@ fn fmt_dbg_stmt<'a>(
     continuation: &'a Loc<Expr<'a>>,
     parens: Parens,
     indent: u16,
+    parens_and_commas: bool,
 ) {
     buf.ensure_ends_with_newline();
     let mut args = Vec::with_capacity_in(extra_args.len() + 1, buf.text.bump());
@@ -1784,7 +1796,11 @@ fn fmt_dbg_stmt<'a>(
     Expr::Apply(
         &Loc::at_zero(Expr::Dbg),
         args.into_bump_slice(),
-        called_via::CalledVia::Space,
+        if parens_and_commas {
+            called_via::CalledVia::ParensAndCommas
+        } else {
+            called_via::CalledVia::Space
+        },
     )
     .format_with_options(buf, parens, Newlines::Yes, indent);
 

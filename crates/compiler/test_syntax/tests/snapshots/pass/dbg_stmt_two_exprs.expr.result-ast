@@ -49,6 +49,7 @@
                 Newline,
             ],
         ),
+        parens_and_commas: false,
     },
     [
         Newline,

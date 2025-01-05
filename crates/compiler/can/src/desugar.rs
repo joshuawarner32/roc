@@ -277,11 +277,13 @@ fn desugar_value_def<'a>(
         Dbg {
             condition,
             preceding_comment,
+            parens_and_commas,
         } => {
             let desugared_condition = &*env.arena.alloc(desugar_expr(env, scope, condition));
             Dbg {
                 condition: desugared_condition,
                 preceding_comment: *preceding_comment,
+                parens_and_commas: *parens_and_commas,
             }
         }
         Expect {
@@ -1010,9 +1012,14 @@ pub fn desugar_expr<'a>(
             ))
         }
         Apply(Loc { value: Dbg, .. }, loc_args, _called_via) => {
-            debug_assert!(!loc_args.is_empty());
+            if loc_args.is_empty() {
+                env.problem(Problem::UnderAppliedDbg(loc_expr.region));
 
-            if loc_args.len() > 1 {
+                env.arena.alloc(Loc {
+                    value: *desugar_invalid_dbg_expr(env, scope, loc_expr.region),
+                    region: loc_expr.region,
+                })
+            } else if loc_args.len() > 1 {
                 let args_region = Region::span_across(
                     &loc_args.first().unwrap().region,
                     &loc_args.last().unwrap().region,
@@ -1241,6 +1248,7 @@ pub fn desugar_expr<'a>(
             first: condition,
             extra_args,
             continuation,
+            parens_and_commas: _,
         } => {
             let desugared_condition = &*env.arena.alloc(desugar_expr(env, scope, condition));
             let desugared_continuation = &*env.arena.alloc(desugar_expr(env, scope, continuation));

@@ -230,6 +230,7 @@ pub fn valdef_lift_spaces<'a, 'b: 'a>(
         ValueDef::Dbg {
             condition,
             preceding_comment,
+            parens_and_commas,
         } => {
             let condition_lifted =
                 expr_lift_spaces_after(Parens::NotNeeded, arena, &condition.value);
@@ -239,6 +240,7 @@ pub fn valdef_lift_spaces<'a, 'b: 'a>(
                 item: ValueDef::Dbg {
                     condition: arena.alloc(Loc::at(condition.region, condition_lifted.item)),
                     preceding_comment,
+                    parens_and_commas,
                 },
                 after: condition_lifted.after,
             }
@@ -352,11 +354,13 @@ pub fn valdef_lift_spaces_before<'a, 'b: 'a>(
         ValueDef::Dbg {
             condition,
             preceding_comment,
+            parens_and_commas,
         } => SpacesBefore {
             before: &[],
             item: ValueDef::Dbg {
                 condition,
                 preceding_comment,
+                parens_and_commas,
             },
         },
         ValueDef::Expect {

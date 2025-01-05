@@ -3112,6 +3112,7 @@ fn to_pending_value_def<'a>(
         Dbg {
             condition,
             preceding_comment,
+            parens_and_commas: _,
         } => PendingValue::Dbg(PendingExpectOrDbg {
             condition,
             preceding_comment: *preceding_comment,

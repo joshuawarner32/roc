@@ -540,6 +540,7 @@ pub enum Expr<'a> {
         first: &'a Loc<Expr<'a>>,
         extra_args: &'a [&'a Loc<Expr<'a>>],
         continuation: &'a Loc<Expr<'a>>,
+        parens_and_commas: bool,
     },
 
     /// The `try` keyword that performs early return on errors
@@ -725,6 +726,7 @@ pub fn is_expr_suffixed(expr: &Expr) -> bool {
             first,
             extra_args,
             continuation,
+            parens_and_commas: _,
         } => {
             is_expr_suffixed(&first.value)
                 || extra_args.iter().any(|a| is_expr_suffixed(&a.value))
@@ -877,6 +879,7 @@ pub enum ValueDef<'a> {
     Dbg {
         condition: &'a Loc<Expr<'a>>,
         preceding_comment: Region,
+        parens_and_commas: bool,
     },
 
     Expect {
@@ -988,6 +991,7 @@ impl<'a, 'b> RecursiveValueDefIter<'a, 'b> {
                     first,
                     extra_args,
                     continuation,
+                    parens_and_commas: _,
                 } => {
                     expr_stack.reserve(2);
                     expr_stack.push(&first.value);
@@ -1118,6 +1122,7 @@ impl<'a, 'b> Iterator for RecursiveValueDefIter<'a, 'b> {
                         ValueDef::Dbg {
                             condition,
                             preceding_comment: _,
+                            parens_and_commas: _,
                         }
                         | ValueDef::Expect {
                             condition,
@@ -2548,7 +2553,7 @@ impl<'a> Malformed for Expr<'a> {
             Closure(args, body) => args.iter().any(|arg| arg.is_malformed()) || body.is_malformed(),
             Defs(defs, body) => defs.is_malformed() || body.is_malformed(),
             Dbg => false,
-            DbgStmt { first, extra_args, continuation } => first.is_malformed() || extra_args.iter().any(|a| a.is_malformed()) || continuation.is_malformed(),
+            DbgStmt { first, extra_args, continuation, parens_and_commas: _ } => first.is_malformed() || extra_args.iter().any(|a| a.is_malformed()) || continuation.is_malformed(),
             LowLevelDbg(_, condition, continuation) => condition.is_malformed() || continuation.is_malformed(),
             Try => false,
             LowLevelTry(loc_expr, _) => loc_expr.is_malformed(),
@@ -2769,6 +2774,7 @@ impl<'a> Malformed for ValueDef<'a> {
             ValueDef::Dbg {
                 condition,
                 preceding_comment: _,
+                parens_and_commas: _,
             }
             | ValueDef::Expect {
                 condition,

@@ -256,6 +256,7 @@ pub enum Problem {
     SuffixedPureRecordField(Region),
     EmptyTupleType(Region),
     UnboundTypeVarsInAs(Region),
+    UnderAppliedDbg(Region),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -334,6 +335,7 @@ impl Problem {
             Problem::OverAppliedCrash { .. } => RuntimeError,
             Problem::UnappliedDbg { .. } => RuntimeError,
             Problem::OverAppliedDbg { .. } => RuntimeError,
+            Problem::UnderAppliedDbg { .. } => RuntimeError,
             Problem::DefsOnlyUsedInRecursion(_, _) => Warning,
             Problem::FileProblem { .. } => Fatal,
             Problem::ReturnOutsideOfFunction { .. } => Warning,
@@ -479,6 +481,7 @@ impl Problem {
             | Problem::AbilityUsedAsType(_, _, region)
             | Problem::NestedSpecialization(_, region)
             | Problem::IllegalDerivedAbility(region)
+            | Problem::UnderAppliedDbg(region)
             | Problem::ImplementationNotFound { region, .. }
             | Problem::NotAnAbilityMember { region, .. }
             | Problem::OptionalAbilityImpl { region, .. }

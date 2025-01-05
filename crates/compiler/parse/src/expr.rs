@@ -3098,33 +3098,42 @@ fn stmts_to_defs<'a>(
                 break;
             }
             Stmt::Expr(e) => {
+                dbg!(e);
                 if i + 1 < stmts.len() {
                     if let Expr::Apply(
                         Loc {
                             value: Expr::Dbg, ..
                         },
                         args,
-                        _,
+                        called_via,
                     ) = e
                     {
-                        let condition = &args[0];
-                        let rest = stmts_to_expr(&stmts[i + 1..], arena)?;
-                        let e = Expr::DbgStmt {
-                            first: condition,
-                            extra_args: &args[1..],
-                            continuation: arena.alloc(rest),
-                        };
+                        if let Some((first, extra_args)) = args.split_first() {
+                            let rest = stmts_to_expr(&stmts[i + 1..], arena)?;
+                            let e = Expr::DbgStmt {
+                                first,
+                                extra_args,
+                                continuation: arena.alloc(rest),
+                                parens_and_commas: called_via == CalledVia::ParensAndCommas,
+                            };
 
-                        let e = if sp_stmt.before.is_empty() {
-                            e
+                            let e = if sp_stmt.before.is_empty() {
+                                e
+                            } else {
+                                arena.alloc(e).before(sp_stmt.before)
+                            };
+
+                            last_expr = Some(Loc::at(sp_stmt.item.region, e));
+                            // don't re-process the rest of the statements; they got consumed by the dbg expr
+                            break;
                         } else {
-                            arena.alloc(e).before(sp_stmt.before)
-                        };
-
-                        last_expr = Some(Loc::at(sp_stmt.item.region, e));
-
-                        // don't re-process the rest of the statements; they got consumed by the dbg expr
-                        break;
+                            defs.push_value_def(
+                                ValueDef::Stmt(arena.alloc(Loc::at(sp_stmt.item.region, e))),
+                                sp_stmt.item.region,
+                                sp_stmt.before,
+                                &[],
+                            );
+                        }
                     } else {
                         defs.push_value_def(
                             ValueDef::Stmt(arena.alloc(Loc::at(sp_stmt.item.region, e))),
@@ -3199,6 +3208,7 @@ fn stmts_to_defs<'a>(
                 if let ValueDef::Dbg {
                     condition,
                     preceding_comment: _,
+                    parens_and_commas,
                 } = vd
                 {
                     if exprify_dbg {
@@ -3208,6 +3218,7 @@ fn stmts_to_defs<'a>(
                                 first: arena.alloc(condition),
                                 extra_args: &[],
                                 continuation: arena.alloc(rest),
+                                parens_and_commas,
                             }
                         } else {
                             Expr::Apply(
