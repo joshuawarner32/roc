@@ -200,6 +200,7 @@ impl From<Parens> for Prec {
             Parens::NotNeeded => Prec::Outer,
             Parens::InClosurePattern => Prec::Outer,
             Parens::InApply => Prec::Apply,
+            Parens::InPncApplyExpr => Prec::Apply,
             Parens::InApplyLastArg => Prec::Apply,
             Parens::InCollection => Prec::FunctionType,
             Parens::InFunctionType => Prec::FunctionType,

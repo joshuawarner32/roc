@@ -17,7 +17,7 @@ use roc_parse::ast::{
     Spaces, SpacesAfter, SpacesBefore, TryTarget, WhenBranch,
 };
 use roc_parse::ast::{StrLiteral, StrSegment};
-use roc_parse::expr::merge_spaces;
+use roc_parse::expr::{lower_expr, merge_spaces};
 use roc_parse::ident::Accessor;
 use roc_parse::keyword;
 use roc_region::all::Loc;
@@ -274,7 +274,8 @@ fn format_expr_only(
                 )
                 || (matches!(unary_op.value, called_via::UnaryOp::Negate)
                     && requires_space_after_unary(&lifted.item))
-                || ends_with_closure(&lifted.item);
+                || ends_with_closure(&lifted.item)
+                || parens == Parens::InPncApplyExpr;
 
             if needs_parens {
                 // Unary negation can't be followed by whitespace (which is what a newline is) - so
@@ -581,22 +582,6 @@ pub fn expr_is_multiline(me: &Expr<'_>, comments_only: bool) -> bool {
     }
 }
 
-fn lower<'a, 'b: 'a>(arena: &'b Bump, lifted: Spaces<'b, Expr<'b>>) -> Expr<'b> {
-    if lifted.before.is_empty() && lifted.after.is_empty() {
-        return lifted.item;
-    }
-    if lifted.before.is_empty() {
-        return Expr::SpaceAfter(arena.alloc(lifted.item), lifted.after);
-    }
-    if lifted.after.is_empty() {
-        return Expr::SpaceBefore(arena.alloc(lifted.item), lifted.before);
-    }
-    Expr::SpaceBefore(
-        arena.alloc(Expr::SpaceAfter(arena.alloc(lifted.item), lifted.after)),
-        lifted.before,
-    )
-}
-
 fn fmt_expr_collection(
     buf: &mut Buf<'_>,
 
@@ -615,7 +600,7 @@ fn fmt_expr_collection(
         lifted.before = merge_spaces_conservative(arena, last_after, lifted.before);
         last_after = lifted.after;
         lifted.after = &[];
-        new_items.push(arena.alloc(lower(arena, lifted)));
+        new_items.push(arena.alloc(lower_expr(arena, lifted)));
     }
 
     let final_comments = merge_spaces_conservative(arena, last_after, items.final_comments());
@@ -713,7 +698,7 @@ fn fmt_apply(
     expr.item.format_with_options(
         buf,
         if use_commas_and_parens {
-            Parens::NotNeeded
+            Parens::InPncApplyExpr
         } else {
             Parens::InApply
         },
@@ -1046,7 +1031,7 @@ pub fn expr_lift_and_lower<'a, 'b: 'a>(
     arena: &'a Bump,
     expr: &Expr<'b>,
 ) -> Expr<'a> {
-    lower(arena, expr_lift_spaces(Parens::NotNeeded, arena, expr))
+    lower_expr(arena, expr_lift_spaces(Parens::NotNeeded, arena, expr))
 }
 
 pub fn expr_lift_spaces<'a, 'b: 'a>(
@@ -1113,10 +1098,13 @@ pub fn expr_lift_spaces<'a, 'b: 'a>(
                 }
             };
 
-            if parens == Parens::InApply || parens == Parens::InApplyLastArg {
+            if parens == Parens::InApply
+                || (parens == Parens::InPncApplyExpr && called_via == &CalledVia::ParensAndCommas)
+                || parens == Parens::InApplyLastArg
+            {
                 res = Spaces {
                     before: &[],
-                    item: Expr::ParensAround(arena.alloc(lower(arena, res))),
+                    item: Expr::ParensAround(arena.alloc(lower_expr(arena, res))),
                     after: &[],
                 };
             }
@@ -1170,7 +1158,7 @@ pub fn expr_lift_spaces<'a, 'b: 'a>(
             }
         }
         Expr::Closure(pats, body) => {
-            if parens == Parens::InApply {
+            if parens == Parens::InApply || parens == Parens::InPncApplyExpr {
                 return Spaces {
                     before: &[],
                     item: Expr::ParensAround(arena.alloc(*expr)),
@@ -1190,7 +1178,10 @@ pub fn expr_lift_spaces<'a, 'b: 'a>(
             final_else,
             indented_else,
         } => {
-            if parens == Parens::InApply || parens == Parens::InApplyLastArg {
+            if parens == Parens::InApply
+                || parens == Parens::InPncApplyExpr
+                || parens == Parens::InApplyLastArg
+            {
                 Spaces {
                     before: &[],
                     item: Expr::ParensAround(arena.alloc(*expr)),
@@ -1212,7 +1203,10 @@ pub fn expr_lift_spaces<'a, 'b: 'a>(
             }
         }
         Expr::When(cond, branches) => {
-            if parens == Parens::InApply || parens == Parens::InApplyLastArg {
+            if parens == Parens::InApply
+                || parens == Parens::InPncApplyExpr
+                || parens == Parens::InApplyLastArg
+            {
                 Spaces {
                     before: &[],
                     item: Expr::ParensAround(arena.alloc(*expr)),
@@ -1247,7 +1241,10 @@ pub fn expr_lift_spaces<'a, 'b: 'a>(
             }
         }
         Expr::Return(val, opt_after) => {
-            if parens == Parens::InApply || parens == Parens::InApplyLastArg {
+            if parens == Parens::InApply
+                || parens == Parens::InPncApplyExpr
+                || parens == Parens::InApplyLastArg
+            {
                 Spaces {
                     before: &[],
                     item: Expr::ParensAround(arena.alloc(*expr)),
@@ -1382,7 +1379,9 @@ pub fn expr_lift_spaces<'a, 'b: 'a>(
             }
         }
         Expr::UnaryOp(inner, op) => {
-            if parens == Parens::InApply && matches!(inner.without_spaces(), Expr::Closure(..)) {
+            if parens == Parens::InApply && matches!(inner.without_spaces(), Expr::Closure(..))
+                || parens == Parens::InPncApplyExpr
+            {
                 return Spaces {
                     before: &[],
                     item: Expr::ParensAround(arena.alloc(*expr)),

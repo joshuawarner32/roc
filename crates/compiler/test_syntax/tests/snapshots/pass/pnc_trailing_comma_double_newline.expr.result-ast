@@ -1,0 +1,26 @@
+@0-9 SpaceAfter(
+    Apply(
+        @1-2 ParensAround(
+            Var {
+                module_name: "",
+                ident: "t",
+            },
+        ),
+        [
+            @4-5 SpaceAfter(
+                Var {
+                    module_name: "",
+                    ident: "a",
+                },
+                [
+                    Newline,
+                    Newline,
+                ],
+            ),
+        ],
+        ParensAndCommas,
+    ),
+    [
+        Newline,
+    ],
+)

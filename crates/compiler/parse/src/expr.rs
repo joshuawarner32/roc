@@ -247,6 +247,22 @@ fn loc_term<'a>() -> impl Parser<'a, Loc<Expr<'a>>, EExpr<'a>> {
     .trace("term")
 }
 
+pub fn lower_expr<'a, 'b: 'a>(arena: &'b Bump, lifted: Spaces<'b, Expr<'b>>) -> Expr<'b> {
+    if lifted.before.is_empty() && lifted.after.is_empty() {
+        return lifted.item;
+    }
+    if lifted.before.is_empty() {
+        return Expr::SpaceAfter(arena.alloc(lifted.item), lifted.after);
+    }
+    if lifted.after.is_empty() {
+        return Expr::SpaceBefore(arena.alloc(lifted.item), lifted.before);
+    }
+    Expr::SpaceBefore(
+        arena.alloc(Expr::SpaceAfter(arena.alloc(lifted.item), lifted.after)),
+        lifted.before,
+    )
+}
+
 fn pnc_args<'a>() -> impl Parser<'a, Loc<&'a [&'a Loc<Expr<'a>>]>, EExpr<'a>> {
     |arena: &'a Bump, state: State<'a>, min_indent: u32| {
         map_with_arena(
@@ -267,7 +283,9 @@ fn pnc_args<'a>() -> impl Parser<'a, Loc<&'a [&'a Loc<Expr<'a>>]>, EExpr<'a>> {
                     if i == (args_len - 1) {
                         let last_comments = arg_loc.value.final_comments();
                         if !last_comments.is_empty() {
-                            let sa = Expr::SpaceAfter(arena.alloc(arg.value), last_comments);
+                            let mut last = arg.value.extract_spaces();
+                            last.after = merge_spaces(arena, last.after, last_comments);
+                            let sa = lower_expr(arena, last);
                             let arg_with_spaces: &Loc<Expr<'a>> = arena.alloc(Loc {
                                 value: sa,
                                 region: arg.region,

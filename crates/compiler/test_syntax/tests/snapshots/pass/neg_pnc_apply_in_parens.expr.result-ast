@@ -1,0 +1,20 @@
+@0-8 SpaceAfter(
+    ParensAround(
+        Apply(
+            @2-4 ParensAround(
+                UnaryOp(
+                    @3-4 Var {
+                        module_name: "",
+                        ident: "r",
+                    },
+                    @2-3 Negate,
+                ),
+            ),
+            [],
+            ParensAndCommas,
+        ),
+    ),
+    [
+        Newline,
+    ],
+)
