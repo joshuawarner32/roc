@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roc Snapshot:Type aliases and declarations with various forms</title>
+    <style>
+/* Base layout */
+body {
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+    margin: 0;
+    background: #fafafa;
+}
+
+/* Two-column layout */
+.two-column-layout {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    background: white;
+}
+.left-pane,
+.right-pane {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+.left-pane {
+    border-right: 1px solid #e0e0e0;
+}
+.pane-header {
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1001;
+    background: #f5f5f5;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 10px 15px;
+    font-weight: bold;
+    color: #333;
+}
+.pane-content {
+    flex: 1;
+    overflow: auto;
+    padding: 15px;
+    min-width: 0;
+}
+.section-dropdown {
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font-weight: bold;
+    color: #333;
+    font-size: 1em;
+    outline: none;
+    cursor: pointer;
+}
+
+/* Content styling */
+.source-code {
+    background: #f8f8f8;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    padding: 12px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+.source-line {
+    display: block;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.token-list .token-item {
+    padding: 2px 4px;
+    margin: 1px;
+    border-radius: 2px;
+    cursor: pointer;
+    display: inline-block;
+    font-size: 0.9em;
+}
+.problems {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 4px;
+    padding: 10px;
+}
+.meta-info {
+    background: #e8f4fd;
+    border: 1px solid #bee5eb;
+    border-radius: 4px;
+    padding: 10px;
+}
+.meta-info strong {
+    color: #0c5460;
+}
+
+/* Token highlighting - consistent colors */
+[data-token-id] {
+    cursor: pointer;
+}
+[data-token-id]:hover {
+    background-color: #f0f0f0;
+}
+.highlighted {
+    background-color: #ffffcc;
+    outline: 2px solid #ffd700;
+}
+
+/* Source range highlighting for PARSE tree */
+.source-range {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.source-range:hover {
+    background-color: #f0f0f0;
+    text-decoration: underline;
+}
+
+/* Byte range highlighting */
+.highlight {
+    background-color: #ffffcc;
+    border-bottom: 2px solid #ffd700;
+}
+
+/* Flash animation for click highlighting */
+@keyframes flash-underline {
+    0%,
+    100% {
+        background-color: #ffffcc;
+        border-bottom-color: #ffd700;
+    }
+    50% {
+        background-color: #ffeb3b;
+        border-bottom-color: #ff9800;
+    }
+}
+.flash-highlight {
+    animation: flash-underline 0.3s ease-in-out 2;
+}
+
+/* Syntax highlighting */
+.token-keyword {
+    color: #0000ff;
+    font-weight: bold;
+}
+.token-identifier {
+    color: #000000;
+}
+.token-string {
+    color: #008000;
+}
+.token-number {
+    color: #ff8c00;
+}
+.token-operator {
+    color: #800080;
+}
+.token-bracket {
+    color: #808080;
+    font-weight: bold;
+}
+.token-punctuation {
+    color: #808080;
+}
+.token-comment {
+    color: #008000;
+    font-style: italic;
+}
+.token-default {
+    color: #000000;
+}
+.source-range {
+    color: #008000;
+    font-style: italic;
+}
+
+/* Hidden data storage */
+.hidden {
+    display: none;
+}
+.section {
+    display: none;
+}
+    </style>
+</head>
+<body>
+    <!-- Two-column layout (main and only view) -->
+    <div class="two-column-layout">
+        <div class="left-pane">
+            <div class="pane-header">
+                <select class="section-dropdown" id="left-selector" onchange="switchLeftPane()">
+                    <option value="META">META</option>
+                    <option value="SOURCE" selected>SOURCE</option>
+                </select>
+            </div>
+            <div class="pane-content" id="left-pane-content">
+                <!-- Left pane content will be shown here -->
+            </div>
+        </div>
+        <div class="right-pane">
+            <div class="pane-header">
+                <select class="section-dropdown" id="right-selector" onchange="switchRightPane()">
+                    <option value="TOKENS" selected>TOKENS</option>
+                    <option value="PARSE">PARSE</option>
+                    <option value="FORMATTED">FORMATTED</option>
+                    <option value="CANONICALIZE">CANONICALIZE</option>
+                    <option value="TYPES">TYPES</option>
+                </select>
+            </div>
+            <div class="pane-content" id="right-pane-content">
+                <!-- Right pane content will be shown here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden sections for data storage -->
+    <div id="data-sections" style="display: none;">        <div class="section" data-section="META">
+            <div class="section-content">                <div class="meta-info">
+                    <p><strong>Description:</strong>Type aliases and declarations with various forms</p>
+                    <p><strong>Type:</strong> file</p>
+                </div>
+            </div>
+        </div>        <div class="section" data-section="SOURCE">
+            <div class="section-content">                <div class="source-code" id="source-display">
+                </div>
+                <script>
+                window.rocSourceCode =`app [main!] { pf: platform "../basic-cli/main.roc" }\n\n# Simple type alias\nUserId : U64\n\n# Generic type alias\nResult(ok, err) : [Ok(ok), Err(err)]\n\n# Record type alias\nPerson : { name : Str, age : U64 }\n\n# Function type alias\nMapFn(a, b) : a -> b\n\n# Complex nested type alias\nApiResponse(data) : Result(data, Str)\n\n# Type declaration with tag union\nColor : [Red, Green, Blue, Custom(U8, U8, U8)]\n\n# Type declaration with records and generics\nContainer(item) : {\n    contents : List(item),\n    metadata : { size : U64, created : Str }\n}\n\nmain! = |_| {\n    # Use the types to validate they work\n    userId : UserId\n    userId = 123\n\n    person : Person\n    person = { name: "Alice", age: 30 }\n\n    color : Color\n    color = Red\n\n    userId\n}`;
+      </script>
+            </div>
+        </div>        <div class="section" data-section="PROBLEMS">
+            <div class="section-content">                <div class="problems">                    <div class="problem">**TYPE REDECLARED**
+The type ``Result`` is being redeclared.
+
+The redeclaration is here:
+**type_alias_decl.md:7:1:10:7:**
+```roc
+Result(ok, err) : [Ok(ok), Err(err)]
+
+# Record type alias
+Person : { name : Str, age : U64 }
+```
+
+But ``Result`` was already declared here:
+**type_alias_decl.md:1:1:1:1:**
+```roc
+app [main!] { pf: platform "../basic-cli/main.roc" }
+```
+
+
+
+</div>
+                    <div class="problem">**UNUSED VARIABLE**
+Variable ``color`` is not used anywhere in your code.
+
+If you don't need this variable, prefix it with an underscore like `_color` to suppress this warning.
+The unused variable is declared here:
+**type_alias_decl.md:36:5:36:10:**
+```roc
+    color = Red
+```
+    ^^^^^
+
+
+</div>
+                    <div class="problem">**UNUSED VARIABLE**
+Variable ``person`` is not used anywhere in your code.
+
+If you don't need this variable, prefix it with an underscore like `_person` to suppress this warning.
+The unused variable is declared here:
+**type_alias_decl.md:33:5:33:11:**
+```roc
+    person = { name: "Alice", age: 30 }
+```
+    ^^^^^^
+
+
+</div>
+                </div>
+            </div>
+        </div>        <div class="section" data-section="TOKENS">
+            <div class="section-content">                <div class="token-list" id="tokens-display">
+                </div>
+                <script>
+                window.rocTokens = [                    ["KwApp", 0, 3],                     ["OpenSquare", 4, 5],                     ["LowerIdent", 5, 10],                     ["CloseSquare", 10, 11],                     ["OpenCurly", 12, 13],                     ["LowerIdent", 14, 16],                     ["OpColon", 16, 17],                     ["KwPlatform", 18, 26],                     ["StringStart", 27, 28],                     ["StringPart", 28, 49],                     ["StringEnd", 49, 50],                     ["CloseCurly", 51, 52],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["Newline", 55, 73],
+                    ["UpperIdent", 74, 80],                     ["OpColon", 81, 82],                     ["UpperIdent", 83, 86],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["Newline", 89, 108],
+                    ["UpperIdent", 109, 115],                     ["NoSpaceOpenRound", 115, 116],                     ["LowerIdent", 116, 118],                     ["Comma", 118, 119],                     ["LowerIdent", 120, 123],                     ["CloseRound", 123, 124],                     ["OpColon", 125, 126],                     ["OpenSquare", 127, 128],                     ["UpperIdent", 128, 130],                     ["NoSpaceOpenRound", 130, 131],                     ["LowerIdent", 131, 133],                     ["CloseRound", 133, 134],                     ["Comma", 134, 135],                     ["UpperIdent", 136, 139],                     ["NoSpaceOpenRound", 139, 140],                     ["LowerIdent", 140, 143],                     ["CloseRound", 143, 144],                     ["CloseSquare", 144, 145],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["Newline", 148, 166],
+                    ["UpperIdent", 167, 173],                     ["OpColon", 174, 175],                     ["OpenCurly", 176, 177],                     ["LowerIdent", 178, 182],                     ["OpColon", 183, 184],                     ["UpperIdent", 185, 188],                     ["Comma", 188, 189],                     ["LowerIdent", 190, 193],                     ["OpColon", 194, 195],                     ["UpperIdent", 196, 199],                     ["CloseCurly", 200, 201],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["Newline", 204, 224],
+                    ["UpperIdent", 225, 230],                     ["NoSpaceOpenRound", 230, 231],                     ["LowerIdent", 231, 232],                     ["Comma", 232, 233],                     ["LowerIdent", 234, 235],                     ["CloseRound", 235, 236],                     ["OpColon", 237, 238],                     ["LowerIdent", 239, 240],                     ["OpArrow", 241, 243],                     ["LowerIdent", 244, 245],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["Newline", 248, 274],
+                    ["UpperIdent", 275, 286],                     ["NoSpaceOpenRound", 286, 287],                     ["LowerIdent", 287, 291],                     ["CloseRound", 291, 292],                     ["OpColon", 293, 294],                     ["UpperIdent", 295, 301],                     ["NoSpaceOpenRound", 301, 302],                     ["LowerIdent", 302, 306],                     ["Comma", 306, 307],                     ["UpperIdent", 308, 311],                     ["CloseRound", 311, 312],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["Newline", 315, 347],
+                    ["UpperIdent", 348, 353],                     ["OpColon", 354, 355],                     ["OpenSquare", 356, 357],                     ["UpperIdent", 357, 360],                     ["Comma", 360, 361],                     ["UpperIdent", 362, 367],                     ["Comma", 367, 368],                     ["UpperIdent", 369, 373],                     ["Comma", 373, 374],                     ["UpperIdent", 375, 381],                     ["NoSpaceOpenRound", 381, 382],                     ["UpperIdent", 382, 384],                     ["Comma", 384, 385],                     ["UpperIdent", 386, 388],                     ["Comma", 388, 389],                     ["UpperIdent", 390, 392],                     ["CloseRound", 392, 393],                     ["CloseSquare", 393, 394],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["Newline", 397, 440],
+                    ["UpperIdent", 441, 450],                     ["NoSpaceOpenRound", 450, 451],                     ["LowerIdent", 451, 455],                     ["CloseRound", 455, 456],                     ["OpColon", 457, 458],                     ["OpenCurly", 459, 460],                     ["Newline", 0, 0],
+                    ["LowerIdent", 465, 473],                     ["OpColon", 474, 475],                     ["UpperIdent", 476, 480],                     ["NoSpaceOpenRound", 480, 481],                     ["LowerIdent", 481, 485],                     ["CloseRound", 485, 486],                     ["Comma", 486, 487],                     ["Newline", 0, 0],
+                    ["LowerIdent", 492, 500],                     ["OpColon", 501, 502],                     ["OpenCurly", 503, 504],                     ["LowerIdent", 505, 509],                     ["OpColon", 510, 511],                     ["UpperIdent", 512, 515],                     ["Comma", 515, 516],                     ["LowerIdent", 517, 524],                     ["OpColon", 525, 526],                     ["UpperIdent", 527, 530],                     ["CloseCurly", 531, 532],                     ["Newline", 0, 0],
+                    ["CloseCurly", 533, 534],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["LowerIdent", 536, 541],                     ["OpAssign", 542, 543],                     ["OpBar", 544, 545],                     ["Underscore", 545, 546],                     ["OpBar", 546, 547],                     ["OpenCurly", 548, 549],                     ["Newline", 0, 0],
+                    ["Newline", 555, 591],
+                    ["LowerIdent", 596, 602],                     ["OpColon", 603, 604],                     ["UpperIdent", 605, 611],                     ["Newline", 0, 0],
+                    ["LowerIdent", 616, 622],                     ["OpAssign", 623, 624],                     ["Int", 625, 628],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["LowerIdent", 634, 640],                     ["OpColon", 641, 642],                     ["UpperIdent", 643, 649],                     ["Newline", 0, 0],
+                    ["LowerIdent", 654, 660],                     ["OpAssign", 661, 662],                     ["OpenCurly", 663, 664],                     ["LowerIdent", 665, 669],                     ["OpColon", 669, 670],                     ["StringStart", 671, 672],                     ["StringPart", 672, 677],                     ["StringEnd", 677, 678],                     ["Comma", 678, 679],                     ["LowerIdent", 680, 683],                     ["OpColon", 683, 684],                     ["Int", 685, 687],                     ["CloseCurly", 688, 689],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["LowerIdent", 695, 700],                     ["OpColon", 701, 702],                     ["UpperIdent", 703, 708],                     ["Newline", 0, 0],
+                    ["LowerIdent", 713, 718],                     ["OpAssign", 719, 720],                     ["UpperIdent", 721, 724],                     ["Newline", 0, 0],
+                    ["Newline", 0, 0],
+                    ["LowerIdent", 730, 736],                     ["Newline", 0, 0],
+                    ["CloseCurly", 737, 738],                     ["EndOfFile", 738, 738]                 ];
+                </script>
+            </div>
+        </div>        <div class="section" data-section="PARSE">
+            <div class="section-content">                <pre class="ast-parse"><span class="token-punctuation">(</span><span class="token-keyword">file</span> <span class="source-range" data-start-byte="0" data-end-byte="738" >@1.1-39.2</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">app</span> <span class="source-range" data-start-byte="0" data-end-byte="52" >@1.1-1.53</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">provides</span> <span class="source-range" data-start-byte="5" data-end-byte="11" >@1.6-1.12</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">exposed-lower-ident</span> (<span class="token-keyword">text</span> <span class="token-punctuation">&quot;</span><span class="token-string">main!</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">record-field</span> <span class="source-range" data-start-byte="14" data-end-byte="52" >@1.15-1.53</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">pf</span><span class="token-punctuation">&quot;)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">e-string</span> <span class="source-range" data-start-byte="27" data-end-byte="50" >@1.28-1.51</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">e-string-part</span> <span class="source-range" data-start-byte="28" data-end-byte="49" >@1.29-1.50</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">../basic-cli/main.roc</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">packages</span> <span class="source-range" data-start-byte="12" data-end-byte="52" >@1.13-1.53</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">record-field</span> <span class="source-range" data-start-byte="14" data-end-byte="52" >@1.15-1.53</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">pf</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">e-string</span> <span class="source-range" data-start-byte="27" data-end-byte="50" >@1.28-1.51</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">e-string-part</span> <span class="source-range" data-start-byte="28" data-end-byte="49" >@1.29-1.50</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">../basic-cli/main.roc</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">statements</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="74" data-end-byte="115" >@4.1-7.7</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">header</span> <span class="source-range" data-start-byte="74" data-end-byte="80" >@4.1-4.7</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">UserId</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">args</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U64</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="109" data-end-byte="173" >@7.1-10.7</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">header</span> <span class="source-range" data-start-byte="109" data-end-byte="124" >@7.1-7.16</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">args</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="116" data-end-byte="118" >@7.8-7.10</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">ok</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="120" data-end-byte="123" >@7.12-7.15</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">err</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-tag-union</span> <span class="source-range" data-start-byte="127" data-end-byte="145" >@7.19-7.37</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">tags</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="128" data-end-byte="134" >@7.20-7.26</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Ok</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="131" data-end-byte="133" >@7.23-7.25</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">ok</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="136" data-end-byte="144" >@7.28-7.36</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Err</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="140" data-end-byte="143" >@7.32-7.35</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">err</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="167" data-end-byte="230" >@10.1-13.6</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">header</span> <span class="source-range" data-start-byte="167" data-end-byte="173" >@10.1-10.7</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Person</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">args</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-record</span> <span class="source-range" data-start-byte="176" data-end-byte="201" >@10.10-10.35</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">anno-record-field</span> <span class="source-range" data-start-byte="178" data-end-byte="189" >@10.12-10.23</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">name</span><span class="token-punctuation">&quot;)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">anno-record-field</span> <span class="source-range" data-start-byte="190" data-end-byte="201" >@10.24-10.35</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">age</span><span class="token-punctuation">&quot;)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U64</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="225" data-end-byte="286" >@13.1-16.12</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">header</span> <span class="source-range" data-start-byte="225" data-end-byte="236" >@13.1-13.12</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">MapFn</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">args</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="231" data-end-byte="232" >@13.7-13.8</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="234" data-end-byte="235" >@13.10-13.11</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> <span class="source-range" data-start-byte="239" data-end-byte="245" >@13.15-13.21</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="239" data-end-byte="240" >@13.15-13.16</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="244" data-end-byte="245" >@13.20-13.21</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="275" data-end-byte="353" >@16.1-19.6</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">header</span> <span class="source-range" data-start-byte="275" data-end-byte="292" >@16.1-16.18</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">ApiResponse</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">args</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="287" data-end-byte="291" >@16.13-16.17</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">data</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="295" data-end-byte="312" >@16.21-16.38</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="302" data-end-byte="306" >@16.28-16.32</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">data</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="348" data-end-byte="450" >@19.1-22.10</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">header</span> <span class="source-range" data-start-byte="348" data-end-byte="353" >@19.1-19.6</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Color</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">args</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-tag-union</span> <span class="source-range" data-start-byte="356" data-end-byte="394" >@19.9-19.47</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">tags</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Red</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Green</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Blue</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="375" data-end-byte="393" >@19.28-19.46</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Custom</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U8</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U8</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U8</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="441" data-end-byte="541" >@22.1-27.6</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">header</span> <span class="source-range" data-start-byte="441" data-end-byte="456" >@22.1-22.16</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Container</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">args</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="451" data-end-byte="455" >@22.11-22.15</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">item</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-record</span> <span class="source-range" data-start-byte="459" data-end-byte="534" >@22.19-25.2</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">anno-record-field</span> <span class="source-range" data-start-byte="465" data-end-byte="487" >@23.5-23.27</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">contents</span><span class="token-punctuation">&quot;)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="476" data-end-byte="486" >@23.16-23.26</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="481" data-end-byte="485" >@23.21-23.25</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">item</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">anno-record-field</span> <span class="source-range" data-start-byte="492" data-end-byte="534" >@24.5-25.2</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">metadata</span><span class="token-punctuation">&quot;)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-record</span> <span class="source-range" data-start-byte="503" data-end-byte="532" >@24.16-24.45</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">anno-record-field</span> <span class="source-range" data-start-byte="505" data-end-byte="516" >@24.18-24.29</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">size</span><span class="token-punctuation">&quot;)</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U64</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">anno-record-field</span> <span class="source-range" data-start-byte="517" data-end-byte="532" >@24.30-24.45</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">created</span><span class="token-punctuation">&quot;)</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="536" data-end-byte="738" >@27.1-39.2</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="536" data-end-byte="541" >@27.1-27.6</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">main!</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="544" data-end-byte="738" >@27.9-39.2</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">args</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">e-block</span> <span class="source-range" data-start-byte="548" data-end-byte="738" >@27.13-39.2</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">statements</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> <span class="source-range" data-start-byte="596" data-end-byte="622" >@29.5-30.11</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">userId</span><span class="token-punctuation">&quot;)</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">UserId</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="616" data-end-byte="628" >@30.5-30.17</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="616" data-end-byte="622" >@30.5-30.11</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">userId</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">e-int</span> <span class="source-range" data-start-byte="625" data-end-byte="628" >@30.14-30.17</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">123</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> <span class="source-range" data-start-byte="634" data-end-byte="660" >@32.5-33.11</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">person</span><span class="token-punctuation">&quot;)</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Person</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="654" data-end-byte="689" >@33.5-33.40</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="654" data-end-byte="660" >@33.5-33.11</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">person</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">e-record</span> <span class="source-range" data-start-byte="663" data-end-byte="689" >@33.14-33.40</span>
+								<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">field</span> <span class="token-punctuation">&quot;</span><span class="token-string">name</span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">optional</span> <span class="token-number">false</span>)
+									<span class="token-punctuation">(</span><span class="token-keyword">e-string</span> <span class="source-range" data-start-byte="671" data-end-byte="678" >@33.22-33.29</span>
+										<span class="token-punctuation">(</span><span class="token-keyword">e-string-part</span> <span class="source-range" data-start-byte="672" data-end-byte="677" >@33.23-33.28</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">Alice</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+								<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">field</span> <span class="token-punctuation">&quot;</span><span class="token-string">age</span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">optional</span> <span class="token-number">false</span>)
+									<span class="token-punctuation">(</span><span class="token-keyword">e-int</span> <span class="source-range" data-start-byte="685" data-end-byte="687" >@33.36-33.38</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">30</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> <span class="source-range" data-start-byte="695" data-end-byte="718" >@35.5-36.10</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">color</span><span class="token-punctuation">&quot;)</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Color</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="713" data-end-byte="724" >@36.5-36.16</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="713" data-end-byte="718" >@36.5-36.10</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">color</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> <span class="source-range" data-start-byte="721" data-end-byte="724" >@36.13-36.16</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">Red</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">e-ident</span> <span class="source-range" data-start-byte="730" data-end-byte="736" >@38.5-38.11</span> (<span class="token-keyword">qaul</span> <span class="token-punctuation">&quot;</span><span class="token-string"></span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">userId</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span></pre>
+            </div>
+        </div>        <div class="section" data-section="FORMATTED">
+            <div class="section-content">                <pre>app [main!] { pf: platform &quot;../basic-cli/main.roc&quot; }
+
+# Simple type alias
+UserId : U64
+
+# Generic type alias
+Result(ok, err) : [Ok(ok), Err(err)]
+
+# Record type alias
+Person : { name : Str, age : U64 }
+
+# Function type alias
+MapFn(a, b) : a -&gt; b
+
+# Complex nested type alias
+ApiResponse(data) : Result(data, Str)
+
+# Type declaration with tag union
+Color : [Red, Green, Blue, Custom(U8, U8, U8)]
+
+# Type declaration with records and generics
+Container(item) : {
+	contents : List(item),
+	metadata : { size : U64, created : Str },
+}
+
+main! = |_| {
+	# Use the types to validate they work
+	userId : UserId
+	userId = 123
+
+	person : Person
+	person = { name: &quot;Alice&quot;, age: 30 }
+
+	color : Color
+	color = Red
+
+	userId
+}</pre>
+            </div>
+        </div>        <div class="section" data-section="CANONICALIZE">
+            <div class="section-content">                <pre><span class="token-punctuation">(</span><span class="token-keyword">can-ir</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">d-let</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> @27.1-27.6 (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">main!</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> @27.9-39.2
+			<span class="token-punctuation">(</span><span class="token-keyword">args</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span> @27.10-27.11<span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">e-block</span> @27.13-39.2
+				<span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> @29.5-30.11 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">userId</span><span class="token-punctuation">&quot;)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @29.14-29.20 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">UserId</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">s-let</span> @30.5-30.17
+					<span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> @30.5-30.11 (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">userId</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">e-int</span> @30.14-30.17 (<span class="token-keyword">value</span> <span class="token-punctuation">&quot;</span><span class="token-string">123</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> @32.5-33.11 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">person</span><span class="token-punctuation">&quot;)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @32.14-32.20 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Person</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">s-let</span> @33.5-33.40
+					<span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> @33.5-33.11 (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">person</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">e-record</span> @33.14-33.40
+						<span class="token-punctuation">(</span><span class="token-keyword">fields</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">name</span><span class="token-punctuation">&quot;)</span>
+								<span class="token-punctuation">(</span><span class="token-keyword">e-string</span> @33.22-33.29
+									<span class="token-punctuation">(</span><span class="token-keyword">e-literal</span> @33.23-33.28 (<span class="token-keyword">string</span> <span class="token-punctuation">&quot;</span><span class="token-string">Alice</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+							<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">age</span><span class="token-punctuation">&quot;)</span>
+								<span class="token-punctuation">(</span><span class="token-keyword">e-int</span> @33.36-33.38 (<span class="token-keyword">value</span> <span class="token-punctuation">&quot;</span><span class="token-string">30</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> @35.5-36.10 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">color</span><span class="token-punctuation">&quot;)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @35.13-35.18 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Color</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">s-let</span> @36.5-36.16
+					<span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> @36.5-36.10 (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">color</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> @36.13-36.16 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Red</span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">args</span> <span class="token-punctuation">&quot;</span><span class="token-string">TODO</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">e-lookup-local</span> @38.5-38.11
+					<span class="token-punctuation">(</span><span class="token-keyword">pattern</span> @30.5-30.11<span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> @4.1-7.7
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-header</span> @4.1-4.7 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">UserId</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @4.10-4.13 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U64</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> @7.1-10.7
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-header</span> @7.1-7.16 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-args</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @7.8-7.10 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">ok</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @7.12-7.15 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">err</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-tag-union</span> @7.19-7.37
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @7.20-7.26 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Ok</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @7.23-7.25 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">ok</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @7.28-7.36 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Err</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @7.32-7.35 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">err</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> @10.1-13.6
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-header</span> @10.1-10.7 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Person</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-record</span> @10.10-10.35
+			<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">field</span> <span class="token-punctuation">&quot;</span><span class="token-string">name</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @10.19-10.22 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">field</span> <span class="token-punctuation">&quot;</span><span class="token-string">age</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @10.30-10.33 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U64</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> @13.1-16.12
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-header</span> @13.1-13.12 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">MapFn</span><span class="token-punctuation">&quot;)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-args</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @13.7-13.8 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @13.10-13.11 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> @13.15-13.21 (<span class="token-keyword">effectful</span> <span class="token-number">false</span>)
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @13.15-13.16 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @13.20-13.21 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> @16.1-19.6
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-header</span> @16.1-16.18 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">ApiResponse</span><span class="token-punctuation">&quot;)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-args</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @16.13-16.17 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">data</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @16.21-16.38 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @16.28-16.32 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">data</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @16.34-16.37 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> @19.1-22.10
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-header</span> @19.1-19.6 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Color</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-tag-union</span> @19.9-19.47
+			<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @19.10-19.13 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Red</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @19.15-19.20 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Green</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @19.22-19.26 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Blue</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @19.28-19.46 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Custom</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @19.35-19.37 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U8</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @19.39-19.41 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U8</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @19.43-19.45 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U8</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+	<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> @22.1-27.6
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-header</span> @22.1-22.16 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Container</span><span class="token-punctuation">&quot;)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">ty-args</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @22.11-22.15 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">item</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+		<span class="token-punctuation">(</span><span class="token-keyword">ty-record</span> @22.19-25.2
+			<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">field</span> <span class="token-punctuation">&quot;</span><span class="token-string">contents</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @23.16-23.26 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @23.21-23.25 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">item</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+			<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">field</span> <span class="token-punctuation">&quot;</span><span class="token-string">metadata</span><span class="token-punctuation">&quot;)</span>
+				<span class="token-punctuation">(</span><span class="token-keyword">ty-record</span> @24.16-24.45
+					<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">field</span> <span class="token-punctuation">&quot;</span><span class="token-string">size</span><span class="token-punctuation">&quot;)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @24.25-24.28 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">U64</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+					<span class="token-punctuation">(</span><span class="token-keyword">field</span> (<span class="token-keyword">field</span> <span class="token-punctuation">&quot;</span><span class="token-string">created</span><span class="token-punctuation">&quot;)</span>
+						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @24.40-24.43 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span></pre>
+            </div>
+        </div>        <div class="section" data-section="TYPES">
+            <div class="section-content">                <pre>(inferred-types
+	(defs
+		(patt @27.1-27.6 (type &quot;* -&gt; *&quot;)))
+	(expressions
+		(expr @27.9-39.2 (type &quot;* -&gt; *&quot;))))</pre>
+            </div>
+        </div>    </div>
+
+    <script>// Token highlighting functionality
+document.addEventListener("DOMContentLoaded", function () {
+  // Pane switching functionality
+  window.switchLeftPane = function () {
+    const selector = document.getElementById("left-selector");
+    const selectedSection = selector.value;
+    switchToPane("left", selectedSection);
+  };
+
+  window.switchRightPane = function () {
+    const selector = document.getElementById("right-selector");
+    const selectedSection = selector.value;
+    switchToPane("right", selectedSection);
+  };
+
+  // Setup event delegation for source-range elements
+  setupSourceRangeHandlers();
+
+  function switchToPane(pane, sectionName) {
+    const paneContent = document.getElementById(`${pane}-pane-content`);
+
+    const paneSelector = document.getElementById(`${pane}-selector`);
+    if (paneSelector.value !== sectionName) {
+      paneSelector.value = sectionName;
+    }
+
+    // Handle special sections with JavaScript-generated content
+    if (sectionName === "SOURCE") {
+      // Initialize source display with byte range highlighting
+      paneContent.innerHTML =
+        '<div class="source-code" id="source-display"></div>';
+      if (typeof initializeSourceDisplay === "function") {
+        initializeSourceDisplay();
+      }
+      return;
+    }
+
+    if (sectionName === "TOKENS") {
+      // Initialize tokens display with hover highlighting
+      paneContent.innerHTML =
+        '<div class="token-list" id="tokens-display"></div>';
+      if (typeof initializeTokensDisplay === "function") {
+        initializeTokensDisplay();
+      }
+      return;
+    }
+
+    // Find the section in the data sections for other sections
+    const sections = document.querySelectorAll("#data-sections .section");
+    let targetSectionContent = null;
+
+    for (const section of sections) {
+      if (section.dataset.section === sectionName) {
+        const content = section.querySelector(".section-content");
+        if (content) {
+          targetSectionContent = content.cloneNode(true);
+          break;
+        }
+      }
+    }
+
+    // Update pane content
+    if (targetSectionContent && paneContent) {
+      paneContent.innerHTML = "";
+      paneContent.appendChild(targetSectionContent);
+    }
+  }
+
+  // Initial setup - show SOURCE on left, TOKENS on right
+  switchToPane("left", "SOURCE");
+  switchToPane("right", "TOKENS");
+});
+// UTF-8 byte handling functions from rust_highlight_demo.html
+function getUtf8Bytes(str) {
+  return new TextEncoder().encode(str);
+}
+
+function decodeUtf8AndBuildMapping(bytes) {
+  const decoder = new TextDecoder("utf-8");
+  const text = decoder.decode(bytes);
+  const byteToUtf16 = new Array(bytes.length);
+  const encoder = new TextEncoder();
+
+  let byteIndex = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const utf8 = encoder.encode(char);
+    // Map all bytes of this character to the same UTF-16 position
+    for (let j = 0; j < utf8.length; j++) {
+      if (byteIndex < bytes.length) {
+        byteToUtf16[byteIndex] = i;
+        byteIndex++;
+      }
+    }
+  }
+  return { text, byteToUtf16 };
+}
+
+function buildTextClassSegments(text, byteToUtf16, tokens, highlightRange) {
+  const segments = [];
+  let cursor = 0;
+  let tokenIdx = 0;
+  const totalBytes = byteToUtf16.length;
+
+  let hlStart = highlightRange ? highlightRange.start : null;
+  let hlEnd = highlightRange
+    ? highlightRange.start + highlightRange.length
+    : null;
+
+  while (cursor < totalBytes) {
+    // Find next token that starts at or after cursor
+    while (
+      tokenIdx < tokens.length &&
+      tokens[tokenIdx].start + tokens[tokenIdx].length <= cursor
+    ) {
+      tokenIdx++;
+    }
+
+    let nextToken = tokenIdx < tokens.length ? tokens[tokenIdx] : null;
+    let tokenStart = nextToken ? Math.max(nextToken.start, cursor) : totalBytes;
+    let tokenEnd = nextToken ? nextToken.start + nextToken.length : totalBytes;
+
+    let boundaries = [tokenStart, tokenEnd];
+    if (hlStart !== null) boundaries.push(hlStart);
+    if (hlEnd !== null) boundaries.push(hlEnd);
+    boundaries.push(totalBytes);
+
+    let nextBoundary = Math.min(...boundaries.filter((b) => b > cursor));
+    if (nextBoundary === Infinity) nextBoundary = totalBytes;
+
+    let inToken = nextToken && cursor >= nextToken.start && cursor < tokenEnd;
+    let tokenClass = inToken ? nextToken.class : null;
+    let inHighlight = hlStart !== null && cursor >= hlStart && cursor < hlEnd;
+
+    let classes = [];
+    if (tokenClass) classes.push(tokenClass);
+    if (inHighlight) classes.push("highlight");
+    let classStr = classes.length ? classes.join(" ") : null;
+
+    let start16 = byteToUtf16[cursor] ?? text.length;
+    let end16 =
+      byteToUtf16[Math.min(nextBoundary, totalBytes - 1)] ?? text.length;
+    if (nextBoundary >= totalBytes) end16 = text.length;
+
+    if (start16 < end16) {
+      const segment = { text: text.slice(start16, end16), class: classStr };
+      // Store byte range instead of token index for consistent mapping
+      if (inToken) {
+        segment.byteStart = nextToken.start;
+        segment.byteEnd = nextToken.start + nextToken.length;
+      }
+      segments.push(segment);
+    }
+
+    cursor = nextBoundary;
+
+    // If we reached the end of a token, potentially advance tokenIdx
+    if (nextToken && cursor >= tokenEnd) {
+      tokenIdx++;
+    }
+  }
+
+  return segments;
+}
+
+function updateDomFromSegments(container, newSegments) {
+  container.innerHTML = "";
+  for (const seg of newSegments) {
+    if (seg.class) {
+      const span = document.createElement("span");
+      span.className = seg.class;
+      span.textContent = seg.text;
+      // Add byte range data attributes for consistent mapping
+      if (seg.byteStart !== undefined && seg.byteEnd !== undefined) {
+        span.dataset.byteStart = seg.byteStart;
+        span.dataset.byteEnd = seg.byteEnd;
+        span.style.cursor = "pointer";
+      }
+      container.appendChild(span);
+    } else {
+      container.appendChild(document.createTextNode(seg.text));
+    }
+  }
+  // Add event listeners for reverse highlighting
+  addSourceEventListeners(container);
+}
+
+// Token category mapping
+function getTokenClass(tokenKind) {
+  const keywords = [
+    "KwApp",
+    "KwAs",
+    "KwCrash",
+    "KwDbg",
+    "KwElse",
+    "KwExpect",
+    "KwExposes",
+    "KwExposing",
+    "KwFor",
+    "KwGenerates",
+    "KwHas",
+    "KwHosted",
+    "KwIf",
+    "KwImplements",
+    "KwImport",
+    "KwImports",
+    "KwIn",
+    "KwInterface",
+    "KwMatch",
+    "KwModule",
+    "KwPackage",
+    "KwPackages",
+    "KwPlatform",
+    "KwProvides",
+    "KwRequires",
+    "KwReturn",
+    "KwVar",
+    "KwWhere",
+    "KwWith",
+  ];
+  const identifiers = [
+    "UpperIdent",
+    "LowerIdent",
+    "DotLowerIdent",
+    "DotUpperIdent",
+    "NoSpaceDotLowerIdent",
+    "NoSpaceDotUpperIdent",
+    "NamedUnderscore",
+    "OpaqueName",
+  ];
+  const strings = [
+    "StringStart",
+    "StringEnd",
+    "StringPart",
+    "MultilineStringStart",
+    "MultilineStringEnd",
+    "SingleQuote",
+  ];
+  const numbers = [
+    "Float",
+    "Int",
+    "DotInt",
+    "NoSpaceDotInt",
+    "MalformedNumberBadSuffix",
+    "MalformedNumberUnicodeSuffix",
+    "MalformedNumberNoDigits",
+    "MalformedNumberNoExponentDigits",
+  ];
+  const operators = [
+    "OpPlus",
+    "OpStar",
+    "OpBinaryMinus",
+    "OpUnaryMinus",
+    "OpEquals",
+    "OpNotEquals",
+    "OpAnd",
+    "OpOr",
+    "OpGreaterThan",
+    "OpLessThan",
+    "OpGreaterThanOrEq",
+    "OpLessThanOrEq",
+    "OpAssign",
+    "OpColonEqual",
+    "OpArrow",
+    "OpBackslash",
+    "OpBar",
+    "OpBang",
+    "OpQuestion",
+    "OpColon",
+    "OpPercent",
+    "OpDoubleSlash",
+    "OpCaret",
+    "OpAmpersand",
+    "OpPizza",
+    "OpSlash",
+    "OpDoubleQuestion",
+    "OpBackArrow",
+    "OpFatArrow",
+    "NoSpaceOpQuestion",
+  ];
+  const brackets = [
+    "OpenRound",
+    "CloseRound",
+    "OpenSquare",
+    "CloseSquare",
+    "OpenCurly",
+    "CloseCurly",
+  ];
+  const punctuation = ["Comma", "Dot", "DoubleDot", "TripleDot", "Underscore"];
+
+  if (keywords.includes(tokenKind)) return "token-keyword";
+  if (identifiers.includes(tokenKind)) return "token-identifier";
+  if (strings.includes(tokenKind)) return "token-string";
+  if (numbers.includes(tokenKind)) return "token-number";
+  if (operators.includes(tokenKind)) return "token-operator";
+  if (brackets.includes(tokenKind)) return "token-bracket";
+  if (punctuation.includes(tokenKind)) return "token-punctuation";
+  return "token-default";
+}
+
+// Central function to find token index by byte range - single source of truth
+function findTokenIndexByByteRange(byteStart, byteEnd) {
+  if (!window.rocTokens) return -1;
+  return window.rocTokens.findIndex(
+    ([kind, start, end]) => start === byteStart && end === byteEnd,
+  );
+}
+
+// Central function to find token by index - single source of truth
+function getTokenByIndex(index) {
+  if (!window.rocTokens || index < 0 || index >= window.rocTokens.length)
+    return null;
+  const [kind, start, end] = window.rocTokens[index];
+  return { kind, start, end, index };
+}
+
+// Add event listeners for source elements to highlight corresponding tokens or PARSE elements
+function addSourceEventListeners(container) {
+  const spans = container.querySelectorAll(
+    "span[data-byte-start][data-byte-end]",
+  );
+  spans.forEach((span) => {
+    span.addEventListener("mouseenter", () => {
+      const byteStart = parseInt(span.dataset.byteStart);
+      const byteEnd = parseInt(span.dataset.byteEnd);
+      
+      // Check what's currently displayed in the right pane
+      const rightSelector = document.getElementById("right-selector");
+      const currentSection = rightSelector ? rightSelector.value : "TOKENS";
+      
+      if (currentSection === "TOKENS") {
+        const tokenIndex = findTokenIndexByByteRange(byteStart, byteEnd);
+        if (tokenIndex >= 0) {
+          highlightTokenInList(tokenIndex);
+        }
+      } else if (currentSection === "PARSE") {
+        highlightParseElementAtByte(byteStart);
+      }
+    });
+    span.addEventListener("mouseleave", () => {
+      const rightSelector = document.getElementById("right-selector");
+      const currentSection = rightSelector ? rightSelector.value : "TOKENS";
+      
+      if (currentSection === "TOKENS") {
+        clearTokenHighlights();
+      } else if (currentSection === "PARSE") {
+        clearParseHighlights();
+      }
+    });
+    span.addEventListener("click", (event) => {
+      const byteStart = parseInt(span.dataset.byteStart);
+      const byteEnd = parseInt(span.dataset.byteEnd);
+      
+      // Get the click position within the span to determine the exact byte
+      const clickByte = getClickBytePosition(event, span, byteStart, byteEnd);
+      
+      const rightSelector = document.getElementById("right-selector");
+      const currentSection = rightSelector ? rightSelector.value : "TOKENS";
+      
+      if (currentSection === "TOKENS") {
+        const tokenIndex = findTokenIndexByByteRange(byteStart, byteEnd);
+        if (tokenIndex >= 0) {
+          scrollToTokenInList(tokenIndex);
+        }
+      } else if (currentSection === "PARSE") {
+        scrollToParseElementAtByte(clickByte);
+      }
+    });
+  });
+}
+
+function highlightTokenInList(tokenIndex) {
+  const tokensContainer = document.getElementById("tokens-display");
+  if (tokensContainer) {
+    const tokenDivs = tokensContainer.querySelectorAll(".token-item");
+    if (tokenDivs[tokenIndex]) {
+      tokenDivs[tokenIndex].style.backgroundColor = "#ffffcc";
+      tokenDivs[tokenIndex].style.outline = "2px solid #ffd700";
+    }
+  }
+}
+
+function clearTokenHighlights() {
+  const tokensContainer = document.getElementById("tokens-display");
+  if (tokensContainer) {
+    const tokenDivs = tokensContainer.querySelectorAll(".token-item");
+    tokenDivs.forEach((div) => {
+      div.style.backgroundColor = "";
+      div.style.outline = "";
+    });
+  }
+}
+
+function scrollToTokenInList(tokenIndex) {
+  const tokensContainer = document.getElementById("tokens-display");
+  if (tokensContainer) {
+    const tokenDivs = tokensContainer.querySelectorAll(".token-item");
+    if (tokenDivs[tokenIndex]) {
+      const targetToken = tokenDivs[tokenIndex];
+      const paneContent = tokensContainer.closest(".pane-content");
+      if (paneContent) {
+        scrollToAndFlash(targetToken, paneContent);
+      }
+    }
+  }
+}
+
+function scrollToSourceToken(tokenIndex) {
+  const token = getTokenByIndex(tokenIndex);
+  if (!token) return;
+
+  // Use byte range highlighting instead of flashing
+  scrollToSourceRange(token.start, token.end);
+}
+
+function scrollToAndFlash(element, container) {
+  // Calculate if element is outside the visible area
+  const containerRect = container.getBoundingClientRect();
+  const elementRect = element.getBoundingClientRect();
+
+  const isAbove = elementRect.top < containerRect.top;
+  const isBelow = elementRect.bottom > containerRect.bottom;
+
+  if (isAbove || isBelow) {
+    // Calculate the scroll position to center the element
+    const containerScrollTop = container.scrollTop;
+    const elementOffsetTop = element.offsetTop;
+    const containerHeight = container.clientHeight;
+    const elementHeight = element.offsetHeight;
+
+    const scrollTo = elementOffsetTop - containerHeight / 2 + elementHeight / 2;
+
+    // Smooth scroll to the target position
+    container.scrollTo({
+      top: scrollTo,
+      behavior: "smooth",
+    });
+  }
+
+  // Add flash animation
+  element.classList.remove("flash-highlight");
+  // Force reflow to restart animation
+  element.offsetHeight;
+  element.classList.add("flash-highlight");
+
+  // Remove the flash class after animation completes
+  setTimeout(() => {
+    element.classList.remove("flash-highlight");
+  }, 600);
+}
+
+// Initialize display when sections are selected
+function initializeSourceDisplay() {
+  if (!window.rocSourceCode) return;
+  const sourceElem = document.getElementById("source-display");
+  if (sourceElem) {
+    const bytes = getUtf8Bytes(window.rocSourceCode);
+    const { text, byteToUtf16 } = decodeUtf8AndBuildMapping(bytes);
+    window.rocSourceMapping = { bytes, text, byteToUtf16 };
+
+    // Convert tokens to format expected by buildTextClassSegments
+    if (window.rocTokens) {
+      window.rocTokensFormatted = window.rocTokens
+        .map(([kind, start, end]) => ({
+          start,
+          length: end - start,
+          class: getTokenClass(kind),
+        }))
+        .sort((a, b) => a.start - b.start);
+    }
+
+    renderSourceHighlight(null);
+  }
+}
+
+function initializeTokensDisplay() {
+  if (!window.rocTokens) return;
+  const tokensElem = document.getElementById("tokens-display");
+  if (tokensElem) {
+    tokensElem.innerHTML = "";
+    window.rocTokens.forEach(([kind, start, end], index) => {
+      const div = document.createElement("div");
+      div.className = "token-item " + getTokenClass(kind);
+      div.textContent = `${kind}`;
+      // Store both index and byte ranges for consistent mapping
+      div.dataset.tokenIndex = index;
+      div.dataset.byteStart = start;
+      div.dataset.byteEnd = end;
+      div.style.cursor = "pointer";
+      div.addEventListener("mouseenter", () => {
+        renderSourceHighlight({ start, length: end - start });
+      });
+      div.addEventListener("mouseleave", () => {
+        renderSourceHighlight(null);
+      });
+      div.addEventListener("click", () => {
+        scrollToSourceToken(index);
+      });
+      tokensElem.appendChild(div);
+    });
+  }
+}
+
+function renderSourceHighlight(range) {
+  if (!window.rocSourceMapping) return;
+  const sourceElem = document.getElementById("source-display");
+  if (!sourceElem) return;
+
+  const { text, byteToUtf16 } = window.rocSourceMapping;
+  const tokens = window.rocTokensFormatted || [];
+  const segments = buildTextClassSegments(text, byteToUtf16, tokens, range);
+  updateDomFromSegments(sourceElem, segments);
+}
+
+// Setup event delegation for source-range elements in PARSE tree and other sections
+function setupSourceRangeHandlers() {
+  document.addEventListener(
+    "mouseenter",
+    function (event) {
+      if (event.target.classList.contains("source-range")) {
+        const startByte = parseInt(event.target.dataset.startByte);
+        const endByte = parseInt(event.target.dataset.endByte);
+        if (!isNaN(startByte) && !isNaN(endByte)) {
+          highlightSourceRange(startByte, endByte);
+        }
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "mouseleave",
+    function (event) {
+      if (event.target.classList.contains("source-range")) {
+        clearSourceRangeHighlight();
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "click",
+    function (event) {
+      if (event.target.classList.contains("source-range")) {
+        const startByte = parseInt(event.target.dataset.startByte);
+        const endByte = parseInt(event.target.dataset.endByte);
+        if (!isNaN(startByte) && !isNaN(endByte)) {
+          scrollToSourceRange(startByte, endByte);
+        }
+      }
+    },
+    true,
+  );
+}
+
+// Highlight source range in the SOURCE pane
+function highlightSourceRange(startByte, endByte) {
+  const range = { start: startByte, length: endByte - startByte };
+  renderSourceHighlight(range);
+}
+
+// Clear source range highlighting
+function clearSourceRangeHighlight() {
+  renderSourceHighlight(null);
+}
+
+// Scroll to and highlight a source range using yellow highlighting
+function scrollToSourceRange(startByte, endByte) {
+  const sourceContainer = document.getElementById("source-display");
+  if (!sourceContainer) return;
+
+  // Always use byte range highlighting with synthetic elements (yellow background)
+  highlightSourceRange(startByte, endByte);
+
+  // Find the best element to scroll to by looking for overlapping spans
+  const allSpans = sourceContainer.querySelectorAll("span[data-byte-start][data-byte-end]");
+  let targetSpan = null;
+  
+  for (const span of allSpans) {
+    const spanStart = parseInt(span.dataset.byteStart);
+    const spanEnd = parseInt(span.dataset.byteEnd);
+    
+    // Check if this span overlaps with our target range
+    if (spanStart <= startByte && startByte < spanEnd) {
+      targetSpan = span;
+      break;
+    }
+  }
+
+  // If no overlapping token span found, look for the highlighted elements themselves
+  if (!targetSpan) {
+    const highlightedSpans = sourceContainer.querySelectorAll("span.highlight");
+    if (highlightedSpans.length > 0) {
+      targetSpan = highlightedSpans[0]; // Use the first highlighted element
+    }
+  }
+
+  if (targetSpan) {
+    const paneContent = sourceContainer.closest(".pane-content");
+    if (paneContent) {
+      // Scroll to the target span
+      const containerRect = paneContent.getBoundingClientRect();
+      const elementRect = targetSpan.getBoundingClientRect();
+      
+      const isAbove = elementRect.top < containerRect.top;
+      const isBelow = elementRect.bottom > containerRect.bottom;
+      
+      if (isAbove || isBelow) {
+        const containerScrollTop = paneContent.scrollTop;
+        const elementOffsetTop = targetSpan.offsetTop;
+        const containerHeight = paneContent.clientHeight;
+        const elementHeight = targetSpan.offsetHeight;
+        
+        const scrollTo = elementOffsetTop - containerHeight / 2 + elementHeight / 2;
+        
+        paneContent.scrollTo({
+          top: scrollTo,
+          behavior: "smooth",
+        });
+      }
+    }
+  }
+
+  // Add flashing animation to the highlighted synthetic elements
+  flashHighlightedElements();
+}
+
+// Flash the currently highlighted synthetic elements
+function flashHighlightedElements() {
+  const sourceContainer = document.getElementById("source-display");
+  if (!sourceContainer) return;
+
+  const highlightedSpans = sourceContainer.querySelectorAll("span.highlight");
+  highlightedSpans.forEach(span => {
+    span.classList.add("flash-highlight");
+  });
+
+  // Remove the flash class after animation completes
+  setTimeout(() => {
+    highlightedSpans.forEach(span => {
+      span.classList.remove("flash-highlight");
+    });
+  }, 600);
+}
+
+// Get the exact byte position within a span based on click coordinates
+function getClickBytePosition(event, span, byteStart, byteEnd) {
+  const spanRect = span.getBoundingClientRect();
+  const clickX = event.clientX - spanRect.left;
+  const spanWidth = spanRect.width;
+  
+  if (spanWidth === 0) return byteStart;
+  
+  // Calculate the relative position within the span (0 to 1)
+  const relativePosition = Math.max(0, Math.min(1, clickX / spanWidth));
+  
+  // Map to byte position
+  const byteRange = byteEnd - byteStart;
+  const clickByte = Math.floor(byteStart + (relativePosition * byteRange));
+  
+  return Math.max(byteStart, Math.min(byteEnd - 1, clickByte));
+}
+
+// Find the narrowest PARSE element containing a specific byte position
+function highlightParseElementAtByte(bytePosition) {
+  const parseContainer = document.getElementById("right-pane-content");
+  if (!parseContainer) return;
+  
+  const targetElement = findNarrowestParseElement(parseContainer, bytePosition);
+  if (targetElement) {
+    // Clear existing highlights
+    clearParseHighlights();
+    
+    // Highlight the target element
+    targetElement.classList.add("highlighted");
+  }
+}
+
+// Scroll to and flash the narrowest PARSE element containing a specific byte position
+function scrollToParseElementAtByte(bytePosition) {
+  const parseContainer = document.getElementById("right-pane-content");
+  if (!parseContainer) return;
+  
+  const targetElement = findNarrowestParseElement(parseContainer, bytePosition);
+  if (targetElement) {
+    // Clear existing highlights
+    clearParseHighlights();
+    
+    // Highlight the target element
+    targetElement.classList.add("highlighted");
+    
+    // Scroll to the element and flash it
+    const paneContent = parseContainer.closest(".pane-content");
+    if (paneContent) {
+      scrollToAndFlash(targetElement, paneContent);
+    }
+  }
+}
+
+// Find the narrowest (most specific) element containing the byte position
+function findNarrowestParseElement(container, bytePosition) {
+  const sourceRangeElements = container.querySelectorAll(".source-range[data-start-byte][data-end-byte]");
+  
+  let narrowestElement = null;
+  let narrowestRange = Infinity;
+  
+  for (const element of sourceRangeElements) {
+    const startByte = parseInt(element.dataset.startByte);
+    const endByte = parseInt(element.dataset.endByte);
+    
+    // Check if the byte position is within this element's range
+    if (bytePosition >= startByte && bytePosition < endByte) {
+      const range = endByte - startByte;
+      
+      // Choose this element if it's narrower than the current best
+      // In case of ties, the first one encountered wins (DOM order)
+      if (range < narrowestRange) {
+        narrowestElement = element;
+        narrowestRange = range;
+      }
+    }
+  }
+  
+  return narrowestElement;
+}
+
+// Clear all highlights in the PARSE tree
+function clearParseHighlights() {
+  const parseContainer = document.getElementById("right-pane-content");
+  if (parseContainer) {
+    const highlightedElements = parseContainer.querySelectorAll(".highlighted");
+    highlightedElements.forEach(element => {
+      element.classList.remove("highlighted");
+    });
+  }
+}
+    </script>
+</body>
+</html>
