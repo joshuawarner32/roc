@@ -395,101 +395,101 @@ Only definitions, type annotations, and imports are allowed at the top level.
             </div>
         </div>        <div class="section" data-section="PARSE">
             <div class="section-content">                <pre class="ast-parse"><span class="token-punctuation">(</span><span class="token-keyword">file</span> <span class="source-range" data-start-byte="0" data-end-byte="567" >@1.1-17.49</span>
-	<span class="token-punctuation">(</span><span class="token-keyword">app</span> <span class="source-range" data-start-byte="0" data-end-byte="52" >@1.1-1.53</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">provides</span> <span class="source-range" data-start-byte="5" data-end-byte="11" >@1.6-1.12</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">exposed-lower-ident</span> (<span class="token-keyword">text</span> <span class="token-punctuation">&quot;</span><span class="token-string">main!</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">record-field</span> <span class="source-range" data-start-byte="14" data-end-byte="52" >@1.15-1.53</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">pf</span><span class="token-punctuation">&quot;)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">e-string</span> <span class="source-range" data-start-byte="27" data-end-byte="50" >@1.28-1.51</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">e-string-part</span> <span class="source-range" data-start-byte="28" data-end-byte="49" >@1.29-1.50</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">../basic-cli/main.roc</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">packages</span> <span class="source-range" data-start-byte="12" data-end-byte="52" >@1.13-1.53</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">record-field</span> <span class="source-range" data-start-byte="14" data-end-byte="52" >@1.15-1.53</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">pf</span><span class="token-punctuation">&quot;)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">e-string</span> <span class="source-range" data-start-byte="27" data-end-byte="50" >@1.28-1.51</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">e-string-part</span> <span class="source-range" data-start-byte="28" data-end-byte="49" >@1.29-1.50</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">../basic-cli/main.roc</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-	<span class="token-punctuation">(</span><span class="token-keyword">statements</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> <span class="source-range" data-start-byte="117" data-end-byte="203" >@4.1-5.15</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">processComplex</span><span class="token-punctuation">&quot;)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> <span class="source-range" data-start-byte="134" data-end-byte="188" >@4.18-4.72</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="134" data-end-byte="177" >@4.18-4.61</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="141" data-end-byte="155" >@4.25-4.39</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="146" data-end-byte="154" >@4.30-4.38</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="152" data-end-byte="153" >@4.36-4.37</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="157" data-end-byte="176" >@4.41-4.60</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="167" data-end-byte="175" >@4.51-4.59</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="173" data-end-byte="174" >@4.57-4.58</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="181" data-end-byte="188" >@4.65-4.72</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="186" data-end-byte="187" >@4.70-4.71</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="189" data-end-byte="223" >@5.1-6.9</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="189" data-end-byte="203" >@5.1-5.15</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">processComplex</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="206" data-end-byte="223" >@5.18-6.9</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">args</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="207" data-end-byte="213" >@5.19-5.25</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">e-ident</span> <span class="source-range" data-start-byte="219" data-end-byte="223" >@6.5-6.9</span> (<span class="token-keyword">qaul</span> <span class="token-punctuation">&quot;</span><span class="token-string"></span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">when</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">e-ident</span> <span class="source-range" data-start-byte="224" data-end-byte="230" >@6.10-6.16</span> (<span class="token-keyword">qaul</span> <span class="token-punctuation">&quot;</span><span class="token-string"></span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">e-ident</span> <span class="source-range" data-start-byte="231" data-end-byte="233" >@6.17-6.19</span> (<span class="token-keyword">qaul</span> <span class="token-punctuation">&quot;</span><span class="token-string"></span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">is</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">s-malformed</span> <span class="source-range" data-start-byte="242" data-end-byte="260" >@7.9-7.27</span> (<span class="token-keyword">tag</span> <span class="token-punctuation">&quot;</span><span class="token-string">expected_colon_after_type_annotation</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">e-list</span> <span class="source-range" data-start-byte="259" data-end-byte="261" >@7.26-7.28</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">s-malformed</span> <span class="source-range" data-start-byte="270" data-end-byte="281" >@8.9-8.20</span> (<span class="token-keyword">tag</span> <span class="token-punctuation">&quot;</span><span class="token-string">expected_colon_after_type_annotation</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">e-list</span> <span class="source-range" data-start-byte="280" data-end-byte="282" >@8.19-8.21</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> <span class="source-range" data-start-byte="318" data-end-byte="383" >@11.1-12.11</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">deepNested</span><span class="token-punctuation">&quot;)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> <span class="source-range" data-start-byte="331" data-end-byte="372" >@11.14-11.55</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="331" data-end-byte="367" >@11.14-11.50</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="337" data-end-byte="366" >@11.20-11.49</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="344" data-end-byte="362" >@11.27-11.45</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="349" data-end-byte="361" >@11.32-11.44</span>
-								<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-								<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-								<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="359" data-end-byte="360" >@11.42-11.43</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="364" data-end-byte="365" >@11.47-11.48</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="371" data-end-byte="372" >@11.54-11.55</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="373" data-end-byte="397" >@12.1-12.25</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="373" data-end-byte="383" >@12.1-12.11</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">deepNested</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="386" data-end-byte="397" >@12.14-12.25</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">args</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">e-malformed</span> <span class="source-range" data-start-byte="390" data-end-byte="397" >@12.18-12.25</span> (<span class="token-keyword">reason</span> <span class="token-punctuation">&quot;</span><span class="token-string">expr_unexpected_token</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">e-string</span> <span class="source-range" data-start-byte="396" data-end-byte="413" >@12.24-12.41</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">e-string-part</span> <span class="source-range" data-start-byte="397" data-end-byte="412" >@12.25-12.40</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">not implemented</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="454" data-end-byte="524" >@15.1-17.6</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">header</span> <span class="source-range" data-start-byte="454" data-end-byte="471" >@15.1-15.18</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">ComplexType</span><span class="token-punctuation">&quot;)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">args</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="466" data-end-byte="467" >@15.13-15.14</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="469" data-end-byte="470" >@15.16-15.17</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="474" data-end-byte="517" >@15.21-15.64</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="481" data-end-byte="495" >@15.28-15.42</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="486" data-end-byte="494" >@15.33-15.41</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="492" data-end-byte="493" >@15.39-15.40</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="497" data-end-byte="516" >@15.44-15.63</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="507" data-end-byte="515" >@15.54-15.62</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="513" data-end-byte="514" >@15.60-15.61</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="519" data-end-byte="567" >@17.1-17.49</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="519" data-end-byte="524" >@17.1-17.6</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">main!</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="527" data-end-byte="567" >@17.9-17.49</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">args</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">e-apply</span> <span class="source-range" data-start-byte="531" data-end-byte="567" >@17.13-17.49</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">e-ident</span> <span class="source-range" data-start-byte="531" data-end-byte="545" >@17.13-17.27</span> (<span class="token-keyword">qaul</span> <span class="token-punctuation">&quot;</span><span class="token-string"></span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">processComplex</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">e-apply</span> <span class="source-range" data-start-byte="546" data-end-byte="566" >@17.28-17.48</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> <span class="source-range" data-start-byte="546" data-end-byte="548" >@17.28-17.30</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">Ok</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">e-list</span> <span class="source-range" data-start-byte="549" data-end-byte="565" >@17.31-17.47</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">e-apply</span> <span class="source-range" data-start-byte="550" data-end-byte="558" >@17.32-17.40</span>
-								<span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> <span class="source-range" data-start-byte="550" data-end-byte="554" >@17.32-17.36</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">Some</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-								<span class="token-punctuation">(</span><span class="token-keyword">e-int</span> <span class="source-range" data-start-byte="555" data-end-byte="557" >@17.37-17.39</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">42</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> <span class="source-range" data-start-byte="560" data-end-byte="564" >@17.42-17.46</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">None</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span></pre>
+  <span class="token-punctuation">(</span><span class="token-keyword">app</span> <span class="source-range" data-start-byte="0" data-end-byte="52" >@1.1-1.53</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">provides</span> <span class="source-range" data-start-byte="5" data-end-byte="11" >@1.6-1.12</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">exposed-lower-ident</span> (<span class="token-keyword">text</span> <span class="token-punctuation">&quot;</span><span class="token-string">main!</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">record-field</span> <span class="source-range" data-start-byte="14" data-end-byte="52" >@1.15-1.53</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">pf</span><span class="token-punctuation">&quot;)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">e-string</span> <span class="source-range" data-start-byte="27" data-end-byte="50" >@1.28-1.51</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">e-string-part</span> <span class="source-range" data-start-byte="28" data-end-byte="49" >@1.29-1.50</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">../basic-cli/main.roc</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">packages</span> <span class="source-range" data-start-byte="12" data-end-byte="52" >@1.13-1.53</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">record-field</span> <span class="source-range" data-start-byte="14" data-end-byte="52" >@1.15-1.53</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">pf</span><span class="token-punctuation">&quot;)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">e-string</span> <span class="source-range" data-start-byte="27" data-end-byte="50" >@1.28-1.51</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">e-string-part</span> <span class="source-range" data-start-byte="28" data-end-byte="49" >@1.29-1.50</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">../basic-cli/main.roc</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+  <span class="token-punctuation">(</span><span class="token-keyword">statements</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> <span class="source-range" data-start-byte="117" data-end-byte="203" >@4.1-5.15</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">processComplex</span><span class="token-punctuation">&quot;)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> <span class="source-range" data-start-byte="134" data-end-byte="188" >@4.18-4.72</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="134" data-end-byte="177" >@4.18-4.61</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="141" data-end-byte="155" >@4.25-4.39</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="146" data-end-byte="154" >@4.30-4.38</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="152" data-end-byte="153" >@4.36-4.37</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="157" data-end-byte="176" >@4.41-4.60</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="167" data-end-byte="175" >@4.51-4.59</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="173" data-end-byte="174" >@4.57-4.58</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="181" data-end-byte="188" >@4.65-4.72</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="186" data-end-byte="187" >@4.70-4.71</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="189" data-end-byte="223" >@5.1-6.9</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="189" data-end-byte="203" >@5.1-5.15</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">processComplex</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="206" data-end-byte="223" >@5.18-6.9</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">args</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="207" data-end-byte="213" >@5.19-5.25</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">e-ident</span> <span class="source-range" data-start-byte="219" data-end-byte="223" >@6.5-6.9</span> (<span class="token-keyword">qaul</span> <span class="token-punctuation">&quot;</span><span class="token-string"></span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">when</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">e-ident</span> <span class="source-range" data-start-byte="224" data-end-byte="230" >@6.10-6.16</span> (<span class="token-keyword">qaul</span> <span class="token-punctuation">&quot;</span><span class="token-string"></span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">e-ident</span> <span class="source-range" data-start-byte="231" data-end-byte="233" >@6.17-6.19</span> (<span class="token-keyword">qaul</span> <span class="token-punctuation">&quot;</span><span class="token-string"></span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">is</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">s-malformed</span> <span class="source-range" data-start-byte="242" data-end-byte="260" >@7.9-7.27</span> (<span class="token-keyword">tag</span> <span class="token-punctuation">&quot;</span><span class="token-string">expected_colon_after_type_annotation</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">e-list</span> <span class="source-range" data-start-byte="259" data-end-byte="261" >@7.26-7.28</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">s-malformed</span> <span class="source-range" data-start-byte="270" data-end-byte="281" >@8.9-8.20</span> (<span class="token-keyword">tag</span> <span class="token-punctuation">&quot;</span><span class="token-string">expected_colon_after_type_annotation</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">e-list</span> <span class="source-range" data-start-byte="280" data-end-byte="282" >@8.19-8.21</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">s-type-anno</span> <span class="source-range" data-start-byte="318" data-end-byte="383" >@11.1-12.11</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">deepNested</span><span class="token-punctuation">&quot;)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> <span class="source-range" data-start-byte="331" data-end-byte="372" >@11.14-11.55</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="331" data-end-byte="367" >@11.14-11.50</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="337" data-end-byte="366" >@11.20-11.49</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="344" data-end-byte="362" >@11.27-11.45</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="349" data-end-byte="361" >@11.32-11.44</span>
+                <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+                <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+                <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="359" data-end-byte="360" >@11.42-11.43</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="364" data-end-byte="365" >@11.47-11.48</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="371" data-end-byte="372" >@11.54-11.55</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="373" data-end-byte="397" >@12.1-12.25</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="373" data-end-byte="383" >@12.1-12.11</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">deepNested</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="386" data-end-byte="397" >@12.14-12.25</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">args</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">e-malformed</span> <span class="source-range" data-start-byte="390" data-end-byte="397" >@12.18-12.25</span> (<span class="token-keyword">reason</span> <span class="token-punctuation">&quot;</span><span class="token-string">expr_unexpected_token</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">e-string</span> <span class="source-range" data-start-byte="396" data-end-byte="413" >@12.24-12.41</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">e-string-part</span> <span class="source-range" data-start-byte="397" data-end-byte="412" >@12.25-12.40</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">not implemented</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="454" data-end-byte="524" >@15.1-17.6</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">header</span> <span class="source-range" data-start-byte="454" data-end-byte="471" >@15.1-15.18</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">ComplexType</span><span class="token-punctuation">&quot;)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">args</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="466" data-end-byte="467" >@15.13-15.14</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="469" data-end-byte="470" >@15.16-15.17</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="474" data-end-byte="517" >@15.21-15.64</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="481" data-end-byte="495" >@15.28-15.42</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="486" data-end-byte="494" >@15.33-15.41</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="492" data-end-byte="493" >@15.39-15.40</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="497" data-end-byte="516" >@15.44-15.63</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="507" data-end-byte="515" >@15.54-15.62</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="513" data-end-byte="514" >@15.60-15.61</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">s-decl</span> <span class="source-range" data-start-byte="519" data-end-byte="567" >@17.1-17.49</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">p-ident</span> <span class="source-range" data-start-byte="519" data-end-byte="524" >@17.1-17.6</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">main!</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="527" data-end-byte="567" >@17.9-17.49</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">args</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">e-apply</span> <span class="source-range" data-start-byte="531" data-end-byte="567" >@17.13-17.49</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">e-ident</span> <span class="source-range" data-start-byte="531" data-end-byte="545" >@17.13-17.27</span> (<span class="token-keyword">qaul</span> <span class="token-punctuation">&quot;</span><span class="token-string"></span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">processComplex</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">e-apply</span> <span class="source-range" data-start-byte="546" data-end-byte="566" >@17.28-17.48</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> <span class="source-range" data-start-byte="546" data-end-byte="548" >@17.28-17.30</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">Ok</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">e-list</span> <span class="source-range" data-start-byte="549" data-end-byte="565" >@17.31-17.47</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">e-apply</span> <span class="source-range" data-start-byte="550" data-end-byte="558" >@17.32-17.40</span>
+                <span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> <span class="source-range" data-start-byte="550" data-end-byte="554" >@17.32-17.36</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">Some</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+                <span class="token-punctuation">(</span><span class="token-keyword">e-int</span> <span class="source-range" data-start-byte="555" data-end-byte="557" >@17.37-17.39</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">42</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> <span class="source-range" data-start-byte="560" data-end-byte="564" >@17.42-17.46</span> (<span class="token-keyword">raw</span> <span class="token-punctuation">&quot;</span><span class="token-string">None</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span></pre>
             </div>
         </div>        <div class="section" data-section="FORMATTED">
             <div class="section-content">                <pre>app [main!] { pf: platform &quot;../basic-cli/main.roc&quot; }
@@ -512,75 +512,75 @@ main! = |_| processComplex(Ok([Some(42), None]))</pre>
             </div>
         </div>        <div class="section" data-section="CANONICALIZE">
             <div class="section-content">                <pre><span class="token-punctuation">(</span><span class="token-keyword">can-ir</span>
-	<span class="token-punctuation">(</span><span class="token-keyword">d-let</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> @5.1-5.15 (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">processComplex</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> @5.18-6.9
-			<span class="token-punctuation">(</span><span class="token-keyword">args</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> @5.19-5.25 (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">e-runtime-error</span> (<span class="token-keyword">tag</span> <span class="token-punctuation">&quot;</span><span class="token-string">ident_not_in_scope</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">annotation</span> @5.1-5.15
-			<span class="token-punctuation">(</span><span class="token-keyword">declared-type</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> @4.18-4.72 (<span class="token-keyword">effectful</span> <span class="token-number">false</span>)
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @4.18-4.61 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @4.25-4.39 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @4.30-4.38 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span>
-								<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @4.36-4.37 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @4.41-4.60 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @4.46-4.49 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @4.51-4.59 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error</span><span class="token-punctuation">&quot;)</span>
-								<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @4.57-4.58 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @4.65-4.72 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @4.70-4.71 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-	<span class="token-punctuation">(</span><span class="token-keyword">d-let</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> @12.1-12.11 (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">deepNested</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> @12.14-12.25
-			<span class="token-punctuation">(</span><span class="token-keyword">args</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span> @12.15-12.16<span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">e-runtime-error</span> (<span class="token-keyword">tag</span> <span class="token-punctuation">&quot;</span><span class="token-string">lambda_body_not_canonicalized</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">annotation</span> @12.1-12.11
-			<span class="token-punctuation">(</span><span class="token-keyword">declared-type</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> @11.14-11.55 (<span class="token-keyword">effectful</span> <span class="token-number">false</span>)
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @11.14-11.50 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span>
-						<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @11.20-11.49 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @11.27-11.45 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span>
-								<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @11.32-11.44 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span>
-									<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @11.37-11.40 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-									<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @11.42-11.43 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-							<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @11.47-11.48 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @11.54-11.55 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-	<span class="token-punctuation">(</span><span class="token-keyword">d-let</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> @17.1-17.6 (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">main!</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> @17.9-17.49
-			<span class="token-punctuation">(</span><span class="token-keyword">args</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span> @17.10-17.11<span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">e-call</span> @17.13-17.49
-				<span class="token-punctuation">(</span><span class="token-keyword">e-lookup-local</span> @17.13-17.27
-					<span class="token-punctuation">(</span><span class="token-keyword">pattern</span> @5.1-5.15<span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> @17.28-17.48 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Ok</span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">args</span> <span class="token-punctuation">&quot;</span><span class="token-string">TODO</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-	<span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> @15.1-17.6
-		<span class="token-punctuation">(</span><span class="token-keyword">ty-header</span> @15.1-15.18 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">ComplexType</span><span class="token-punctuation">&quot;)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">ty-args</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @15.13-15.14 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @15.16-15.17 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-		<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @15.21-15.64 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @15.28-15.42 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @15.33-15.41 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @15.39-15.40 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
-			<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @15.44-15.63 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty</span> @15.49-15.52 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
-				<span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> @15.54-15.62 (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error</span><span class="token-punctuation">&quot;)</span>
-					<span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> @15.60-15.61 (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span></pre>
+  <span class="token-punctuation">(</span><span class="token-keyword">d-let</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> <span class="source-range" data-start-byte="189" data-end-byte="203" >@5.1-5.15</span> (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">processComplex</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="206" data-end-byte="223" >@5.18-6.9</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">args</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> <span class="source-range" data-start-byte="207" data-end-byte="213" >@5.19-5.25</span> (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">result</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">e-runtime-error</span> (<span class="token-keyword">tag</span> <span class="token-punctuation">&quot;</span><span class="token-string">ident_not_in_scope</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">annotation</span> <span class="source-range" data-start-byte="189" data-end-byte="203" >@5.1-5.15</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">declared-type</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> <span class="source-range" data-start-byte="134" data-end-byte="188" >@4.18-4.72</span> (<span class="token-keyword">effectful</span> <span class="token-number">false</span>)
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="134" data-end-byte="177" >@4.18-4.61</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="141" data-end-byte="155" >@4.25-4.39</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="146" data-end-byte="154" >@4.30-4.38</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span>
+                <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="152" data-end-byte="153" >@4.36-4.37</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="157" data-end-byte="176" >@4.41-4.60</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty</span> <span class="source-range" data-start-byte="162" data-end-byte="165" >@4.46-4.49</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="167" data-end-byte="175" >@4.51-4.59</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error</span><span class="token-punctuation">&quot;)</span>
+                <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="173" data-end-byte="174" >@4.57-4.58</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="181" data-end-byte="188" >@4.65-4.72</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="186" data-end-byte="187" >@4.70-4.71</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+  <span class="token-punctuation">(</span><span class="token-keyword">d-let</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> <span class="source-range" data-start-byte="373" data-end-byte="383" >@12.1-12.11</span> (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">deepNested</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="386" data-end-byte="397" >@12.14-12.25</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">args</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span> <span class="source-range" data-start-byte="387" data-end-byte="388" >@12.15-12.16</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">e-runtime-error</span> (<span class="token-keyword">tag</span> <span class="token-punctuation">&quot;</span><span class="token-string">lambda_body_not_canonicalized</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">annotation</span> <span class="source-range" data-start-byte="373" data-end-byte="383" >@12.1-12.11</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">declared-type</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-fn</span> <span class="source-range" data-start-byte="331" data-end-byte="372" >@11.14-11.55</span> (<span class="token-keyword">effectful</span> <span class="token-number">false</span>)
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="331" data-end-byte="367" >@11.14-11.50</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span>
+            <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="337" data-end-byte="366" >@11.20-11.49</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="344" data-end-byte="362" >@11.27-11.45</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span>
+                <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="349" data-end-byte="361" >@11.32-11.44</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span>
+                  <span class="token-punctuation">(</span><span class="token-keyword">ty</span> <span class="source-range" data-start-byte="354" data-end-byte="357" >@11.37-11.40</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+                  <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="359" data-end-byte="360" >@11.42-11.43</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+              <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="364" data-end-byte="365" >@11.47-11.48</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="371" data-end-byte="372" >@11.54-11.55</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+  <span class="token-punctuation">(</span><span class="token-keyword">d-let</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">p-assign</span> <span class="source-range" data-start-byte="519" data-end-byte="524" >@17.1-17.6</span> (<span class="token-keyword">ident</span> <span class="token-punctuation">&quot;</span><span class="token-string">main!</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">e-lambda</span> <span class="source-range" data-start-byte="527" data-end-byte="567" >@17.9-17.49</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">args</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">p-underscore</span> <span class="source-range" data-start-byte="528" data-end-byte="529" >@17.10-17.11</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">e-call</span> <span class="source-range" data-start-byte="531" data-end-byte="567" >@17.13-17.49</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">e-lookup-local</span> <span class="source-range" data-start-byte="531" data-end-byte="545" >@17.13-17.27</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">pattern</span> <span class="source-range" data-start-byte="189" data-end-byte="203" >@5.1-5.15</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">e-tag</span> <span class="source-range" data-start-byte="546" data-end-byte="566" >@17.28-17.48</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Ok</span><span class="token-punctuation">&quot;)</span> (<span class="token-keyword">args</span> <span class="token-punctuation">&quot;</span><span class="token-string">TODO</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+  <span class="token-punctuation">(</span><span class="token-keyword">s-type-decl</span> <span class="source-range" data-start-byte="454" data-end-byte="524" >@15.1-17.6</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">ty-header</span> <span class="source-range" data-start-byte="454" data-end-byte="471" >@15.1-15.18</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">ComplexType</span><span class="token-punctuation">&quot;)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">ty-args</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="466" data-end-byte="467" >@15.13-15.14</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="469" data-end-byte="470" >@15.16-15.17</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="474" data-end-byte="517" >@15.21-15.64</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Result</span><span class="token-punctuation">&quot;)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="481" data-end-byte="495" >@15.28-15.42</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">List</span><span class="token-punctuation">&quot;)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="486" data-end-byte="494" >@15.33-15.41</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Maybe</span><span class="token-punctuation">&quot;)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="492" data-end-byte="493" >@15.39-15.40</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">a</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+      <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="497" data-end-byte="516" >@15.44-15.63</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Dict</span><span class="token-punctuation">&quot;)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty</span> <span class="source-range" data-start-byte="502" data-end-byte="505" >@15.49-15.52</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">Str</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+        <span class="token-punctuation">(</span><span class="token-keyword">ty-apply</span> <span class="source-range" data-start-byte="507" data-end-byte="515" >@15.54-15.62</span> (<span class="token-keyword">symbol</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error</span><span class="token-punctuation">&quot;)</span>
+          <span class="token-punctuation">(</span><span class="token-keyword">ty-var</span> <span class="source-range" data-start-byte="513" data-end-byte="514" >@15.60-15.61</span> (<span class="token-keyword">name</span> <span class="token-punctuation">&quot;</span><span class="token-string">b</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span></pre>
             </div>
         </div>        <div class="section" data-section="TYPES">
-            <div class="section-content">                <pre>(inferred-types
-	(defs
-		(patt @5.1-5.15 (type &quot;Error -&gt; Error&quot;))
-		(patt @12.1-12.11 (type &quot;Error -&gt; Error&quot;))
-		(patt @17.1-17.6 (type &quot;* -&gt; Error&quot;)))
-	(expressions
-		(expr @5.18-6.9 (type &quot;Error -&gt; Error&quot;))
-		(expr @12.14-12.25 (type &quot;Error -&gt; Error&quot;))
-		(expr @17.9-17.49 (type &quot;* -&gt; Error&quot;))))</pre>
+            <div class="section-content">                <pre><span class="token-punctuation">(</span><span class="token-keyword">inferred-types</span>
+  <span class="token-punctuation">(</span><span class="token-keyword">defs</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">patt</span> <span class="source-range" data-start-byte="189" data-end-byte="203" >@5.1-5.15</span> (<span class="token-keyword">type</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error -&gt; Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">patt</span> <span class="source-range" data-start-byte="373" data-end-byte="383" >@12.1-12.11</span> (<span class="token-keyword">type</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error -&gt; Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">patt</span> <span class="source-range" data-start-byte="519" data-end-byte="524" >@17.1-17.6</span> (<span class="token-keyword">type</span> <span class="token-punctuation">&quot;</span><span class="token-string">* -&gt; Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span>
+  <span class="token-punctuation">(</span><span class="token-keyword">expressions</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">expr</span> <span class="source-range" data-start-byte="206" data-end-byte="223" >@5.18-6.9</span> (<span class="token-keyword">type</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error -&gt; Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">expr</span> <span class="source-range" data-start-byte="386" data-end-byte="397" >@12.14-12.25</span> (<span class="token-keyword">type</span> <span class="token-punctuation">&quot;</span><span class="token-string">Error -&gt; Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span>
+    <span class="token-punctuation">(</span><span class="token-keyword">expr</span> <span class="source-range" data-start-byte="527" data-end-byte="567" >@17.9-17.49</span> (<span class="token-keyword">type</span> <span class="token-punctuation">&quot;</span><span class="token-string">* -&gt; Error</span><span class="token-punctuation">&quot;)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span><span class="token-punctuation">)</span></pre>
             </div>
         </div>    </div>
 
@@ -591,12 +591,16 @@ document.addEventListener("DOMContentLoaded", function () {
     const selector = document.getElementById("left-selector");
     const selectedSection = selector.value;
     switchToPane("left", selectedSection);
+    // Save to localStorage
+    localStorage.setItem("leftPaneSelection", selectedSection);
   };
 
   window.switchRightPane = function () {
     const selector = document.getElementById("right-selector");
     const selectedSection = selector.value;
     switchToPane("right", selectedSection);
+    // Save to localStorage
+    localStorage.setItem("rightPaneSelection", selectedSection);
   };
 
   // Setup event delegation for source-range elements
@@ -652,9 +656,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Initial setup - show SOURCE on left, TOKENS on right
-  switchToPane("left", "SOURCE");
-  switchToPane("right", "TOKENS");
+  // Initial setup - restore from localStorage or use defaults
+  const savedLeftPane = localStorage.getItem("leftPaneSelection") || "SOURCE";
+  const savedRightPane =
+    localStorage.getItem("rightPaneSelection") || "CANONICALIZE";
+
+  switchToPane("left", savedLeftPane);
+  switchToPane("right", savedRightPane);
 });
 // UTF-8 byte handling functions from rust_highlight_demo.html
 function getUtf8Bytes(str) {
@@ -884,20 +892,13 @@ function getTokenClass(tokenKind) {
   return "token-default";
 }
 
-// Central function to find token index by byte range - single source of truth
-function findTokenIndexByByteRange(byteStart, byteEnd) {
-  if (!window.rocTokens) return -1;
-  return window.rocTokens.findIndex(
-    ([kind, start, end]) => start === byteStart && end === byteEnd,
+function isSectionMarkup(currentSection) {
+  return (
+    currentSection === "TOKENS" ||
+    currentSection === "PARSE" ||
+    currentSection === "CANONICALIZE" ||
+    currentSection === "TYPES"
   );
-}
-
-// Central function to find token by index - single source of truth
-function getTokenByIndex(index) {
-  if (!window.rocTokens || index < 0 || index >= window.rocTokens.length)
-    return null;
-  const [kind, start, end] = window.rocTokens[index];
-  return { kind, start, end, index };
 }
 
 // Add event listeners for source elements to highlight corresponding tokens or PARSE elements
@@ -909,94 +910,38 @@ function addSourceEventListeners(container) {
     span.addEventListener("mouseenter", () => {
       const byteStart = parseInt(span.dataset.byteStart);
       const byteEnd = parseInt(span.dataset.byteEnd);
-      
+
       // Check what's currently displayed in the right pane
       const rightSelector = document.getElementById("right-selector");
       const currentSection = rightSelector ? rightSelector.value : "TOKENS";
-      
-      if (currentSection === "TOKENS") {
-        const tokenIndex = findTokenIndexByByteRange(byteStart, byteEnd);
-        if (tokenIndex >= 0) {
-          highlightTokenInList(tokenIndex);
-        }
-      } else if (currentSection === "PARSE") {
-        highlightParseElementAtByte(byteStart);
+
+      if (isSectionMarkup(currentSection)) {
+        highlightMarkupElementAtByte(byteStart);
       }
     });
     span.addEventListener("mouseleave", () => {
       const rightSelector = document.getElementById("right-selector");
       const currentSection = rightSelector ? rightSelector.value : "TOKENS";
-      
-      if (currentSection === "TOKENS") {
-        clearTokenHighlights();
-      } else if (currentSection === "PARSE") {
-        clearParseHighlights();
+
+      if (isSectionMarkup(currentSection)) {
+        clearMarkupHighlights();
       }
     });
     span.addEventListener("click", (event) => {
       const byteStart = parseInt(span.dataset.byteStart);
       const byteEnd = parseInt(span.dataset.byteEnd);
-      
+
       // Get the click position within the span to determine the exact byte
       const clickByte = getClickBytePosition(event, span, byteStart, byteEnd);
-      
+
       const rightSelector = document.getElementById("right-selector");
       const currentSection = rightSelector ? rightSelector.value : "TOKENS";
-      
-      if (currentSection === "TOKENS") {
-        const tokenIndex = findTokenIndexByByteRange(byteStart, byteEnd);
-        if (tokenIndex >= 0) {
-          scrollToTokenInList(tokenIndex);
-        }
-      } else if (currentSection === "PARSE") {
-        scrollToParseElementAtByte(clickByte);
+
+      if (isSectionMarkup(currentSection)) {
+        scrollToMarkupElementAtByte(clickByte);
       }
     });
   });
-}
-
-function highlightTokenInList(tokenIndex) {
-  const tokensContainer = document.getElementById("tokens-display");
-  if (tokensContainer) {
-    const tokenDivs = tokensContainer.querySelectorAll(".token-item");
-    if (tokenDivs[tokenIndex]) {
-      tokenDivs[tokenIndex].style.backgroundColor = "#ffffcc";
-      tokenDivs[tokenIndex].style.outline = "2px solid #ffd700";
-    }
-  }
-}
-
-function clearTokenHighlights() {
-  const tokensContainer = document.getElementById("tokens-display");
-  if (tokensContainer) {
-    const tokenDivs = tokensContainer.querySelectorAll(".token-item");
-    tokenDivs.forEach((div) => {
-      div.style.backgroundColor = "";
-      div.style.outline = "";
-    });
-  }
-}
-
-function scrollToTokenInList(tokenIndex) {
-  const tokensContainer = document.getElementById("tokens-display");
-  if (tokensContainer) {
-    const tokenDivs = tokensContainer.querySelectorAll(".token-item");
-    if (tokenDivs[tokenIndex]) {
-      const targetToken = tokenDivs[tokenIndex];
-      const paneContent = tokensContainer.closest(".pane-content");
-      if (paneContent) {
-        scrollToAndFlash(targetToken, paneContent);
-      }
-    }
-  }
-}
-
-function scrollToSourceToken(tokenIndex) {
-  const token = getTokenByIndex(tokenIndex);
-  if (!token) return;
-
-  // Use byte range highlighting instead of flashing
-  scrollToSourceRange(token.start, token.end);
 }
 
 function scrollToAndFlash(element, container) {
@@ -1073,15 +1018,12 @@ function initializeTokensDisplay() {
       div.dataset.byteStart = start;
       div.dataset.byteEnd = end;
       div.style.cursor = "pointer";
-      div.addEventListener("mouseenter", () => {
-        renderSourceHighlight({ start, length: end - start });
-      });
-      div.addEventListener("mouseleave", () => {
-        renderSourceHighlight(null);
-      });
-      div.addEventListener("click", () => {
-        scrollToSourceToken(index);
-      });
+
+      // Make the token element compatible with markup highlighting system
+      div.classList.add("source-range");
+      div.dataset.startByte = start;
+      div.dataset.endByte = end;
+
       tokensElem.appendChild(div);
     });
   }
@@ -1159,13 +1101,15 @@ function scrollToSourceRange(startByte, endByte) {
   highlightSourceRange(startByte, endByte);
 
   // Find the best element to scroll to by looking for overlapping spans
-  const allSpans = sourceContainer.querySelectorAll("span[data-byte-start][data-byte-end]");
+  const allSpans = sourceContainer.querySelectorAll(
+    "span[data-byte-start][data-byte-end]",
+  );
   let targetSpan = null;
-  
+
   for (const span of allSpans) {
     const spanStart = parseInt(span.dataset.byteStart);
     const spanEnd = parseInt(span.dataset.byteEnd);
-    
+
     // Check if this span overlaps with our target range
     if (spanStart <= startByte && startByte < spanEnd) {
       targetSpan = span;
@@ -1187,18 +1131,19 @@ function scrollToSourceRange(startByte, endByte) {
       // Scroll to the target span
       const containerRect = paneContent.getBoundingClientRect();
       const elementRect = targetSpan.getBoundingClientRect();
-      
+
       const isAbove = elementRect.top < containerRect.top;
       const isBelow = elementRect.bottom > containerRect.bottom;
-      
+
       if (isAbove || isBelow) {
         const containerScrollTop = paneContent.scrollTop;
         const elementOffsetTop = targetSpan.offsetTop;
         const containerHeight = paneContent.clientHeight;
         const elementHeight = targetSpan.offsetHeight;
-        
-        const scrollTo = elementOffsetTop - containerHeight / 2 + elementHeight / 2;
-        
+
+        const scrollTo =
+          elementOffsetTop - containerHeight / 2 + elementHeight / 2;
+
         paneContent.scrollTo({
           top: scrollTo,
           behavior: "smooth",
@@ -1217,13 +1162,13 @@ function flashHighlightedElements() {
   if (!sourceContainer) return;
 
   const highlightedSpans = sourceContainer.querySelectorAll("span.highlight");
-  highlightedSpans.forEach(span => {
+  highlightedSpans.forEach((span) => {
     span.classList.add("flash-highlight");
   });
 
   // Remove the flash class after animation completes
   setTimeout(() => {
-    highlightedSpans.forEach(span => {
+    highlightedSpans.forEach((span) => {
       span.classList.remove("flash-highlight");
     });
   }, 600);
@@ -1234,47 +1179,53 @@ function getClickBytePosition(event, span, byteStart, byteEnd) {
   const spanRect = span.getBoundingClientRect();
   const clickX = event.clientX - spanRect.left;
   const spanWidth = spanRect.width;
-  
+
   if (spanWidth === 0) return byteStart;
-  
+
   // Calculate the relative position within the span (0 to 1)
   const relativePosition = Math.max(0, Math.min(1, clickX / spanWidth));
-  
+
   // Map to byte position
   const byteRange = byteEnd - byteStart;
-  const clickByte = Math.floor(byteStart + (relativePosition * byteRange));
-  
+  const clickByte = Math.floor(byteStart + relativePosition * byteRange);
+
   return Math.max(byteStart, Math.min(byteEnd - 1, clickByte));
 }
 
-// Find the narrowest PARSE element containing a specific byte position
-function highlightParseElementAtByte(bytePosition) {
+// Find the narrowest markup element containing a specific byte position
+function highlightMarkupElementAtByte(bytePosition) {
   const parseContainer = document.getElementById("right-pane-content");
   if (!parseContainer) return;
-  
-  const targetElement = findNarrowestParseElement(parseContainer, bytePosition);
+
+  const targetElement = findNarrowestMarkupElement(
+    parseContainer,
+    bytePosition,
+  );
   if (targetElement) {
     // Clear existing highlights
-    clearParseHighlights();
-    
+    clearMarkupHighlights();
+
     // Highlight the target element
     targetElement.classList.add("highlighted");
   }
 }
 
-// Scroll to and flash the narrowest PARSE element containing a specific byte position
-function scrollToParseElementAtByte(bytePosition) {
+// Scroll to and flash the narrowest markup element containing a specific byte position
+function scrollToMarkupElementAtByte(bytePosition) {
   const parseContainer = document.getElementById("right-pane-content");
   if (!parseContainer) return;
-  
-  const targetElement = findNarrowestParseElement(parseContainer, bytePosition);
+
+  const targetElement = findNarrowestMarkupElement(
+    parseContainer,
+    bytePosition,
+  );
   if (targetElement) {
     // Clear existing highlights
-    clearParseHighlights();
-    
+    clearMarkupHighlights();
+
     // Highlight the target element
     targetElement.classList.add("highlighted");
-    
+
     // Scroll to the element and flash it
     const paneContent = parseContainer.closest(".pane-content");
     if (paneContent) {
@@ -1284,20 +1235,22 @@ function scrollToParseElementAtByte(bytePosition) {
 }
 
 // Find the narrowest (most specific) element containing the byte position
-function findNarrowestParseElement(container, bytePosition) {
-  const sourceRangeElements = container.querySelectorAll(".source-range[data-start-byte][data-end-byte]");
-  
+function findNarrowestMarkupElement(container, bytePosition) {
+  const sourceRangeElements = container.querySelectorAll(
+    ".source-range[data-start-byte][data-end-byte]",
+  );
+
   let narrowestElement = null;
   let narrowestRange = Infinity;
-  
+
   for (const element of sourceRangeElements) {
     const startByte = parseInt(element.dataset.startByte);
     const endByte = parseInt(element.dataset.endByte);
-    
+
     // Check if the byte position is within this element's range
     if (bytePosition >= startByte && bytePosition < endByte) {
       const range = endByte - startByte;
-      
+
       // Choose this element if it's narrower than the current best
       // In case of ties, the first one encountered wins (DOM order)
       if (range < narrowestRange) {
@@ -1306,16 +1259,16 @@ function findNarrowestParseElement(container, bytePosition) {
       }
     }
   }
-  
+
   return narrowestElement;
 }
 
-// Clear all highlights in the PARSE tree
-function clearParseHighlights() {
+// Clear all highlights in the markup tree
+function clearMarkupHighlights() {
   const parseContainer = document.getElementById("right-pane-content");
   if (parseContainer) {
     const highlightedElements = parseContainer.querySelectorAll(".highlighted");
-    highlightedElements.forEach(element => {
+    highlightedElements.forEach((element) => {
       element.classList.remove("highlighted");
     });
   }
