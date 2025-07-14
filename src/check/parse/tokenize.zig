@@ -572,35 +572,87 @@ pub const Cursor = struct {
         }
     }
 
-    /// Chomps "trivia" (whitespace, comments, etc.) and returns an optional indent.
-    /// If the chomped trivia includes a newline, returns the indent of the next (real) line.
-    /// Otherwise, returns null.
+    const simd = std.simd;
+
+    /// Chomps leading trivia (spaces, tabs, LF, CR/LF, `#` comments, ASCII < 32)
+    /// in **one pass**.  A cheap SIMD sweep eats the common, single-byte trivia,
+    /// then we fall back to the original scalar logic for the rare cases that need
+    /// look-ahead (CR LF) or multi-byte skipping (`#…\n`).
     pub fn chompTrivia(self: *Cursor) void {
+        // -- 1 ⟡ SIMD fast-path ----------------------------------------------------
+        const VL = simd.suggestVectorLength(u8) orelse 16; // portable default
+        const Vec = @Vector(VL, u8);
+
+        // Constants as broadcast vectors
+        const v_space = @as(Vec, @splat(' '));
+        const v_tab = @as(Vec, @splat('\t'));
+        const v_lf = @as(Vec, @splat('\n'));
+        const v_cr = @as(Vec, @splat('\r'));
+        const v_hash = @as(Vec, @splat('#'));
+        const v_32 = @as(Vec, @splat(@as(u8, 32)));
+
+        while (self.pos + VL <= self.buf.len) {
+            const chunk = self.buf[self.pos .. self.pos + VL];
+            const v_ptr: *const Vec = @ptrCast(@alignCast(chunk.ptr));
+            const v: Vec = v_ptr.*;
+
+            // Simple single-byte trivia:  (b < 32 && b != '\r') || b == ' '
+            const less_than_32 = (v < v_32);
+            const not_cr = @select(bool, v == v_cr, @as(@Vector(VL, bool), @splat(false)), @as(@Vector(VL, bool), @splat(true)));
+            const simple_ctrl = @select(bool, less_than_32, not_cr, @as(@Vector(VL, bool), @splat(false)));
+            const is_space = (v == v_space);
+            const is_tab = (v == v_tab);
+            const is_lf = (v == v_lf);
+            const simple_ws1 = @select(bool, is_space, @as(@Vector(VL, bool), @splat(true)), is_tab);
+            const simple_ws2 = @select(bool, simple_ws1, @as(@Vector(VL, bool), @splat(true)), is_lf);
+            const simple_ws = @select(bool, simple_ws2, @as(@Vector(VL, bool), @splat(true)), simple_ctrl);
+
+            // Anything that forces scalar handling?
+            const is_cr = (v == v_cr);
+            const is_hash = (v == v_hash);
+            const needs_scalar = @select(bool, is_cr, @as(@Vector(VL, bool), @splat(true)), is_hash);
+
+            if (@reduce(.And, simple_ws) and !@reduce(.Or, needs_scalar)) {
+                // Whole vector is cheap trivia – consume and keep streaming
+                self.pos += VL;
+                continue;
+            }
+
+            // Otherwise locate first non-trivia (or complex trivia) byte
+            const not_simple_ws = @select(bool, simple_ws, @as(@Vector(VL, bool), @splat(false)), @as(@Vector(VL, bool), @splat(true)));
+            const stop_mask = @select(bool, not_simple_ws, @as(@Vector(VL, bool), @splat(true)), needs_scalar);
+            if (simd.firstTrue(stop_mask)) |idx| {
+                self.pos += idx;
+            }
+            break; // hand over to scalar tail
+        }
+
+        // -- 2 ⟡ Scalar tail (exact original logic) --------------------------------
         while (self.pos < self.buf.len) {
             const b = self.buf[self.pos];
-            if (b == ' ') {
-                self.pos += 1;
-            } else if (b == '\t') {
-                self.pos += 1;
-            } else if (b == '\n') {
-                self.pos += 1;
-            } else if (b == '\r') {
-                self.pos += 1;
-                if (self.pos < self.buf.len and self.buf[self.pos] == '\n') {
+            switch (b) {
+                ' ', '\t', '\n' => self.pos += 1,
+
+                '\r' => {
+                    self.pos += 1;
+                    if (self.pos < self.buf.len and self.buf[self.pos] == '\n')
+                        self.pos += 1;
+                },
+
+                '#' => {
+                    self.pos += 1;
+                    while (self.pos < self.buf.len and
+                        self.buf[self.pos] != '\n' and
+                        self.buf[self.pos] != '\r')
+                        self.pos += 1;
+                },
+
+                // ASCII control chars 0–31 (CR and LF already handled above)
+                else => if (b < 32) {
                     self.pos += 1;
                 } else {
-                    self.pushMessageHere(.MisplacedCarriageReturn);
-                }
-            } else if (b == '#') {
-                self.pos += 1;
-                while (self.pos < self.buf.len and self.buf[self.pos] != '\n' and self.buf[self.pos] != '\r') {
-                    self.pos += 1;
-                }
-            } else if (b >= 0 and b <= 31) {
-                self.pushMessageHere(.AsciiControl);
-                self.pos += 1;
-            } else {
-                break;
+                    break;
+                },
             }
         }
     }
