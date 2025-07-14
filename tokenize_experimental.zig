@@ -12,6 +12,8 @@ const TokenClass = enum(u8) {
     lowercase_letter = 'a',
     digit = '0',
     whitespace = '_',
+    hash = '#',
+    newline = '\\', // Visible newline character for display
     other = '*',
 };
 
@@ -88,6 +90,8 @@ const Tokenizer = struct {
         lowercase: u64,
         uppercase: u64,
         digit: u64,
+        hash: u64,
+        newline: u64,
     };
 
     pub fn generateTokenMasks(classification_block: *const Block) TokenMasks {
@@ -97,33 +101,45 @@ const Tokenizer = struct {
         var lower_masks: [4]u16 = undefined;
         var upper_masks: [4]u16 = undefined;
         var digit_masks: [4]u16 = undefined;
+        var hash_masks: [4]u16 = undefined;
+        var newline_masks: [4]u16 = undefined;
 
         for (classification_block.chunks, 0..) |chunk, chunk_idx| {
             // Create separate masks for each token type
             const upper_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.uppercase_letter)));
             const lower_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.lowercase_letter)));
             const digit_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.digit)));
+            const hash_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.hash)));
+            const newline_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.newline)));
 
             // Convert boolean masks to 0/1 values and process each type
             const upper_vec: NeonChunk = @select(u8, upper_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
             const lower_vec: NeonChunk = @select(u8, lower_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
             const digit_vec: NeonChunk = @select(u8, digit_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
+            const hash_vec: NeonChunk = @select(u8, hash_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
+            const newline_vec: NeonChunk = @select(u8, newline_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
 
             // Shift left by iota positions within each byte
             const upper_shifted = upper_vec << @as(@Vector(16, u3), @truncate(iota));
             const lower_shifted = lower_vec << @as(@Vector(16, u3), @truncate(iota));
             const digit_shifted = digit_vec << @as(@Vector(16, u3), @truncate(iota));
+            const hash_shifted = hash_vec << @as(@Vector(16, u3), @truncate(iota));
+            const newline_shifted = newline_vec << @as(@Vector(16, u3), @truncate(iota));
 
             // Shuffle to interleave: lanes 0,8,1,9,2,10,3,11,4,12,5,13,6,14,7,15
             const shuffle_indices: @Vector(16, i32) = .{ 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15 };
             const upper_shuffled = @shuffle(u8, upper_shifted, undefined, shuffle_indices);
             const lower_shuffled = @shuffle(u8, lower_shifted, undefined, shuffle_indices);
             const digit_shuffled = @shuffle(u8, digit_shifted, undefined, shuffle_indices);
+            const hash_shuffled = @shuffle(u8, hash_shifted, undefined, shuffle_indices);
+            const newline_shuffled = @shuffle(u8, newline_shifted, undefined, shuffle_indices);
 
             // Convert to u16 masks
             upper_masks[chunk_idx] = vectorToU16Mask(upper_shuffled);
             lower_masks[chunk_idx] = vectorToU16Mask(lower_shuffled);
             digit_masks[chunk_idx] = vectorToU16Mask(digit_shuffled);
+            hash_masks[chunk_idx] = vectorToU16Mask(hash_shuffled);
+            newline_masks[chunk_idx] = vectorToU16Mask(newline_shuffled);
         }
 
         // Merge four 16-bit results into 64-bit masks for each type
@@ -142,10 +158,22 @@ const Tokenizer = struct {
             (@as(u64, digit_masks[2]) << 32) |
             (@as(u64, digit_masks[3]) << 48);
 
+        const hash_mask: u64 = (@as(u64, hash_masks[0])) |
+            (@as(u64, hash_masks[1]) << 16) |
+            (@as(u64, hash_masks[2]) << 32) |
+            (@as(u64, hash_masks[3]) << 48);
+
+        const newline_mask: u64 = (@as(u64, newline_masks[0])) |
+            (@as(u64, newline_masks[1]) << 16) |
+            (@as(u64, newline_masks[2]) << 32) |
+            (@as(u64, newline_masks[3]) << 48);
+
         return TokenMasks{
             .lowercase = lowercase_mask,
             .uppercase = uppercase_mask,
             .digit = digit_mask,
+            .hash = hash_mask,
+            .newline = newline_mask,
         };
     }
 
@@ -158,9 +186,26 @@ const Tokenizer = struct {
         initial_idents_only: u64,
         flood_fill_result: u64,
         ident_mask_min_initial: u64,
+        comment_mask: u64,
+        comment_start: u64,
+        comment_to_newline: u64,
     };
 
     pub fn generateIdentifierMask(token_masks: TokenMasks) DebugMasks {
+
+        // Generate comment mask using similar add-carry technique
+        // Comments start at # and continue until newline
+        const comment_start = token_masks.hash;
+
+        // Create mask for "not newline" - everything except newline can be part of comment
+        const not_newline = ~token_masks.newline;
+
+        // Use add-carry to flood fill from # to newline
+        const comment_flood_result = comment_start +% not_newline;
+
+        // Extract comment mask - everything that got "carried over" in the flood fill
+        const comment_mask = ~comment_flood_result & not_newline;
+
         // Create identifier begin and continue masks
         const ident_begin = token_masks.uppercase | token_masks.lowercase;
         const ident_continue = ident_begin | token_masks.digit;
@@ -181,7 +226,7 @@ const Tokenizer = struct {
 
         // Extract identifier mask using carries
         // The carry bits indicate where identifiers are present
-        const identifier_mask = ~flood_fill_result & ident_continue;
+        const identifier_mask = ~flood_fill_result & ident_continue & ~comment_mask;
 
         return DebugMasks{
             .ident_begin = ident_begin,
@@ -192,6 +237,9 @@ const Tokenizer = struct {
             .flood_fill_result = flood_fill_result,
             .ident_mask_min_initial = flood_fill_result ^ ident_continue,
             .identifier_mask = identifier_mask,
+            .comment_mask = comment_mask,
+            .comment_start = comment_start,
+            .comment_to_newline = comment_flood_result,
         };
     }
 
@@ -233,6 +281,20 @@ fn printAllMasks(masks: anytype) void {
     }
 }
 
+fn printInputLine(input_bytes: *const [64]u8) void {
+    printMaskName("Input");
+    for (input_bytes) |byte| {
+        if (byte == '\n') {
+            std.debug.print("\\", .{});
+        } else if (byte == 0) {
+            break; // Stop at null terminator
+        } else {
+            std.debug.print("{c}", .{byte});
+        }
+    }
+    std.debug.print("\n", .{});
+}
+
 fn printBlockResults(input_block: *const Block, classification_block: *const Block, token_masks: Tokenizer.TokenMasks, debug_masks: Tokenizer.DebugMasks, block_idx: usize) void {
     std.debug.print("Block {} (64 bytes):\n", .{block_idx});
 
@@ -240,10 +302,8 @@ fn printBlockResults(input_block: *const Block, classification_block: *const Blo
     const input_bytes: *const [64]u8 = @ptrCast(input_block);
     const class_bytes: *const [64]u8 = @ptrCast(classification_block);
 
-    // std.debug.print("Input     : {s}\n", .{input_bytes});
-    // std.debug.print("Class     : {s}\n", .{class_bytes});
-    printMaskName("Input");
-    std.debug.print("{s}\n", .{input_bytes});
+    // Print input with newlines converted to backslashes
+    printInputLine(input_bytes);
     printMaskName("Class");
     std.debug.print("{s}\n", .{class_bytes});
 
@@ -275,7 +335,9 @@ fn classifyByte(byte: u8) TokenClass {
         'A'...'Z' => TokenClass.uppercase_letter,
         'a'...'z' => TokenClass.lowercase_letter,
         '0'...'9' => TokenClass.digit,
-        ' ', '\t', '\n', '\r' => TokenClass.whitespace,
+        ' ', '\t', '\r' => TokenClass.whitespace,
+        '#' => TokenClass.hash,
+        '\n' => TokenClass.newline,
         else => TokenClass.other,
     };
 }
@@ -398,8 +460,13 @@ fn runInteractiveMode(_: std.mem.Allocator) !void {
             continue;
         }
 
-        // Handle enter (do nothing)
+        // Handle enter - insert actual newline character
         if (c == '\n' or c == '\r') {
+            if (cursor_pos < 64) {
+                input_buffer[cursor_pos] = '\n';
+                cursor_pos += 1;
+                processAndDisplay(&tokenizer, &input_buffer);
+            }
             continue;
         }
 
