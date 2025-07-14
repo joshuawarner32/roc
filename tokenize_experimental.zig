@@ -110,14 +110,7 @@ const Tokenizer = struct {
             const shuffle_indices: @Vector(16, i32) = .{ 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15 };
             const shuffled = @shuffle(u8, shifted, undefined, shuffle_indices);
 
-            // Reinterpret as u16 vector and do parallel sum
-            const as_u16: @Vector(8, u16) = @bitCast(shuffled);
-            var sum: u16 = 0;
-            for (0..8) |i| {
-                sum |= as_u16[i];
-            }
-
-            chunk_masks[chunk_idx] = sum;
+            chunk_masks[chunk_idx] = vectorToU16Mask(shuffled);
         }
 
         // Merge four 16-bit results into 64-bit mask
@@ -193,6 +186,21 @@ fn tableLookup(table: LookupTable, indices: NeonChunk) NeonChunk {
           [indices] "w" (indices),
     );
     return result;
+}
+
+fn vectorToU16Mask(vec: NeonChunk) u16 {
+    // Reinterpret as u16 vector and use addv for horizontal sum
+    const v: @Vector(8, u16) = @bitCast(vec);
+    var result: u32 = undefined;
+    asm volatile (
+        \\ addv h0, %[v].8h
+        \\ umov w0, v0.h[0]
+        \\ mov %[result], x0
+        : [result] "=r" (result),
+        : [v] "w" (v),
+        : "v0", "w0", "x0"
+    );
+    return @intCast(result);
 }
 
 fn loadFileAsBlocks(allocator: std.mem.Allocator, file_path: []const u8) ![]align(64) Block {
