@@ -84,54 +84,81 @@ const Tokenizer = struct {
         return result_block;
     }
 
-    pub fn generateIdentifierMask(classification_block: *const Block) u64 {
+    pub const TokenMasks = struct {
+        lowercase: u64,
+        uppercase: u64,
+        digit: u64,
+    };
+
+    pub fn generateTokenMasks(classification_block: *const Block) TokenMasks {
         // Create iota vector for bit positions within each byte
         const iota: NeonChunk = .{ 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7 };
 
-        var chunk_masks: [4]u16 = undefined;
+        var lower_masks: [4]u16 = undefined;
+        var upper_masks: [4]u16 = undefined;
+        var digit_masks: [4]u16 = undefined;
 
         for (classification_block.chunks, 0..) |chunk, chunk_idx| {
-            // Create identifier mask: 1 for letters/digits, 0 for others
+            // Create separate masks for each token type
             const upper_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.uppercase_letter)));
             const lower_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.lowercase_letter)));
             const digit_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.digit)));
 
-            // Combine masks using select operations
-            const temp_mask = @select(bool, upper_mask, @as(@Vector(16, bool), @splat(true)), lower_mask);
-            const letter_mask = @select(bool, temp_mask, @as(@Vector(16, bool), @splat(true)), digit_mask);
-
-            // Convert boolean mask to 0/1 values
-            const ident_vec: NeonChunk = @select(u8, letter_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
+            // Convert boolean masks to 0/1 values and process each type
+            const upper_vec: NeonChunk = @select(u8, upper_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
+            const lower_vec: NeonChunk = @select(u8, lower_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
+            const digit_vec: NeonChunk = @select(u8, digit_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
 
             // Shift left by iota positions within each byte
-            const shifted = ident_vec << @as(@Vector(16, u3), @truncate(iota));
+            const upper_shifted = upper_vec << @as(@Vector(16, u3), @truncate(iota));
+            const lower_shifted = lower_vec << @as(@Vector(16, u3), @truncate(iota));
+            const digit_shifted = digit_vec << @as(@Vector(16, u3), @truncate(iota));
 
             // Shuffle to interleave: lanes 0,8,1,9,2,10,3,11,4,12,5,13,6,14,7,15
             const shuffle_indices: @Vector(16, i32) = .{ 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15 };
-            const shuffled = @shuffle(u8, shifted, undefined, shuffle_indices);
+            const upper_shuffled = @shuffle(u8, upper_shifted, undefined, shuffle_indices);
+            const lower_shuffled = @shuffle(u8, lower_shifted, undefined, shuffle_indices);
+            const digit_shuffled = @shuffle(u8, digit_shifted, undefined, shuffle_indices);
 
-            chunk_masks[chunk_idx] = vectorToU16Mask(shuffled);
+            // Convert to u16 masks
+            upper_masks[chunk_idx] = vectorToU16Mask(upper_shuffled);
+            lower_masks[chunk_idx] = vectorToU16Mask(lower_shuffled);
+            digit_masks[chunk_idx] = vectorToU16Mask(digit_shuffled);
         }
 
-        // Merge four 16-bit results into 64-bit mask
-        const mask: u64 = (@as(u64, chunk_masks[0])) |
-            (@as(u64, chunk_masks[1]) << 16) |
-            (@as(u64, chunk_masks[2]) << 32) |
-            (@as(u64, chunk_masks[3]) << 48);
+        // Merge four 16-bit results into 64-bit masks for each type
+        const uppercase_mask: u64 = (@as(u64, upper_masks[0])) |
+            (@as(u64, upper_masks[1]) << 16) |
+            (@as(u64, upper_masks[2]) << 32) |
+            (@as(u64, upper_masks[3]) << 48);
 
-        return mask;
+        const lowercase_mask: u64 = (@as(u64, lower_masks[0])) |
+            (@as(u64, lower_masks[1]) << 16) |
+            (@as(u64, lower_masks[2]) << 32) |
+            (@as(u64, lower_masks[3]) << 48);
+
+        const digit_mask: u64 = (@as(u64, digit_masks[0])) |
+            (@as(u64, digit_masks[1]) << 16) |
+            (@as(u64, digit_masks[2]) << 32) |
+            (@as(u64, digit_masks[3]) << 48);
+
+        return TokenMasks{
+            .lowercase = lowercase_mask,
+            .uppercase = uppercase_mask,
+            .digit = digit_mask,
+        };
     }
 
     pub fn processBlocks(self: *const Self, blocks: []align(BLOCK_SIZE) const Block) void {
         for (blocks, 0..) |*block, block_idx| {
             const classification = self.classifyBlock(block);
-            const identifier_mask = Tokenizer.generateIdentifierMask(&classification);
-            printBlockResults(block, &classification, identifier_mask, block_idx);
+            const token_masks = Tokenizer.generateTokenMasks(&classification);
+            printBlockResults(block, &classification, token_masks, block_idx);
         }
     }
 };
 
-fn printBlockResults(input_block: *const Block, classification_block: *const Block, identifier_mask: u64, block_idx: usize) void {
+fn printBlockResults(input_block: *const Block, classification_block: *const Block, token_masks: Tokenizer.TokenMasks, block_idx: usize) void {
     std.debug.print("Block {} (64 bytes):\n", .{block_idx});
 
     // Convert blocks to byte arrays for printing
@@ -141,10 +168,24 @@ fn printBlockResults(input_block: *const Block, classification_block: *const Blo
     std.debug.print("Input: {s}\n", .{input_bytes});
     std.debug.print("Class: {s}\n", .{class_bytes});
 
-    // Print identifier mask as little-endian bits aligned with input
-    std.debug.print("Ident: ", .{});
+    // Print token masks as little-endian bits aligned with input
+    std.debug.print("Lower: ", .{});
     for (0..64) |i| {
-        const bit = (identifier_mask >> @intCast(i)) & 1;
+        const bit = (token_masks.lowercase >> @intCast(i)) & 1;
+        std.debug.print("{}", .{bit});
+    }
+    std.debug.print("\n", .{});
+
+    std.debug.print("Upper: ", .{});
+    for (0..64) |i| {
+        const bit = (token_masks.uppercase >> @intCast(i)) & 1;
+        std.debug.print("{}", .{bit});
+    }
+    std.debug.print("\n", .{});
+
+    std.debug.print("Digit: ", .{});
+    for (0..64) |i| {
+        const bit = (token_masks.digit >> @intCast(i)) & 1;
         std.debug.print("{}", .{bit});
     }
     std.debug.print("\n\n", .{});
@@ -252,12 +293,12 @@ fn disableRawMode() void {
 fn processAndDisplay(tokenizer: *const Tokenizer, input_buffer: *const [64]u8) void {
     const block: *const Block = @ptrCast(@alignCast(input_buffer));
     const classification = tokenizer.classifyBlock(block);
-    const identifier_mask = Tokenizer.generateIdentifierMask(&classification);
+    const token_masks = Tokenizer.generateTokenMasks(&classification);
 
     // Clear screen and move cursor to top
     std.debug.print("\x1b[2J\x1b[H", .{});
     std.debug.print("Interactive Mode - Type characters (Ctrl+C to exit)\n\n", .{});
-    printBlockResults(block, &classification, identifier_mask, 0);
+    printBlockResults(block, &classification, token_masks, 0);
 }
 
 fn runInteractiveMode(_: std.mem.Allocator) !void {
