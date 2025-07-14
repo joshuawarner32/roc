@@ -149,46 +149,111 @@ const Tokenizer = struct {
         };
     }
 
+    pub const DebugMasks = struct {
+        identifier_mask: u64,
+        ident_begin: u64,
+        ident_continue: u64,
+        other_mask: u64,
+        shifted_other: u64,
+        initial_idents_only: u64,
+        flood_fill_result: u64,
+        ident_mask_min_initial: u64,
+    };
+
+    pub fn generateIdentifierMask(token_masks: TokenMasks) DebugMasks {
+        // Create identifier begin and continue masks
+        const ident_begin = token_masks.uppercase | token_masks.lowercase;
+        const ident_continue = ident_begin | token_masks.digit;
+
+        // Create mask for "other" characters (not begin or continue)
+        const other_mask = ~ident_continue;
+
+        // Find first ident begin char after an other thing
+        // Shift other mask by 1 bit right and AND with begin mask
+        // OR with 1 to assume position 0 can start an identifier (block doesn't start mid-identifier)
+        const shifted_other = (other_mask << 1) | 1;
+        const initial_idents_only = shifted_other & ident_begin;
+
+        // Use bit-carrying behavior of add to flood fill identifiers
+        // Adding initial_idents_only to ident_continue causes cascading carries
+        // that propagate through consecutive identifier characters
+        const flood_fill_result = initial_idents_only +% ident_continue;
+
+        // Extract identifier mask using carries
+        // The carry bits indicate where identifiers are present
+        const identifier_mask = ~flood_fill_result & ident_continue;
+
+        return DebugMasks{
+            .ident_begin = ident_begin,
+            .ident_continue = ident_continue,
+            .other_mask = other_mask,
+            .shifted_other = shifted_other,
+            .initial_idents_only = initial_idents_only,
+            .flood_fill_result = flood_fill_result,
+            .ident_mask_min_initial = flood_fill_result ^ ident_continue,
+            .identifier_mask = identifier_mask,
+        };
+    }
+
     pub fn processBlocks(self: *const Self, blocks: []align(BLOCK_SIZE) const Block) void {
         for (blocks, 0..) |*block, block_idx| {
             const classification = self.classifyBlock(block);
             const token_masks = Tokenizer.generateTokenMasks(&classification);
-            printBlockResults(block, &classification, token_masks, block_idx);
+            const debug_masks = Tokenizer.generateIdentifierMask(token_masks);
+            printBlockResults(block, &classification, token_masks, debug_masks, block_idx);
         }
     }
 };
 
-fn printBlockResults(input_block: *const Block, classification_block: *const Block, token_masks: Tokenizer.TokenMasks, block_idx: usize) void {
+fn printMaskName(name: []const u8) void {
+    const truncated_name = if (name.len > 15) name[0..15] else name;
+    var extra_spaces_buf: [15]u8 = undefined;
+    var extra_spaces: []const u8 = "";
+    if (truncated_name.len < 15) {
+        const n = 15 - truncated_name.len;
+        @memset(extra_spaces_buf[0..n], ' ');
+        extra_spaces = extra_spaces_buf[0..n];
+    }
+    std.debug.print("{s}{s}: ", .{ truncated_name, extra_spaces });
+}
+fn printMask(name: []const u8, mask: u64) void {
+    printMaskName(name);
+    for (0..64) |i| {
+        const bit = (mask >> @intCast(i)) & 1;
+        std.debug.print("{}", .{bit});
+    }
+    std.debug.print("\n", .{});
+}
+
+fn printAllMasks(masks: anytype) void {
+    const T = @TypeOf(masks);
+    const fields = std.meta.fields(T);
+    inline for (fields) |field| {
+        printMask(field.name, @field(masks, field.name));
+    }
+}
+
+fn printBlockResults(input_block: *const Block, classification_block: *const Block, token_masks: Tokenizer.TokenMasks, debug_masks: Tokenizer.DebugMasks, block_idx: usize) void {
     std.debug.print("Block {} (64 bytes):\n", .{block_idx});
 
     // Convert blocks to byte arrays for printing
     const input_bytes: *const [64]u8 = @ptrCast(input_block);
     const class_bytes: *const [64]u8 = @ptrCast(classification_block);
 
-    std.debug.print("Input: {s}\n", .{input_bytes});
-    std.debug.print("Class: {s}\n", .{class_bytes});
+    // std.debug.print("Input     : {s}\n", .{input_bytes});
+    // std.debug.print("Class     : {s}\n", .{class_bytes});
+    printMaskName("Input");
+    std.debug.print("{s}\n", .{input_bytes});
+    printMaskName("Class");
+    std.debug.print("{s}\n", .{class_bytes});
 
-    // Print token masks as little-endian bits aligned with input
-    std.debug.print("Lower: ", .{});
-    for (0..64) |i| {
-        const bit = (token_masks.lowercase >> @intCast(i)) & 1;
-        std.debug.print("{}", .{bit});
-    }
+    // Print token masks
+    printAllMasks(token_masks);
+
+    // Print debug masks
+    printAllMasks(debug_masks);
+
     std.debug.print("\n", .{});
-
-    std.debug.print("Upper: ", .{});
-    for (0..64) |i| {
-        const bit = (token_masks.uppercase >> @intCast(i)) & 1;
-        std.debug.print("{}", .{bit});
-    }
-    std.debug.print("\n", .{});
-
-    std.debug.print("Digit: ", .{});
-    for (0..64) |i| {
-        const bit = (token_masks.digit >> @intCast(i)) & 1;
-        std.debug.print("{}", .{bit});
-    }
-    std.debug.print("\n\n", .{});
 }
 
 fn buildLookupTable(start_byte: u8) LookupTable {
@@ -294,11 +359,12 @@ fn processAndDisplay(tokenizer: *const Tokenizer, input_buffer: *const [64]u8) v
     const block: *const Block = @ptrCast(@alignCast(input_buffer));
     const classification = tokenizer.classifyBlock(block);
     const token_masks = Tokenizer.generateTokenMasks(&classification);
+    const debug_masks = Tokenizer.generateIdentifierMask(token_masks);
 
     // Clear screen and move cursor to top
     std.debug.print("\x1b[2J\x1b[H", .{});
     std.debug.print("Interactive Mode - Type characters (Ctrl+C to exit)\n\n", .{});
-    printBlockResults(block, &classification, token_masks, 0);
+    printBlockResults(block, &classification, token_masks, debug_masks, 0);
 }
 
 fn runInteractiveMode(_: std.mem.Allocator) !void {
