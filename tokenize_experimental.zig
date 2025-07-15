@@ -13,7 +13,10 @@ const TokenClass = enum(u8) {
     digit = '0',
     whitespace = '_',
     hash = '#',
-    newline = '\\', // Visible newline character for display
+    newline = '\n',
+    quote = '"',
+    lonely_symbol = '@',
+    combining_symbol = '~',
     other = '*',
 };
 
@@ -92,6 +95,7 @@ const Tokenizer = struct {
         digit: u64,
         hash: u64,
         newline: u64,
+        quote: u64,
     };
 
     pub fn generateTokenMasks(classification_block: *const Block) TokenMasks {
@@ -101,16 +105,43 @@ const Tokenizer = struct {
         var lower_masks: [4]u16 = undefined;
         var upper_masks: [4]u16 = undefined;
         var digit_masks: [4]u16 = undefined;
-        var hash_masks: [4]u16 = undefined;
-        var newline_masks: [4]u16 = undefined;
+
+        var quote: bool = false;
+        var comment: bool = false;
 
         for (classification_block.chunks, 0..) |chunk, chunk_idx| {
             // Create separate masks for each token type
             const upper_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.uppercase_letter)));
             const lower_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.lowercase_letter)));
             const digit_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.digit)));
+
             const hash_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.hash)));
             const newline_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.newline)));
+            const quote_mask = chunk == @as(NeonChunk, @splat(@intFromEnum(TokenClass.quote)));
+
+            var ignore_mask: NeonChunk = @splat(0);
+            var string_mask: NeonChunk = @splat(0);
+
+            if (quote or comment or sum(hash_mask) + sum(quote_mask) > 0) {
+                // serial loop to handle comments and quotes
+                for (0..CHUNK_SIZE) |i| {
+                    const byte = chunk[i];
+                    if (byte == TokenClass.hash and !quote) {
+                        comment = true; // Start comment
+                    } else if (byte == TokenClass.newline and comment) {
+                        comment = false; // End comment
+                    } else if (byte == TokenClass.quote and !comment) {
+                        quote = !quote; // Toggle quote state
+                    }
+                    if (quote) {
+                        ignore_mask[i] = 1; // Ignore this byte in masks
+                        string_mask[i] = 1;
+                    }
+                    if (comment) {
+                        ignore_mask[i] = 1; // Ignore this byte in masks
+                    }
+                }
+            }
 
             // Convert boolean masks to 0/1 values and process each type
             const upper_vec: NeonChunk = @select(u8, upper_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
@@ -118,6 +149,7 @@ const Tokenizer = struct {
             const digit_vec: NeonChunk = @select(u8, digit_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
             const hash_vec: NeonChunk = @select(u8, hash_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
             const newline_vec: NeonChunk = @select(u8, newline_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
+            const quote_vec: NeonChunk = @select(u8, quote_mask, @as(NeonChunk, @splat(1)), @as(NeonChunk, @splat(0)));
 
             // Shift left by iota positions within each byte
             const upper_shifted = upper_vec << @as(@Vector(16, u3), @truncate(iota));
@@ -125,6 +157,7 @@ const Tokenizer = struct {
             const digit_shifted = digit_vec << @as(@Vector(16, u3), @truncate(iota));
             const hash_shifted = hash_vec << @as(@Vector(16, u3), @truncate(iota));
             const newline_shifted = newline_vec << @as(@Vector(16, u3), @truncate(iota));
+            const quote_shifted = quote_vec << @as(@Vector(16, u3), @truncate(iota));
 
             // Shuffle to interleave: lanes 0,8,1,9,2,10,3,11,4,12,5,13,6,14,7,15
             const shuffle_indices: @Vector(16, i32) = .{ 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15 };
@@ -133,6 +166,7 @@ const Tokenizer = struct {
             const digit_shuffled = @shuffle(u8, digit_shifted, undefined, shuffle_indices);
             const hash_shuffled = @shuffle(u8, hash_shifted, undefined, shuffle_indices);
             const newline_shuffled = @shuffle(u8, newline_shifted, undefined, shuffle_indices);
+            const quote_shuffled = @shuffle(u8, quote_shifted, undefined, shuffle_indices);
 
             // Convert to u16 masks
             upper_masks[chunk_idx] = vectorToU16Mask(upper_shuffled);
@@ -140,6 +174,7 @@ const Tokenizer = struct {
             digit_masks[chunk_idx] = vectorToU16Mask(digit_shuffled);
             hash_masks[chunk_idx] = vectorToU16Mask(hash_shuffled);
             newline_masks[chunk_idx] = vectorToU16Mask(newline_shuffled);
+            quote_masks[chunk_idx] = vectorToU16Mask(quote_shuffled);
         }
 
         // Merge four 16-bit results into 64-bit masks for each type
@@ -168,12 +203,18 @@ const Tokenizer = struct {
             (@as(u64, newline_masks[2]) << 32) |
             (@as(u64, newline_masks[3]) << 48);
 
+        const quote_mask: u64 = (@as(u64, quote_masks[0])) |
+            (@as(u64, quote_masks[1]) << 16) |
+            (@as(u64, quote_masks[2]) << 32) |
+            (@as(u64, quote_masks[3]) << 48);
+
         return TokenMasks{
             .lowercase = lowercase_mask,
             .uppercase = uppercase_mask,
             .digit = digit_mask,
             .hash = hash_mask,
             .newline = newline_mask,
+            .quote = quote_mask,
         };
     }
 
@@ -264,6 +305,7 @@ fn printMaskName(name: []const u8) void {
     }
     std.debug.print("{s}{s}: ", .{ truncated_name, extra_spaces });
 }
+
 fn printMask(name: []const u8, mask: u64) void {
     printMaskName(name);
     for (0..64) |i| {
@@ -338,8 +380,24 @@ fn classifyByte(byte: u8) TokenClass {
         ' ', '\t', '\r' => TokenClass.whitespace,
         '#' => TokenClass.hash,
         '\n' => TokenClass.newline,
+        '"' => TokenClass.quote,
+        '(', ')', '[', ']', '{', '}', ',', '.' => TokenClass.lonely_symbol,
+        '!', '@', '$', '%', '^', '&', '*', '-', '=', '+', '\\', '|', ';', ':', '?', '<', '>', '/' => TokenClass.combining_symbol,
         else => TokenClass.other,
     };
+}
+
+fn sum(vec: NeonChunk) u8 {
+    var result: u32 = undefined;
+    asm volatile (
+        \\ addv b0, %[vec].16b
+        \\ umov w0, v0.b[0]
+        \\ mov %[result], x0
+        : [result] "=r" (result),
+        : [vec] "w" (vec),
+        : "v0", "w0", "x0"
+    );
+    return @intCast(result);
 }
 
 fn tableLookup(table: LookupTable, indices: NeonChunk) NeonChunk {
