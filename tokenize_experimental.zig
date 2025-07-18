@@ -20,6 +20,31 @@ const TokenClass = enum(u8) {
     other = '*',
 };
 
+const shuffle8_table = blk: {
+    @setEvalBranchQuota(65536);
+    var table: [256]@Vector(8, u8) = undefined;
+
+    for (0..256) |mask| {
+        var entry: [8]u8 = undefined;
+        var count: usize = 0;
+
+        for (0..8) |i| {
+            if ((mask >> i) & 1 == 1) {
+                entry[count] = @intCast(i);
+                count += 1;
+            }
+        }
+
+        for (count..8) |j| {
+            entry[j] = 0x80; // mark unused lanes
+        }
+
+        table[mask] = @bitCast(entry);
+    }
+
+    break :blk table;
+};
+
 // Lookup table structure for ARM NEON tbl instruction
 const LookupTable = struct {
     v0: NeonChunk,
@@ -60,8 +85,8 @@ const Tokenizer = struct {
         const table_indices = indices & index_mask;
 
         // Lookup in both tables
-        const low_result = tableLookup(self.table_low, table_indices);
-        const high_result = tableLookup(self.table_high, table_indices);
+        const low_result = tableLookup4(self.table_low, table_indices);
+        const high_result = tableLookup4(self.table_high, table_indices);
 
         // Select result from the correct table
         const select_mask: NeonChunk = use_high_table * @as(NeonChunk, @splat(0xFF));
@@ -217,12 +242,88 @@ const Tokenizer = struct {
         };
     }
 
+    pub const ShuffleResult = struct {
+        kinds: [64]u8,
+        offsets: [64]u8,
+    };
+
+    pub fn doShuffle(
+        self: *const Self,
+        block: *const Block,
+        token_start_mask: u64,
+    ) ShuffleResult {
+        var token_start_mask_var = token_start_mask;
+        var result_block: [64]u8 = undefined;
+        var offset_block: [64]u8 = undefined;
+        var offset: usize = 0;
+
+        // Process each chunk in the block
+        for (block.chunks, 0..) |chunk, i| {
+            const classification = classifyChunk(self, chunk);
+            const iota: NeonChunk = .{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+            const iota_offset = iota +% @as(NeonChunk, @splat(@intCast(i * 16)));
+            const len_lo = @popCount(@as(u8, @truncate(token_start_mask_var & 0xFF)));
+            const shuffle_lo = shuffle8_table[token_start_mask_var & 0xFF];
+            const result_lo = tableLookup1_8(classification, shuffle_lo);
+            var result_ptr: *u8 = @ptrCast(result_block[offset..].ptr);
+            asm volatile (
+                \\ st1 {v0.8b}, [%[result_ptr]]
+                : [result_ptr] "=r" (result_ptr),
+                : [v0] "w" (result_lo),
+                : "v0"
+            );
+            const offsets_lo = tableLookup1_8(iota_offset, shuffle_lo);
+            var offset_ptr: *u8 = @ptrCast(offset_block[offset..].ptr);
+            asm volatile (
+                \\ st1 {v0.8b}, [%[offset_ptr]]
+                : [offset_ptr] "=r" (offset_ptr),
+                : [v0] "w" (offsets_lo),
+                : "v0"
+            );
+
+            offset += len_lo;
+
+            const len_hi = @popCount(@as(u8, @truncate((token_start_mask_var >> 8) & 0xFF)));
+            const shuffle_hi = shuffle8_table[(token_start_mask_var >> 8) & 0xFF] +% @as(@Vector(8, u8), @splat(8));
+            const result_hi = tableLookup1_8(classification, shuffle_hi);
+
+            result_ptr = @ptrCast(result_block[offset..].ptr);
+            asm volatile (
+                \\ st1 {v0.8b}, [%[result_ptr]]
+                : [result_ptr] "=r" (result_ptr),
+                : [v0] "w" (result_hi),
+                : "v0"
+            );
+
+            const offsets_hi = tableLookup1_8(iota_offset, shuffle_hi);
+            offset_ptr = @ptrCast(offset_block[offset..].ptr);
+            asm volatile (
+                \\ st1 {v0.8b}, [%[offset_ptr]]
+                : [offset_ptr] "=r" (offset_ptr),
+                : [v0] "w" (offsets_hi),
+                : "v0"
+            );
+
+            offset += len_hi;
+
+            token_start_mask_var >>= 16; // Shift to process next 16 bits
+        }
+
+        // Zero out any remaining bytes in the result block
+        if (offset < 64) {
+            @memset(result_block[offset..], 0);
+        }
+
+        return .{ .kinds = result_block, .offsets = offset_block };
+    }
+
     pub fn processBlocks(self: *const Self, blocks: []align(BLOCK_SIZE) const Block) void {
         for (blocks, 0..) |*block, block_idx| {
             const classification = self.classifyBlock(block);
             const token_masks = Tokenizer.generateTokenMasks(&classification);
             const debug_masks = Tokenizer.generateIdentifierMask(token_masks);
-            printBlockResults(block, &classification, token_masks, debug_masks, block_idx);
+            const result = self.doShuffle(block, debug_masks.token_start_mask);
+            printBlockResults(block, &classification, token_masks, debug_masks, block_idx, result);
         }
     }
 
@@ -232,7 +333,8 @@ const Tokenizer = struct {
             const classification = self.classifyBlock(block);
             const token_masks = Tokenizer.generateTokenMasks(&classification);
             const debug_masks = Tokenizer.generateIdentifierMask(token_masks);
-            accumulated_token_starts ^= debug_masks.token_start_mask;
+            const result = self.doShuffle(block, debug_masks.token_start_mask);
+            accumulated_token_starts ^= debug_masks.token_start_mask + @as(u64, @intCast(result.kinds[0])) + @as(u64, @intCast(result.offsets[0]));
         }
         return accumulated_token_starts;
     }
@@ -241,6 +343,7 @@ const Tokenizer = struct {
         classification_time: u64,
         token_mask_time: u64,
         debug_mask_time: u64,
+        shuffle_time: u64,
         total_time: u64,
         accumulated_result: u64,
     };
@@ -250,35 +353,42 @@ const Tokenizer = struct {
         var total_classification_time: u64 = 0;
         var total_token_mask_time: u64 = 0;
         var total_debug_mask_time: u64 = 0;
-        
+        var total_shuffle_time: u64 = 0;
+
         const start_total = std.time.nanoTimestamp();
-        
+
         for (blocks) |*block| {
             const start_classify = std.time.nanoTimestamp();
             const classification = self.classifyBlock(block);
             const end_classify = std.time.nanoTimestamp();
-            
+
             const start_token_masks = std.time.nanoTimestamp();
             const token_masks = Tokenizer.generateTokenMasks(&classification);
             const end_token_masks = std.time.nanoTimestamp();
-            
+
             const start_debug_masks = std.time.nanoTimestamp();
             const debug_masks = Tokenizer.generateIdentifierMask(token_masks);
             const end_debug_masks = std.time.nanoTimestamp();
-            
+
+            const start_shuffle = std.time.nanoTimestamp();
+            const result = self.doShuffle(block, debug_masks.token_start_mask);
+            const end_shuffle = std.time.nanoTimestamp();
+
             total_classification_time += @intCast(end_classify - start_classify);
             total_token_mask_time += @intCast(end_token_masks - start_token_masks);
             total_debug_mask_time += @intCast(end_debug_masks - start_debug_masks);
-            
-            accumulated_token_starts ^= debug_masks.token_start_mask;
+            total_shuffle_time += @intCast(end_shuffle - start_shuffle);
+
+            accumulated_token_starts ^= debug_masks.token_start_mask + @as(u64, @intCast(result.kinds[0])) + @as(u64, @intCast(result.offsets[0]));
         }
-        
+
         const end_total = std.time.nanoTimestamp();
-        
+
         return BenchmarkTiming{
             .classification_time = total_classification_time,
             .token_mask_time = total_token_mask_time,
             .debug_mask_time = total_debug_mask_time,
+            .shuffle_time = total_shuffle_time,
             .total_time = @intCast(end_total - start_total),
             .accumulated_result = accumulated_token_starts,
         };
@@ -326,7 +436,7 @@ fn printAllMasks(masks: anytype) void {
     }
 }
 
-fn printInputLine(name: []const u8, input_bytes: *const [64]u8) void {
+fn printBytesLine(name: []const u8, input_bytes: *const [64]u8) void {
     printMaskName(name);
     for (input_bytes) |byte| {
         if (byte == '\n') {
@@ -340,22 +450,58 @@ fn printInputLine(name: []const u8, input_bytes: *const [64]u8) void {
     std.debug.print("\n", .{});
 }
 
-fn printBlockResults(input_block: *const Block, classification_block: *const Block, token_masks: Tokenizer.TokenMasks, debug_masks: Tokenizer.DebugMasks, block_idx: usize) void {
+fn printBlockResults(
+    input_block: *const Block,
+    classification_block: *const Block,
+    token_masks: Tokenizer.TokenMasks,
+    debug_masks: Tokenizer.DebugMasks,
+    block_idx: usize,
+    result: Tokenizer.ShuffleResult,
+) void {
     std.debug.print("Block {} (64 bytes):\n", .{block_idx});
 
     // Convert blocks to byte arrays for printing
     const input_bytes: *const [64]u8 = @ptrCast(input_block);
     const class_bytes: *const [64]u8 = @ptrCast(classification_block);
 
+    var tens_place: [64]u8 = undefined;
+    var ones_place: [64]u8 = undefined;
+    for (0..64) |i| {
+        tens_place[i] = @as(u8, @intCast(i / 10)) + '0';
+        ones_place[i] = @as(u8, @intCast(i % 10)) + '0';
+    }
+    printBytesLine("Index", &tens_place);
+    printBytesLine("...", &ones_place);
+
     // Print input with newlines converted to backslashes
-    printInputLine("Input", input_bytes);
-    printInputLine("Class", class_bytes);
+    printBytesLine("Input", input_bytes);
+    printBytesLine("Class", class_bytes);
 
     // Print token masks
     printAllMasks(token_masks);
 
     // Print debug masks
     printAllMasks(debug_masks);
+
+    printBytesLine("Result", &result.kinds);
+
+    // Next, we render the offsets, but vertically aligned with the kinds
+    // so instead of 10, we print:
+    // 1
+    // 0
+    // To do this, make two strings, out of the tens place and the ones place
+    for (0..64) |i| {
+        if (result.kinds[i] != 0) {
+            const offset = result.offsets[i];
+            tens_place[i] = @as(u8, @intCast(offset / 10)) + '0';
+            ones_place[i] = @as(u8, @intCast(offset % 10)) + '0';
+        } else {
+            tens_place[i] = ' ';
+            ones_place[i] = ' ';
+        }
+    }
+    printBytesLine("Offsets", &tens_place);
+    printBytesLine("...", &ones_place);
 
     std.debug.print("\n", .{});
 }
@@ -402,7 +548,7 @@ fn anyTrue(vec: @Vector(16, bool)) bool {
     return result > 0;
 }
 
-fn tableLookup(table: LookupTable, indices: NeonChunk) NeonChunk {
+fn tableLookup4(table: LookupTable, indices: NeonChunk) NeonChunk {
     var result: NeonChunk = undefined;
     asm volatile (
         \\ mov v0.16b, %[v0].16b
@@ -417,6 +563,32 @@ fn tableLookup(table: LookupTable, indices: NeonChunk) NeonChunk {
           [v3] "w" (table.v3),
           [indices] "w" (indices),
         : "v0", "v1", "v2", "v3"
+    );
+    return result;
+}
+
+fn tableLookup1(table: NeonChunk, indices: NeonChunk) NeonChunk {
+    var result: NeonChunk = undefined;
+    asm volatile (
+        \\ mov v0.16b, %[table].16b
+        \\ tbl  %[result].16b, {v0.16b}, %[indices].16b
+        : [result] "=w" (result),
+        : [table] "w" (table),
+          [indices] "w" (indices),
+        : "v0"
+    );
+    return result;
+}
+
+fn tableLookup1_8(table: @Vector(16, u8), indices: @Vector(8, u8)) @Vector(8, u8) {
+    var result: @Vector(8, u8) = undefined;
+    asm volatile (
+        \\ mov v0.16b, %[table].16b
+        \\ tbl  %[result].8b, {v0.16b}, %[indices].8b
+        : [result] "=w" (result),
+        : [table] "w" (table),
+          [indices] "w" (indices),
+        : "v0"
     );
     return result;
 }
@@ -495,11 +667,12 @@ fn processAndDisplay(tokenizer: *const Tokenizer, input_buffer: *const [64]u8) v
     const classification = tokenizer.classifyBlock(block);
     const token_masks = Tokenizer.generateTokenMasks(&classification);
     const debug_masks = Tokenizer.generateIdentifierMask(token_masks);
+    const result = tokenizer.doShuffle(block, debug_masks.token_start_mask);
 
     // Clear screen and move cursor to top
     std.debug.print("\x1b[2J\x1b[H", .{});
     std.debug.print("Interactive Mode - Type characters (Ctrl+C to exit)\n\n", .{});
-    printBlockResults(block, &classification, token_masks, debug_masks, 0);
+    printBlockResults(block, &classification, token_masks, debug_masks, 0, result);
 }
 
 fn runBenchmarkMode(allocator: std.mem.Allocator, file_path: []const u8) !void {
@@ -510,29 +683,29 @@ fn runBenchmarkMode(allocator: std.mem.Allocator, file_path: []const u8) !void {
     defer allocator.free(blocks);
 
     const tokenizer = Tokenizer.init();
-    
+
     // Warmup run
     _ = tokenizer.processBlocksBenchmark(blocks);
-    
+
     // Benchmark runs
     const num_runs = 100;
     var total_time: u64 = 0;
-    
+
     for (0..num_runs) |_| {
         const start_time = std.time.nanoTimestamp();
         const result = tokenizer.processBlocksBenchmark(blocks);
         const end_time = std.time.nanoTimestamp();
         total_time += @intCast(end_time - start_time);
-        
+
         // Use result to prevent optimization
         if (result == 0xDEADBEEF) {
             std.debug.print("Unlikely result\n", .{});
         }
     }
-    
+
     const avg_time = total_time / num_runs;
     const throughput = (@as(f64, @floatFromInt(blocks.len * 64)) / @as(f64, @floatFromInt(avg_time))) * 1_000_000_000;
-    
+
     std.debug.print("Benchmark Results:\n", .{});
     std.debug.print("  File: {s}\n", .{file_path});
     std.debug.print("  Blocks processed: {}\n", .{blocks.len});
@@ -540,7 +713,7 @@ fn runBenchmarkMode(allocator: std.mem.Allocator, file_path: []const u8) !void {
     std.debug.print("  Average time per run: {d:.2} ns\n", .{@as(f64, @floatFromInt(avg_time))});
     std.debug.print("  Throughput: {d:.2} bytes/second\n", .{throughput});
     std.debug.print("  Throughput: {d:.2} MB/s\n", .{throughput / (1024 * 1024)});
-    
+
     // Final result to prevent optimization
     const final_result = tokenizer.processBlocksBenchmark(blocks);
     std.debug.print("  Final token starts mask: 0x{x}\n", .{final_result});
@@ -554,58 +727,53 @@ fn runDetailedBenchmarkMode(allocator: std.mem.Allocator, file_path: []const u8)
     defer allocator.free(blocks);
 
     const tokenizer = Tokenizer.init();
-    
+
     // Warmup run
     _ = tokenizer.processBlocksBenchmarkTimed(blocks);
-    
+
     // Benchmark runs
     const num_runs = 100;
     var total_classification_time: u64 = 0;
     var total_token_mask_time: u64 = 0;
     var total_debug_mask_time: u64 = 0;
+    var total_shuffle_time: u64 = 0;
     var total_overall_time: u64 = 0;
-    
+
     for (0..num_runs) |_| {
         const timing = tokenizer.processBlocksBenchmarkTimed(blocks);
         total_classification_time += timing.classification_time;
         total_token_mask_time += timing.token_mask_time;
         total_debug_mask_time += timing.debug_mask_time;
+        total_shuffle_time += timing.shuffle_time;
         total_overall_time += timing.total_time;
-        
+
         // Use result to prevent optimization
         if (timing.accumulated_result == 0xDEADBEEF) {
             std.debug.print("Unlikely result\n", .{});
         }
     }
-    
+
     const avg_classification_time = total_classification_time / num_runs;
     const avg_token_mask_time = total_token_mask_time / num_runs;
     const avg_debug_mask_time = total_debug_mask_time / num_runs;
+    const avg_shuffle_time = total_shuffle_time / num_runs;
     const avg_overall_time = total_overall_time / num_runs;
-    
+
     const throughput = (@as(f64, @floatFromInt(blocks.len * 64)) / @as(f64, @floatFromInt(avg_overall_time))) * 1_000_000_000;
-    
+
     std.debug.print("Detailed Benchmark Results:\n", .{});
     std.debug.print("  File: {s}\n", .{file_path});
     std.debug.print("  Blocks processed: {}\n", .{blocks.len});
     std.debug.print("  Total bytes: {}\n", .{blocks.len * 64});
     std.debug.print("  Average times per run:\n", .{});
-    std.debug.print("    Classification: {d:.2} ns ({d:.1}%)\n", .{
-        @as(f64, @floatFromInt(avg_classification_time)),
-        (@as(f64, @floatFromInt(avg_classification_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100
-    });
-    std.debug.print("    Token masks:    {d:.2} ns ({d:.1}%)\n", .{
-        @as(f64, @floatFromInt(avg_token_mask_time)),
-        (@as(f64, @floatFromInt(avg_token_mask_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100
-    });
-    std.debug.print("    Debug masks:    {d:.2} ns ({d:.1}%)\n", .{
-        @as(f64, @floatFromInt(avg_debug_mask_time)),
-        (@as(f64, @floatFromInt(avg_debug_mask_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100
-    });
+    std.debug.print("    Classification: {d:.2} ns ({d:.1}%)\n", .{ @as(f64, @floatFromInt(avg_classification_time)), (@as(f64, @floatFromInt(avg_classification_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100 });
+    std.debug.print("    Token masks:    {d:.2} ns ({d:.1}%)\n", .{ @as(f64, @floatFromInt(avg_token_mask_time)), (@as(f64, @floatFromInt(avg_token_mask_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100 });
+    std.debug.print("    Debug masks:    {d:.2} ns ({d:.1}%)\n", .{ @as(f64, @floatFromInt(avg_debug_mask_time)), (@as(f64, @floatFromInt(avg_debug_mask_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100 });
+    std.debug.print("    Shuffle:        {d:.2} ns ({d:.1}%)\n", .{ @as(f64, @floatFromInt(avg_shuffle_time)), (@as(f64, @floatFromInt(avg_shuffle_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100 });
     std.debug.print("    Total:          {d:.2} ns\n", .{@as(f64, @floatFromInt(avg_overall_time))});
     std.debug.print("  Throughput: {d:.2} bytes/second\n", .{throughput});
     std.debug.print("  Throughput: {d:.2} MB/s\n", .{throughput / (1024 * 1024)});
-    
+
     // Final result to prevent optimization
     const final_result = tokenizer.processBlocksBenchmarkTimed(blocks);
     std.debug.print("  Final token starts mask: 0x{x}\n", .{final_result.accumulated_result});
@@ -699,7 +867,7 @@ pub fn main() !void {
 
     const file_path = args[1];
     const debug_mode = args.len > 2 and std.mem.eql(u8, args[2], "--debug");
-    
+
     const blocks = loadFileAsBlocks(allocator, file_path) catch |err| {
         std.debug.print("Error loading file '{s}': {}\n", .{ file_path, err });
         return;
