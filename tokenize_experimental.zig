@@ -225,6 +225,64 @@ const Tokenizer = struct {
             printBlockResults(block, &classification, token_masks, debug_masks, block_idx);
         }
     }
+
+    pub fn processBlocksBenchmark(self: *const Self, blocks: []align(BLOCK_SIZE) const Block) u64 {
+        var accumulated_token_starts: u64 = 0;
+        for (blocks) |*block| {
+            const classification = self.classifyBlock(block);
+            const token_masks = Tokenizer.generateTokenMasks(&classification);
+            const debug_masks = Tokenizer.generateIdentifierMask(token_masks);
+            accumulated_token_starts ^= debug_masks.token_start_mask;
+        }
+        return accumulated_token_starts;
+    }
+
+    pub const BenchmarkTiming = struct {
+        classification_time: u64,
+        token_mask_time: u64,
+        debug_mask_time: u64,
+        total_time: u64,
+        accumulated_result: u64,
+    };
+
+    pub fn processBlocksBenchmarkTimed(self: *const Self, blocks: []align(BLOCK_SIZE) const Block) BenchmarkTiming {
+        var accumulated_token_starts: u64 = 0;
+        var total_classification_time: u64 = 0;
+        var total_token_mask_time: u64 = 0;
+        var total_debug_mask_time: u64 = 0;
+        
+        const start_total = std.time.nanoTimestamp();
+        
+        for (blocks) |*block| {
+            const start_classify = std.time.nanoTimestamp();
+            const classification = self.classifyBlock(block);
+            const end_classify = std.time.nanoTimestamp();
+            
+            const start_token_masks = std.time.nanoTimestamp();
+            const token_masks = Tokenizer.generateTokenMasks(&classification);
+            const end_token_masks = std.time.nanoTimestamp();
+            
+            const start_debug_masks = std.time.nanoTimestamp();
+            const debug_masks = Tokenizer.generateIdentifierMask(token_masks);
+            const end_debug_masks = std.time.nanoTimestamp();
+            
+            total_classification_time += @intCast(end_classify - start_classify);
+            total_token_mask_time += @intCast(end_token_masks - start_token_masks);
+            total_debug_mask_time += @intCast(end_debug_masks - start_debug_masks);
+            
+            accumulated_token_starts ^= debug_masks.token_start_mask;
+        }
+        
+        const end_total = std.time.nanoTimestamp();
+        
+        return BenchmarkTiming{
+            .classification_time = total_classification_time,
+            .token_mask_time = total_token_mask_time,
+            .debug_mask_time = total_debug_mask_time,
+            .total_time = @intCast(end_total - start_total),
+            .accumulated_result = accumulated_token_starts,
+        };
+    }
 };
 
 fn combine(masks: [4]u16) u64 {
@@ -347,13 +405,18 @@ fn anyTrue(vec: @Vector(16, bool)) bool {
 fn tableLookup(table: LookupTable, indices: NeonChunk) NeonChunk {
     var result: NeonChunk = undefined;
     asm volatile (
-        \\ tbl  %[result].16b, {%[v0].16b, %[v1].16b, %[v2].16b, %[v3].16b}, %[indices].16b
+        \\ mov v0.16b, %[v0].16b
+        \\ mov v1.16b, %[v1].16b
+        \\ mov v2.16b, %[v2].16b
+        \\ mov v3.16b, %[v3].16b
+        \\ tbl  %[result].16b, {v0.16b, v1.16b, v2.16b, v3.16b}, %[indices].16b
         : [result] "=w" (result),
         : [v0] "w" (table.v0),
           [v1] "w" (table.v1),
           [v2] "w" (table.v2),
           [v3] "w" (table.v3),
           [indices] "w" (indices),
+        : "v0", "v1", "v2", "v3"
     );
     return result;
 }
@@ -439,6 +502,115 @@ fn processAndDisplay(tokenizer: *const Tokenizer, input_buffer: *const [64]u8) v
     printBlockResults(block, &classification, token_masks, debug_masks, 0);
 }
 
+fn runBenchmarkMode(allocator: std.mem.Allocator, file_path: []const u8) !void {
+    const blocks = loadFileAsBlocks(allocator, file_path) catch |err| {
+        std.debug.print("Error loading file '{s}': {}\n", .{ file_path, err });
+        return;
+    };
+    defer allocator.free(blocks);
+
+    const tokenizer = Tokenizer.init();
+    
+    // Warmup run
+    _ = tokenizer.processBlocksBenchmark(blocks);
+    
+    // Benchmark runs
+    const num_runs = 100;
+    var total_time: u64 = 0;
+    
+    for (0..num_runs) |_| {
+        const start_time = std.time.nanoTimestamp();
+        const result = tokenizer.processBlocksBenchmark(blocks);
+        const end_time = std.time.nanoTimestamp();
+        total_time += @intCast(end_time - start_time);
+        
+        // Use result to prevent optimization
+        if (result == 0xDEADBEEF) {
+            std.debug.print("Unlikely result\n", .{});
+        }
+    }
+    
+    const avg_time = total_time / num_runs;
+    const throughput = (@as(f64, @floatFromInt(blocks.len * 64)) / @as(f64, @floatFromInt(avg_time))) * 1_000_000_000;
+    
+    std.debug.print("Benchmark Results:\n", .{});
+    std.debug.print("  File: {s}\n", .{file_path});
+    std.debug.print("  Blocks processed: {}\n", .{blocks.len});
+    std.debug.print("  Total bytes: {}\n", .{blocks.len * 64});
+    std.debug.print("  Average time per run: {d:.2} ns\n", .{@as(f64, @floatFromInt(avg_time))});
+    std.debug.print("  Throughput: {d:.2} bytes/second\n", .{throughput});
+    std.debug.print("  Throughput: {d:.2} MB/s\n", .{throughput / (1024 * 1024)});
+    
+    // Final result to prevent optimization
+    const final_result = tokenizer.processBlocksBenchmark(blocks);
+    std.debug.print("  Final token starts mask: 0x{x}\n", .{final_result});
+}
+
+fn runDetailedBenchmarkMode(allocator: std.mem.Allocator, file_path: []const u8) !void {
+    const blocks = loadFileAsBlocks(allocator, file_path) catch |err| {
+        std.debug.print("Error loading file '{s}': {}\n", .{ file_path, err });
+        return;
+    };
+    defer allocator.free(blocks);
+
+    const tokenizer = Tokenizer.init();
+    
+    // Warmup run
+    _ = tokenizer.processBlocksBenchmarkTimed(blocks);
+    
+    // Benchmark runs
+    const num_runs = 100;
+    var total_classification_time: u64 = 0;
+    var total_token_mask_time: u64 = 0;
+    var total_debug_mask_time: u64 = 0;
+    var total_overall_time: u64 = 0;
+    
+    for (0..num_runs) |_| {
+        const timing = tokenizer.processBlocksBenchmarkTimed(blocks);
+        total_classification_time += timing.classification_time;
+        total_token_mask_time += timing.token_mask_time;
+        total_debug_mask_time += timing.debug_mask_time;
+        total_overall_time += timing.total_time;
+        
+        // Use result to prevent optimization
+        if (timing.accumulated_result == 0xDEADBEEF) {
+            std.debug.print("Unlikely result\n", .{});
+        }
+    }
+    
+    const avg_classification_time = total_classification_time / num_runs;
+    const avg_token_mask_time = total_token_mask_time / num_runs;
+    const avg_debug_mask_time = total_debug_mask_time / num_runs;
+    const avg_overall_time = total_overall_time / num_runs;
+    
+    const throughput = (@as(f64, @floatFromInt(blocks.len * 64)) / @as(f64, @floatFromInt(avg_overall_time))) * 1_000_000_000;
+    
+    std.debug.print("Detailed Benchmark Results:\n", .{});
+    std.debug.print("  File: {s}\n", .{file_path});
+    std.debug.print("  Blocks processed: {}\n", .{blocks.len});
+    std.debug.print("  Total bytes: {}\n", .{blocks.len * 64});
+    std.debug.print("  Average times per run:\n", .{});
+    std.debug.print("    Classification: {d:.2} ns ({d:.1}%)\n", .{
+        @as(f64, @floatFromInt(avg_classification_time)),
+        (@as(f64, @floatFromInt(avg_classification_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100
+    });
+    std.debug.print("    Token masks:    {d:.2} ns ({d:.1}%)\n", .{
+        @as(f64, @floatFromInt(avg_token_mask_time)),
+        (@as(f64, @floatFromInt(avg_token_mask_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100
+    });
+    std.debug.print("    Debug masks:    {d:.2} ns ({d:.1}%)\n", .{
+        @as(f64, @floatFromInt(avg_debug_mask_time)),
+        (@as(f64, @floatFromInt(avg_debug_mask_time)) / @as(f64, @floatFromInt(avg_overall_time))) * 100
+    });
+    std.debug.print("    Total:          {d:.2} ns\n", .{@as(f64, @floatFromInt(avg_overall_time))});
+    std.debug.print("  Throughput: {d:.2} bytes/second\n", .{throughput});
+    std.debug.print("  Throughput: {d:.2} MB/s\n", .{throughput / (1024 * 1024)});
+    
+    // Final result to prevent optimization
+    const final_result = tokenizer.processBlocksBenchmarkTimed(blocks);
+    std.debug.print("  Final token starts mask: 0x{x}\n", .{final_result.accumulated_result});
+}
+
 fn runInteractiveMode(_: std.mem.Allocator) !void {
     const tokenizer = Tokenizer.init();
     var input_buffer: [64]u8 align(64) = [_]u8{0} ** 64;
@@ -498,7 +670,7 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len < 2) {
-        std.debug.print("Usage: {s} <file_path> OR {s} --interactive\n", .{ args[0], args[0] });
+        std.debug.print("Usage: {s} <file_path> [--debug] OR {s} --interactive OR {s} --benchmark <file_path> OR {s} --detailed-benchmark <file_path>\n", .{ args[0], args[0], args[0], args[0] });
         return;
     }
 
@@ -507,7 +679,27 @@ pub fn main() !void {
         return;
     }
 
+    if (std.mem.eql(u8, args[1], "--benchmark")) {
+        if (args.len < 3) {
+            std.debug.print("Error: --benchmark requires a file path\n", .{});
+            return;
+        }
+        try runBenchmarkMode(allocator, args[2]);
+        return;
+    }
+
+    if (std.mem.eql(u8, args[1], "--detailed-benchmark")) {
+        if (args.len < 3) {
+            std.debug.print("Error: --detailed-benchmark requires a file path\n", .{});
+            return;
+        }
+        try runDetailedBenchmarkMode(allocator, args[2]);
+        return;
+    }
+
     const file_path = args[1];
+    const debug_mode = args.len > 2 and std.mem.eql(u8, args[2], "--debug");
+    
     const blocks = loadFileAsBlocks(allocator, file_path) catch |err| {
         std.debug.print("Error loading file '{s}': {}\n", .{ file_path, err });
         return;
@@ -515,5 +707,10 @@ pub fn main() !void {
     defer allocator.free(blocks);
 
     const tokenizer = Tokenizer.init();
-    tokenizer.processBlocks(blocks);
+    if (debug_mode) {
+        tokenizer.processBlocks(blocks);
+    } else {
+        const result = tokenizer.processBlocksBenchmark(blocks);
+        std.debug.print("Processed {} blocks, accumulated token starts: 0x{x}\n", .{ blocks.len, result });
+    }
 }
