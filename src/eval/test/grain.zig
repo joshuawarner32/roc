@@ -137,6 +137,14 @@ const Context = struct {
                         // Both are concrete - try to unify them structurally
                         try self.unifyStructurally(value_a.*, value_b.*);
                         self.value_uf.unite(root_a, root_b);
+                        // After unifying, make sure one of the values is updated to reflect the unified result
+                        const final_root = self.value_uf.find(root_a);
+                        if (final_root == root_a) {
+                            // Keep value_a as is
+                        } else {
+                            // Update value_a to match value_b
+                            value_a.* = value_b.*;
+                        }
                     },
                 }
             },
@@ -176,10 +184,18 @@ const Context = struct {
     }
 
     fn storeValueForUnification(self: *Context, value: Value) !ValueIdx {
-        const idx = self.values.items.len;
-        _ = try self.value_uf.makeSet();
-        try self.values.append(value);
-        return ValueIdx{ .index = idx };
+        switch (value) {
+            .tbd => |tbd_idx| {
+                // For TBD values, return the existing index
+                return tbd_idx;
+            },
+            else => {
+                const idx = self.values.items.len;
+                _ = try self.value_uf.makeSet();
+                try self.values.append(value);
+                return ValueIdx{ .index = idx };
+            },
+        }
     }
 
     fn valuesEqual(self: *Context, a: Value, b: Value) bool {
@@ -717,10 +733,19 @@ const Interp = struct {
     }
 
     fn storeValue(self: *Interp, value: Value) !ValueIdx {
-        const idx = self.context.values.items.len;
-        _ = try self.context.value_uf.makeSet();
-        try self.context.values.append(value);
-        return ValueIdx{ .index = idx };
+        // Check if this value is already a TBD that exists in our context
+        switch (value) {
+            .tbd => |tbd_idx| {
+                // Return the existing ValueIdx for this TBD
+                return tbd_idx;
+            },
+            else => {
+                const idx = self.context.values.items.len;
+                _ = try self.context.value_uf.makeSet();
+                try self.context.values.append(value);
+                return ValueIdx{ .index = idx };
+            },
+        }
     }
 
     fn evalBlock(self: *Interp, scope: *const CapturedScope, ty: *const Ty, block: *const Block) error{OutOfGas, UnificationFailed, ContradictoryConstraint, TypeMismatch, VariableNotFound, TbdExpressionNotImplemented, ApplicationNotImplemented, IfExpressionNotImplemented, OutOfMemory}!Value {
@@ -734,7 +759,7 @@ pub fn main() !void {
     var gpa: std.heap.DebugAllocator(.{}) = .{};
     const allocator = gpa.allocator();
 
-    var prng = std.Random.DefaultPrng.init(1);
+    var prng = std.Random.DefaultPrng.init(2);
     const random = prng.random();
 
     var context = Context.init(allocator, random);
