@@ -68,7 +68,11 @@ const Ty = union(enum) {
             .list => |lst| other.* == .list and lst == other.list,
             .record => |rec| {
                 if (other.* != .record) return false;
-                return std.mem.eql(FieldTy, rec.fields, other.record.fields);
+                if (rec.fields.len != other.record.fields.len) return false;
+                for (rec.fields, other.record.fields) |field, other_field| {
+                    if (!field.eql(other_field)) return false;
+                }
+                return true;
             },
             .tag => |tag| {
                 if (other.* != .tag) return false;
@@ -79,7 +83,7 @@ const Ty = union(enum) {
                     return false;
                 }
                 for (tag.arguments, other.tag.arguments) |arg, other_arg| {
-                    if (!arg.equals(other_arg)) {
+                    if (!arg.equals(&other_arg)) {
                         return false;
                     }
                 }
@@ -92,6 +96,10 @@ const Ty = union(enum) {
 const FieldTy = struct {
     name: []const u8,
     ty: Ty,
+
+    pub fn eql(self: FieldTy, other: FieldTy) bool {
+        return std.mem.eql(u8, self.name, other.name) and self.ty.equals(&other.ty);
+    }
 };
 
 const Expr = union(enum) {
@@ -167,16 +175,16 @@ const Interp = struct {
                 if (!actual_ty.equals(ty)) {
                     return error.TypeMismatch;
                 }
-                return lit;
+                return lit.*;
             },
             .variable => |index| {
-                return scope.variables.get(index);
+                return scope.get(index);
             },
             .function => |func| {
-                return Value.closure{
-                    .function_name = func.parameters,
-                    .captured_variables = scope.variables.clone(),
-                };
+                return Value{ .closure = .{
+                    .function = func,
+                    .captured_variables = scope.*,
+                } };
             },
             .application => |app| {
                 _ = app; // We need to evaluate the function and arguments.
