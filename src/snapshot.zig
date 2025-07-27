@@ -1204,7 +1204,6 @@ fn processRocFileAsSnapshotWithExpected(
         .expected = expected_content,
         .output = null,
         .formatted = null,
-        .has_canonicalize = true,
     };
 
     return try processSnapshotContent(allocator, content, output_path, config);
@@ -1561,14 +1560,12 @@ pub const Content = struct {
     expected: ?[]const u8,
     output: ?[]const u8,
     formatted: ?[]const u8,
-    has_canonicalize: bool,
 
     fn from_ranges(ranges: std.AutoHashMap(Section, Section.Range), content: []const u8) Error!Content {
         var source: []const u8 = undefined;
         var expected: ?[]const u8 = undefined;
         var output: ?[]const u8 = undefined;
         var formatted: ?[]const u8 = undefined;
-        var has_canonicalize: bool = false;
 
         if (ranges.get(.source)) |value| {
             source = value.extract(content);
@@ -1594,10 +1591,6 @@ pub const Content = struct {
             formatted = null;
         }
 
-        if (ranges.get(.canonicalize)) |_| {
-            has_canonicalize = true;
-        }
-
         if (ranges.get(.meta)) |value| {
             const meta_txt = value.extract(content);
             const meta = try Meta.fromString(meta_txt);
@@ -1607,7 +1600,6 @@ pub const Content = struct {
                 .expected = expected,
                 .output = output,
                 .formatted = formatted,
-                .has_canonicalize = has_canonicalize,
             };
         } else {
             return Error.MissingSnapshotHeader;
@@ -1915,7 +1907,7 @@ fn source_contains_newline_in_range(source: []const u8, start: usize, end: usize
     return false;
 }
 
-/// Generate PARSE2 section using SExprTree for both markdown and HTML
+/// Generate PARSE section using SExprTree for both markdown and HTML
 fn generateParseSection(output: *DualOutput, content: *const Content, parse_ast: *AST, env: *ModuleEnv) !void {
     var tree = SExprTree.init(output.gpa);
     defer tree.deinit();
