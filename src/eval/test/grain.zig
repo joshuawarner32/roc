@@ -1,8 +1,71 @@
 const std = @import("std");
 
+const Context = struct {
+    values: std.ArrayList(Value),
+    types: std.ArrayList(Ty),
+    exprs: std.ArrayList(Expr),
+
+    pub fn init(allocator: std.mem.Allocator) Context {
+        return Context{
+            .values = std.ArrayList(Value).init(allocator),
+            .types = std.ArrayList(Ty).init(allocator),
+            .exprs = std.ArrayList(Expr).init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *Context) void {
+        self.values.deinit();
+        self.types.deinit();
+        self.exprs.deinit();
+    }
+
+    pub fn newValue(self: *Context) !Value {
+        const idx = try self.values.append(Value{ .tbd = ValueIdx{ .index = self.values.items.len } });
+        return self.values.items[idx];
+    }
+
+    pub fn newType(self: *Context) !Ty {
+        const idx = try self.types.append(Ty{ .tbd = TyIdx{ .index = self.types.items.len } });
+        return self.types.items[idx];
+    }
+
+    pub fn newExpr(self: *Context) !Expr {
+        const idx = try self.exprs.append(Expr{ .tbd = ExprIdx{ .index = self.exprs.items.len } });
+        return self.exprs.items[idx];
+    }
+
+    pub fn unifyValue(self: *Context, a: ValueIdx, b: ValueIdx) !void {
+        const value_a = &self.values.items[a.index];
+        const value_b = &self.values.items[b.index];
+
+        switch (value_a.*) {
+            .tbd => |tbd_a| {
+                switch (value_b.*) {
+                    .tbd => |tbd_b| {
+                        if (a.index < b.index) {
+                            // Fill in the TBD with the value of a
+                            value_b.* = value_a.*;
+                        } else {
+                            // Fill in the TBD with the value of b
+                            value_a.* = value_b.*;
+                        }
+                    },
+                    else => {
+                        // Fill in the TBD with the value of b
+                        value_a.* = value_b.*;
+                    },
+                }
+            },
+            else => {},
+        }
+    }
+};
+
+const ValueIdx = struct { index: usize };
+
 const Value = union(enum) {
     /// Represents a value that is not yet generated. Pointer to where we should fill in the value.
-    tbd: *Expr,
+    tbd: ValueIdx,
 
     int: i128,
     float: f64,
@@ -42,9 +105,13 @@ const Field = struct {
     value: Value,
 };
 
+const TyIdx = struct { index: usize };
+
 const Var = struct { index: usize };
 
 const Ty = union(enum) {
+    tbd: TyIdx,
+
     int,
     float,
     bool,
@@ -61,6 +128,10 @@ const Ty = union(enum) {
     pub fn equals(self: *const Ty, other: *const Ty) bool {
         if (self == other) return true;
         return switch (self.*) {
+            .tbd => |tbd_ty| {
+                _ = tbd_ty; // We need to evaluate the type to fill in the value.
+                @panic("todo");
+            },
             .int => |_| other.* == .int,
             .float => |_| other.* == .float,
             .bool => |_| other.* == .bool,
@@ -102,8 +173,10 @@ const FieldTy = struct {
     }
 };
 
+const ExprIdx = struct { index: usize };
+
 const Expr = union(enum) {
-    tbd: *Ty,
+    tbd: ExprIdx,
     literal: *Value,
     variable: Var,
     function: *Func,
@@ -157,6 +230,7 @@ const ActiveScope = struct {
 };
 
 const Interp = struct {
+    context: *Context,
     gas: u64,
 
     /// Evaluate the program and return the final value.
@@ -199,10 +273,16 @@ const Interp = struct {
 };
 
 pub fn main() !void {
-    // const gpa = std.heap.DebugAllocator(.{});
-    // const allocator = gpa.allocator();
+    var gpa: std.heap.DebugAllocator(.{}) = .{};
+    const allocator = gpa.allocator();
 
-    var interp = Interp{ .gas = 1000 };
+    var context = Context.init(allocator);
+    defer context.deinit();
+
+    var interp = Interp{
+        .context = &context,
+        .gas = 1000,
+    };
 
     // Example usage
     const scope = CapturedScope{ .values = &.{.{ .int = 42 }} };
@@ -211,4 +291,8 @@ pub fn main() !void {
 
     const result = try interp.eval(&scope, &ty, &expr);
     std.debug.print("Result: {}\n", .{result});
+
+    const tbd = try context.newValue();
+    try context.unify(tbd, result);
+    std.debug.print("Unified value: {}\n", .{tbd});
 }
