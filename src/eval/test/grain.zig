@@ -474,20 +474,16 @@ const Context = struct {
                 // Generate a random list with 1-3 elements of the inner type
                 const list_length = self.random.uintLessThan(usize, 3) + 1;
                 const elements = try self.values.allocator.alloc(Expr, list_length);
-                
+
                 for (elements) |*element| {
                     element.* = try self.generateRandomExpr(list_ty);
                 }
-                
+
                 return Expr{ .list_literal = .{ .elements = elements } };
             },
             .tbd => {
                 // If the type is also TBD, generate a random type first
-                const random_types = [_]Ty{ 
-                    Ty{ .int = {} }, 
-                    Ty{ .bool = {} }, 
-                    Ty{ .str = {} } 
-                };
+                const random_types = [_]Ty{ Ty{ .int = {} }, Ty{ .bool = {} }, Ty{ .str = {} } };
                 const random_ty = &random_types[self.random.uintLessThan(usize, random_types.len)];
                 return self.generateRandomExpr(random_ty);
             },
@@ -635,7 +631,7 @@ const Ty = union(enum) {
     pub fn format(self: Ty, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
-        
+
         switch (self) {
             .tbd => |tbd_idx| try writer.print("<tbd:{}>", .{tbd_idx.index}),
             .int => try writer.print("int", .{}),
@@ -690,43 +686,70 @@ const Expr = union(enum) {
             .tbd => |tbd_idx| try writer.print("<tbd:{}>", .{tbd_idx.index}),
             .literal => |val| try writer.print("{}", .{val.*}),
             .variable => |v| try writer.print("var[{}]", .{v.index}),
-            .function => try writer.print("<function>", .{}),
+            .function => |f| {
+                try writer.print("|", .{});
+                for (f.parameter_types, 0..) |param, i| {
+                    if (i > 0) try writer.print(", ", .{});
+                    try writer.print("{}", .{param});
+                }
+                try writer.print("| {}", .{f.body});
+            },
             .application => try writer.print("<application>", .{}),
             .list_literal => |lst| {
-                try writer.print("List(", .{});
+                try writer.print("[", .{});
                 for (lst.elements, 0..) |element, i| {
                     if (i > 0) try writer.print(", ", .{});
                     try writer.print("{}", .{element});
                 }
-                try writer.print(")", .{});
+                try writer.print("]", .{});
             },
             .equality => |eq| {
                 try writer.print("({} == {})", .{ eq.left.*, eq.right.* });
             },
             .if_expression => |if_expr| {
-                try writer.print("if ({}) {{ {} }} else {{ {} }}", .{ if_expr.condition.*, if_expr.then_branch.return_expr, if_expr.else_branch.return_expr });
+                try writer.print("if ({}) {} else {}", .{ if_expr.condition.*, if_expr.then_branch, if_expr.else_branch });
             },
         }
     }
 };
 
 const Func = struct {
-    parameters: []const []const u8,
+    parameter_types: []Ty,
     body: *const Block,
 };
 
 const Block = struct {
     statements: []const Stmt,
     return_expr: Expr,
+
+    pub fn format(self: Block, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        try writer.print("{{", .{});
+        for (self.statements, 0..) |stmt, i| {
+            if (i > 0) try writer.print("\n", .{});
+            try stmt.format(fmt, options, writer);
+        }
+        try writer.print("{}", .{self.return_expr});
+        try writer.print("}}", .{});
+    }
 };
 
 const Stmt = union(enum) {
     assignment: struct {
-        variable: []const u8,
         value: Expr,
     },
     expression: Expr,
     return_statement: Expr,
+
+    pub fn format(self: Stmt, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+
+        switch (self) {
+            .assignment => |assign| try writer.print("{s} = {}", .{ "var", assign.value }),
+            .expression => |expr| try writer.print("{}", .{expr}),
+            .return_statement => |ret| try writer.print("return {}", .{ret}),
+        }
+    }
 };
 
 const Module = struct {
@@ -762,7 +785,7 @@ const Interp = struct {
             .tbd => |tbd_expr_idx| {
                 // Step 1: Record the type constraint for this TBD expression
                 self.context.expr_type_constraints.items[tbd_expr_idx.index] = ty.*;
-                
+
                 // Return a TBD value that indicates this expression needs to be resolved
                 const tbd_value = try self.context.createTbdValue();
                 return tbd_value.*;
@@ -876,78 +899,78 @@ pub fn main() !void {
 
     // Test the new two-step approach
     std.debug.print("=== Testing Two-Step Constraint Recording + Generation ===\n", .{});
-    
+
     // Step 1: Create TBD expressions and evaluate them (records constraints)
     const tbd_int_expr = try context.newExpr();
     const tbd_bool_expr = try context.newExpr();
     const tbd_str_expr = try context.newExpr();
-    
+
     std.debug.print("BEFORE evaluation - TBD expressions:\n", .{});
     std.debug.print("  int expr: {}\n", .{tbd_int_expr.*});
     std.debug.print("  bool expr: {}\n", .{tbd_bool_expr.*});
     std.debug.print("  str expr: {}\n", .{tbd_str_expr.*});
-    
+
     // Evaluate them (this records type constraints but doesn't generate expressions yet)
     const scope = CapturedScope{ .values = &.{} };
     const int_ty = Ty{ .int = {} };
     const bool_ty = Ty{ .bool = {} };
     const str_ty = Ty{ .str = {} };
-    
+
     const result_int = try interp.eval(&scope, &int_ty, tbd_int_expr);
     const result_bool = try interp.eval(&scope, &bool_ty, tbd_bool_expr);
     const result_str = try interp.eval(&scope, &str_ty, tbd_str_expr);
-    
+
     std.debug.print("\nAFTER step 1 evaluation (constraint recording):\n", .{});
     std.debug.print("  Results: {}, {}, {}\n", .{ result_int, result_bool, result_str });
     std.debug.print("  Expressions still TBD: {}, {}, {}\n", .{ tbd_int_expr.*, tbd_bool_expr.*, tbd_str_expr.* });
-    
+
     // Show recorded constraints
     context.printConstraints();
-    
+
     // Step 2: Generate random expressions for constrained TBDs
     std.debug.print("=== Step 2: Generating Random Expressions ===\n", .{});
     try context.generateRandomExpressions();
-    
+
     std.debug.print("AFTER step 2 generation:\n", .{});
     std.debug.print("  int expr became: {}\n", .{tbd_int_expr.*});
     std.debug.print("  bool expr became: {}\n", .{tbd_bool_expr.*});
     std.debug.print("  str expr became: {}\n", .{tbd_str_expr.*});
-    
+
     // Test with complex nested expressions
     std.debug.print("\n=== Testing Complex Nested TBDs ===\n", .{});
-    
+
     // Create two new TBD expressions that will be used directly
     const nested_elements = try allocator.alloc(Expr, 2);
     nested_elements[0] = Expr{ .tbd = ExprIdx{ .index = context.exprs.items.len } };
     try context.exprs.append(nested_elements[0]);
     try context.expr_type_constraints.append(null);
-    
+
     nested_elements[1] = Expr{ .tbd = ExprIdx{ .index = context.exprs.items.len } };
     try context.exprs.append(nested_elements[1]);
     try context.expr_type_constraints.append(null);
-    
+
     const nested_list_expr = Expr{ .list_literal = .{ .elements = nested_elements } };
     std.debug.print("BEFORE: Complex expression: {}\n", .{nested_list_expr});
-    
+
     // Evaluate the complex expression
     const list_ty = Ty{ .list = &Ty{ .int = {} } };
     const result_nested = try interp.eval(&scope, &list_ty, &nested_list_expr);
     std.debug.print("AFTER step 1: Result: {}\n", .{result_nested});
     std.debug.print("AFTER step 1: Expression still has TBDs: {}\n", .{nested_list_expr});
-    
+
     // Show newly recorded constraints
     context.printConstraints();
-    
+
     // Generate expressions for the new TBDs
     try context.generateRandomExpressions();
     std.debug.print("AFTER step 2: Final expression: {}\n", .{nested_list_expr});
-    
+
     // Show what the TBD expressions became by looking at the last two expressions in context
     const elem1_idx = context.exprs.items.len - 2;
     const elem2_idx = context.exprs.items.len - 1;
     std.debug.print("  elem1 (idx {}) became: {}\n", .{ elem1_idx, context.exprs.items[elem1_idx] });
     std.debug.print("  elem2 (idx {}) became: {}\n", .{ elem2_idx, context.exprs.items[elem2_idx] });
-    
+
     // To get the fully resolved expression, we can use resolveExpr
     const fully_resolved = try context.resolveExpr(nested_list_expr, allocator);
     std.debug.print("  Fully resolved expression: {}\n", .{fully_resolved});
