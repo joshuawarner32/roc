@@ -6,68 +6,93 @@ const InequalityConstraint = struct {
 };
 
 const UnionFind = struct {
-    parent: std.ArrayList(usize),
-    rank: std.ArrayList(u32),
+    const Item = struct {
+        parent: usize,
+        rank: u32,
+    };
+
+    items: std.MultiArrayList(Item),
 
     pub fn init(allocator: std.mem.Allocator) UnionFind {
         return UnionFind{
-            .parent = std.ArrayList(usize).init(allocator),
-            .rank = std.ArrayList(u32).init(allocator),
+            .items = std.MultiArrayList(Item).init(allocator),
         };
     }
 
     pub fn deinit(self: *UnionFind) void {
-        self.parent.deinit();
-        self.rank.deinit();
+        self.items.deinit();
     }
 
     pub fn makeSet(self: *UnionFind) !usize {
-        const id = self.parent.items.len;
-        try self.parent.append(id);
-        try self.rank.append(0);
+        const id = self.items.len;
+        try self.items.append(.{
+            .parent = id,
+            .rank = 0,
+        });
         return id;
     }
 
     pub fn find(self: *UnionFind, x: usize) usize {
-        if (self.parent.items[x] != x) {
-            self.parent.items[x] = self.find(self.parent.items[x]); // Path compression
+        var parent_slice = self.items.items(.parent);
+        if (parent_slice[x] != x) {
+            parent_slice[x] = self.find(parent_slice[x]); // Path compression
         }
-        return self.parent.items[x];
+        return parent_slice[x];
     }
 
     pub fn unite(self: *UnionFind, x: usize, y: usize) void {
+        var parent_slice = self.items.items(.parent);
+        var rank_slice = self.items.items(.rank);
+
         const root_x = self.find(x);
         const root_y = self.find(y);
 
         if (root_x == root_y) return;
 
         // Union by rank
-        if (self.rank.items[root_x] < self.rank.items[root_y]) {
-            self.parent.items[root_x] = root_y;
-        } else if (self.rank.items[root_x] > self.rank.items[root_y]) {
-            self.parent.items[root_y] = root_x;
+        if (rank_slice[root_x] < rank_slice[root_y]) {
+            parent_slice[root_x] = root_y;
+        } else if (rank_slice[root_x] > rank_slice[root_y]) {
+            parent_slice[root_y] = root_x;
         } else {
-            self.parent.items[root_y] = root_x;
-            self.rank.items[root_x] += 1;
+            parent_slice[root_y] = root_x;
+            rank_slice[root_x] += 1;
         }
     }
 };
 
 const Context = struct {
-    values: std.ArrayList(Value),
+    const ValueInfo = struct {
+        resolved: Value,
+        expr: ExprIdx,
+        ty: Ty,
+    };
+
+    const ExprInfo = struct {
+        resolved: Expr,
+        ty: Ty,
+    };
+
+    values: std.ArrayList(ValueInfo),
+    exprs: std.ArrayList(ExprInfo),
     types: std.ArrayList(Ty),
-    exprs: std.ArrayList(Expr),
+
     value_uf: UnionFind,
+    type_uf: UnionFind,
+
     inequality_constraints: std.ArrayList(InequalityConstraint),
-    expr_type_constraints: std.ArrayList(?Ty), // Parallel to exprs - tracks type constraints for TBD expressions
+
     random: std.Random,
 
     pub fn init(allocator: std.mem.Allocator, random: std.Random) Context {
         return Context{
-            .values = std.ArrayList(Value).init(allocator),
+            .values = std.ArrayList(ValueInfo).init(allocator),
+            .exprs = std.ArrayList(ExprInfo).init(allocator),
             .types = std.ArrayList(Ty).init(allocator),
-            .exprs = std.ArrayList(Expr).init(allocator),
+
             .value_uf = UnionFind.init(allocator),
+            .type_uf = UnionFind.init(allocator),
+
             .inequality_constraints = std.ArrayList(InequalityConstraint).init(allocator),
             .expr_type_constraints = std.ArrayList(?Ty).init(allocator),
             .random = random,
@@ -76,19 +101,22 @@ const Context = struct {
 
     pub fn deinit(self: *Context) void {
         self.values.deinit();
-        self.types.deinit();
         self.exprs.deinit();
+        self.types.deinit();
         self.value_uf.deinit();
+        self.type_uf.deinit();
         self.inequality_constraints.deinit();
         self.expr_type_constraints.deinit();
     }
 
-    pub fn newValue(self: *Context) !ValueIdx {
+    pub fn newValue(self: *Context) !*const Value {
         const idx = self.values.items.len;
         _ = try self.value_uf.makeSet();
         try self.values.append(Value{ .tbd = ValueIdx{ .index = idx } });
         return ValueIdx{ .index = idx };
     }
+
+    pub fn newValueOfType(self: *Context, ty: *const Ty) !ValueIdx
 
     pub fn newType(self: *Context) !Ty {
         const idx = try self.types.append(Ty{ .tbd = TyIdx{ .index = self.types.items.len } });
@@ -447,23 +475,43 @@ const Context = struct {
     }
 
     fn generateRandomExpr(self: *Context, ty: *const Ty) !Expr {
+        const max_depth = 3;
+        return self.generateRandomExprWithDepth(ty, max_depth);
+    }
+
+    fn generateRandomExprWithDepth(self: *Context, ty: *const Ty, depth: u32) error{ OutOfMemory, UnificationFailed, ContradictoryConstraint }!Expr {
+        if (depth == 0) {
+            return self.generateLiteralExpr(ty);
+        }
+
+        const expr_types = [_]u32{ 0, 1, 2, 3, 4 }; // literal, equality, if, list, tbd
+        const choice = self.random.uintLessThan(u32, expr_types.len);
+
+        return switch (choice) {
+            0 => self.generateLiteralExpr(ty),
+            1 => self.generateEqualityExpr(ty, depth),
+            2 => self.generateIfExpr(ty, depth),
+            3 => self.generateListExpr(ty, depth),
+            4 => self.generateTbdExpr(ty),
+            else => unreachable,
+        };
+    }
+
+    fn generateLiteralExpr(self: *Context, ty: *const Ty) !Expr {
         return switch (ty.*) {
             .int => {
-                // Generate a random integer literal
                 const random_int = self.random.intRangeAtMost(i128, -100, 100);
                 const int_val = try self.values.allocator.create(Value);
                 int_val.* = Value{ .int = random_int };
                 return Expr{ .literal = int_val };
             },
             .bool => {
-                // Generate a random boolean literal
                 const random_bool = self.random.boolean();
                 const bool_val = try self.values.allocator.create(Value);
                 bool_val.* = Value{ .bool = random_bool };
                 return Expr{ .literal = bool_val };
             },
             .str => {
-                // Generate a random string literal (for now, just a few fixed options)
                 const strings = [_][]const u8{ "hello", "world", "foo", "bar", "test" };
                 const random_str = strings[self.random.uintLessThan(usize, strings.len)];
                 const str_val = try self.values.allocator.create(Value);
@@ -471,27 +519,86 @@ const Context = struct {
                 return Expr{ .literal = str_val };
             },
             .list => |list_ty| {
-                // Generate a random list with 1-3 elements of the inner type
                 const list_length = self.random.uintLessThan(usize, 3) + 1;
                 const elements = try self.values.allocator.alloc(Expr, list_length);
-
                 for (elements) |*element| {
-                    element.* = try self.generateRandomExpr(list_ty);
+                    element.* = try self.generateLiteralExpr(list_ty);
                 }
-
                 return Expr{ .list_literal = .{ .elements = elements } };
             },
             .tbd => {
-                // If the type is also TBD, generate a random type first
                 const random_types = [_]Ty{ Ty{ .int = {} }, Ty{ .bool = {} }, Ty{ .str = {} } };
                 const random_ty = &random_types[self.random.uintLessThan(usize, random_types.len)];
-                return self.generateRandomExpr(random_ty);
+                return self.generateLiteralExpr(random_ty);
             },
             else => {
-                // For other types, just generate an int for now
-                return self.generateRandomExpr(&Ty{ .int = {} });
+                return self.generateLiteralExpr(&Ty{ .int = {} });
             },
         };
+    }
+
+    fn generateEqualityExpr(self: *Context, ty: *const Ty, depth: u32) !Expr {
+        if (ty.* != .bool) {
+            return self.generateLiteralExpr(ty);
+        }
+
+        const comparison_types = [_]Ty{ Ty{ .int = {} }, Ty{ .bool = {} }, Ty{ .str = {} } };
+        const comp_ty = &comparison_types[self.random.uintLessThan(usize, comparison_types.len)];
+
+        const left_expr = try self.values.allocator.create(Expr);
+        const right_expr = try self.values.allocator.create(Expr);
+
+        left_expr.* = try self.generateRandomExprWithDepth(comp_ty, depth - 1);
+        right_expr.* = try self.generateRandomExprWithDepth(comp_ty, depth - 1);
+
+        return Expr{ .equality = .{ .left = left_expr, .right = right_expr } };
+    }
+
+    fn generateIfExpr(self: *Context, ty: *const Ty, depth: u32) !Expr {
+        const condition_expr = try self.values.allocator.create(Expr);
+        condition_expr.* = try self.generateRandomExprWithDepth(&Ty{ .bool = {} }, depth - 1);
+
+        const then_block = try self.values.allocator.create(Block);
+        const else_block = try self.values.allocator.create(Block);
+
+        then_block.* = Block{
+            .statements = &.{},
+            .return_expr = try self.generateRandomExprWithDepth(ty, depth - 1),
+        };
+
+        else_block.* = Block{
+            .statements = &.{},
+            .return_expr = try self.generateRandomExprWithDepth(ty, depth - 1),
+        };
+
+        return Expr{ .if_expression = .{
+            .condition = condition_expr,
+            .then_branch = then_block,
+            .else_branch = else_block,
+        } };
+    }
+
+    fn generateListExpr(self: *Context, ty: *const Ty, depth: u32) !Expr {
+        const list_ty = switch (ty.*) {
+            .list => |inner_ty| inner_ty,
+            else => &Ty{ .int = {} },
+        };
+
+        const list_length = self.random.uintLessThan(usize, 3) + 1;
+        const elements = try self.values.allocator.alloc(Expr, list_length);
+
+        for (elements) |*element| {
+            element.* = try self.generateRandomExprWithDepth(list_ty, depth - 1);
+        }
+
+        return Expr{ .list_literal = .{ .elements = elements } };
+    }
+
+    fn generateTbdExpr(self: *Context, ty: *const Ty) !Expr {
+        const tbd_expr_idx = ExprIdx{ .index = self.exprs.items.len };
+        try self.exprs.append(Expr{ .tbd = tbd_expr_idx });
+        try self.expr_type_constraints.append(ty.*);
+        return Expr{ .tbd = tbd_expr_idx };
     }
 
     pub fn printConstraints(self: *Context) void {
@@ -886,92 +993,84 @@ pub fn main() !void {
     var gpa: std.heap.DebugAllocator(.{}) = .{};
     const allocator = gpa.allocator();
 
-    var prng = std.Random.DefaultPrng.init(1);
+    var prng = std.Random.DefaultPrng.init(42);
     const random = prng.random();
 
     var context = Context.init(allocator, random);
     defer context.deinit();
+
+    std.debug.print("=== Testing Enhanced Random Expression Generation ===\n", .{});
+
+    // Test different types with enhanced generation
+    const test_types = [_]Ty{
+        Ty{ .int = {} },
+        Ty{ .bool = {} },
+        Ty{ .str = {} },
+        Ty{ .list = &Ty{ .int = {} } },
+    };
+
+    for (test_types) |ty| {
+        std.debug.print("\n--- Generating expressions for type: {} ---\n", .{ty});
+
+        var j: u32 = 0;
+        while (j < 3) : (j += 1) {
+            const expr = try context.generateRandomExpr(&ty);
+            std.debug.print("  Example {}: {}\n", .{ j + 1, expr });
+        }
+    }
+
+    // Test the iterative resolution process
+    std.debug.print("\n=== Testing Iterative TBD Resolution ===\n", .{});
 
     var interp = Interp{
         .context = &context,
         .gas = 1000,
     };
 
-    // Test the new two-step approach
-    std.debug.print("=== Testing Two-Step Constraint Recording + Generation ===\n", .{});
+    // Create a complex expression with nested TBDs that will create more TBDs
+    const complex_expr = try context.generateRandomExpr(&Ty{ .bool = {} });
+    std.debug.print("Generated complex expression: {}\n", .{complex_expr});
 
-    // Step 1: Create TBD expressions and evaluate them (records constraints)
-    const tbd_int_expr = try context.newExpr();
-    const tbd_bool_expr = try context.newExpr();
-    const tbd_str_expr = try context.newExpr();
+    // Check if any new TBDs were created and resolve them iteratively
+    var iterations: u32 = 0;
+    const max_iterations = 5;
 
-    std.debug.print("BEFORE evaluation - TBD expressions:\n", .{});
-    std.debug.print("  int expr: {}\n", .{tbd_int_expr.*});
-    std.debug.print("  bool expr: {}\n", .{tbd_bool_expr.*});
-    std.debug.print("  str expr: {}\n", .{tbd_str_expr.*});
+    while (iterations < max_iterations) : (iterations += 1) {
+        std.debug.print("\n--- Iteration {} ---\n", .{iterations + 1});
 
-    // Evaluate them (this records type constraints but doesn't generate expressions yet)
+        // Check for unresolved TBDs
+        var has_unresolved = false;
+        for (context.exprs.items, 0..) |expr, idx| {
+            if (expr == .tbd and context.expr_type_constraints.items[idx] != null) {
+                has_unresolved = true;
+                break;
+            }
+        }
+
+        if (!has_unresolved) {
+            std.debug.print("No more unresolved TBDs found!\n", .{});
+            break;
+        }
+
+        std.debug.print("Resolving TBDs...\n", .{});
+        context.printConstraints();
+        try context.generateRandomExpressions();
+    }
+
+    // Show final state
+    std.debug.print("\n=== Final Results ===\n", .{});
+    std.debug.print("Total expressions generated: {}\n", .{context.exprs.items.len});
+    std.debug.print("Final expressions in context:\n", .{});
+    for (context.exprs.items, 0..) |expr, idx| {
+        std.debug.print("  [{}]: {}\n", .{ idx, expr });
+    }
+
+    // Test evaluation of a simple generated expression
+    std.debug.print("\n=== Testing Evaluation ===\n", .{});
+    const simple_expr = try context.generateRandomExpr(&Ty{ .int = {} });
+    std.debug.print("Generated for evaluation: {}\n", .{simple_expr});
+
     const scope = CapturedScope{ .values = &.{} };
-    const int_ty = Ty{ .int = {} };
-    const bool_ty = Ty{ .bool = {} };
-    const str_ty = Ty{ .str = {} };
-
-    const result_int = try interp.eval(&scope, &int_ty, tbd_int_expr);
-    const result_bool = try interp.eval(&scope, &bool_ty, tbd_bool_expr);
-    const result_str = try interp.eval(&scope, &str_ty, tbd_str_expr);
-
-    std.debug.print("\nAFTER step 1 evaluation (constraint recording):\n", .{});
-    std.debug.print("  Results: {}, {}, {}\n", .{ result_int, result_bool, result_str });
-    std.debug.print("  Expressions still TBD: {}, {}, {}\n", .{ tbd_int_expr.*, tbd_bool_expr.*, tbd_str_expr.* });
-
-    // Show recorded constraints
-    context.printConstraints();
-
-    // Step 2: Generate random expressions for constrained TBDs
-    std.debug.print("=== Step 2: Generating Random Expressions ===\n", .{});
-    try context.generateRandomExpressions();
-
-    std.debug.print("AFTER step 2 generation:\n", .{});
-    std.debug.print("  int expr became: {}\n", .{tbd_int_expr.*});
-    std.debug.print("  bool expr became: {}\n", .{tbd_bool_expr.*});
-    std.debug.print("  str expr became: {}\n", .{tbd_str_expr.*});
-
-    // Test with complex nested expressions
-    std.debug.print("\n=== Testing Complex Nested TBDs ===\n", .{});
-
-    // Create two new TBD expressions that will be used directly
-    const nested_elements = try allocator.alloc(Expr, 2);
-    nested_elements[0] = Expr{ .tbd = ExprIdx{ .index = context.exprs.items.len } };
-    try context.exprs.append(nested_elements[0]);
-    try context.expr_type_constraints.append(null);
-
-    nested_elements[1] = Expr{ .tbd = ExprIdx{ .index = context.exprs.items.len } };
-    try context.exprs.append(nested_elements[1]);
-    try context.expr_type_constraints.append(null);
-
-    const nested_list_expr = Expr{ .list_literal = .{ .elements = nested_elements } };
-    std.debug.print("BEFORE: Complex expression: {}\n", .{nested_list_expr});
-
-    // Evaluate the complex expression
-    const list_ty = Ty{ .list = &Ty{ .int = {} } };
-    const result_nested = try interp.eval(&scope, &list_ty, &nested_list_expr);
-    std.debug.print("AFTER step 1: Result: {}\n", .{result_nested});
-    std.debug.print("AFTER step 1: Expression still has TBDs: {}\n", .{nested_list_expr});
-
-    // Show newly recorded constraints
-    context.printConstraints();
-
-    // Generate expressions for the new TBDs
-    try context.generateRandomExpressions();
-    std.debug.print("AFTER step 2: Final expression: {}\n", .{nested_list_expr});
-
-    // Show what the TBD expressions became by looking at the last two expressions in context
-    const elem1_idx = context.exprs.items.len - 2;
-    const elem2_idx = context.exprs.items.len - 1;
-    std.debug.print("  elem1 (idx {}) became: {}\n", .{ elem1_idx, context.exprs.items[elem1_idx] });
-    std.debug.print("  elem2 (idx {}) became: {}\n", .{ elem2_idx, context.exprs.items[elem2_idx] });
-
-    // To get the fully resolved expression, we can use resolveExpr
-    const fully_resolved = try context.resolveExpr(nested_list_expr, allocator);
-    std.debug.print("  Fully resolved expression: {}\n", .{fully_resolved});
+    const result = try interp.eval(&scope, &Ty{ .int = {} }, &simple_expr);
+    std.debug.print("Evaluation result: {}\n", .{result});
 }
