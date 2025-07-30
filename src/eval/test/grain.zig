@@ -111,7 +111,6 @@ const Value = union(enum) {
 
     pub fn generateRandom(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty) !Value {
         return switch (typ.*) {
-            .int => Value{ .int = random.int(i128) },
             .i8 => Value{ .i8 = random.int(i8) },
             .i16 => Value{ .i16 = random.int(i16) },
             .i32 => Value{ .i32 = random.int(i32) },
@@ -127,11 +126,10 @@ const Value = union(enum) {
             .str => blk: {
                 const length = random.int(u32) % 10 + 1; // Random string length between 1 and 10
                 var buffer = allocator.alloc(u8, length) catch return error.OutOfMemory;
-                defer allocator.free(buffer);
                 for (0..length) |i| {
                     buffer[i] = @as(u8, random.int(u8) % 26 + 97); // Random lowercase letters
                 }
-                break :blk Value{ .str = buffer };
+                break :blk Value{ .str = buffer }; // Don't free the buffer, it's owned by the Value
             },
             .list => |element_ty| {
                 var elements = std.ArrayList(Value).init(allocator);
@@ -165,13 +163,13 @@ const Value = union(enum) {
             .function => |func_ty| {
                 // Generate a closure with the specified function type
                 const func_ptr = try allocator.create(Func);
-                
+
                 // Copy parameter types
                 var param_types = try allocator.alloc(Ty, func_ty.parameter_types.len);
                 for (func_ty.parameter_types, 0..) |param_ty, i| {
                     param_types[i] = param_ty;
                 }
-                
+
                 // Create a simple block that returns a literal value of the return type
                 const return_value = try Value.generateRandom(allocator, random, func_ty.return_type);
                 const return_value_ptr = try allocator.create(Value);
@@ -182,12 +180,12 @@ const Value = union(enum) {
                     .statements = &[_]Stmt{}, // No statements for simplicity
                     .return_expr = return_expr,
                 };
-                
+
                 func_ptr.* = Func{
                     .parameter_types = param_types,
                     .body = block_ptr,
                 };
-                
+
                 return Value{ .closure = .{
                     .function = func_ptr,
                     .captured_variables = Scope{ .values = std.ArrayList(Value).init(allocator) },
@@ -207,7 +205,6 @@ const TyIdx = struct { index: usize };
 const Var = struct { index: usize };
 
 const Ty = union(enum) {
-    int,
     i8,
     i16,
     i32,
@@ -237,7 +234,6 @@ const Ty = union(enum) {
     pub fn equals(self: *const Ty, other: *const Ty) bool {
         if (self == other) return true;
         return switch (self.*) {
-            .int => |_| other.* == .int,
             .i8 => |_| other.* == .i8,
             .i16 => |_| other.* == .i16,
             .i32 => |_| other.* == .i32,
@@ -292,7 +288,6 @@ const Ty = union(enum) {
         _ = options;
 
         switch (self) {
-            .int => try writer.print("int", .{}),
             .i8 => try writer.print("i8", .{}),
             .i16 => try writer.print("i16", .{}),
             .i32 => try writer.print("i32", .{}),
@@ -506,38 +501,37 @@ const Expr = union(enum) {
         // Generate random argument types - for simplicity, use 0-2 arguments
         const num_args = random.int(u32) % 3;
         var arg_types = try allocator.alloc(Ty, num_args);
-        
+
         // For "don't care" argument types, generate random basic types
         for (0..num_args) |i| {
-            const arg_type_choice = random.int(u32) % 14;
+            const arg_type_choice = random.int(u32) % 13;
             arg_types[i] = switch (arg_type_choice) {
-                0 => Ty{ .int = {} },
-                1 => Ty{ .i8 = {} },
-                2 => Ty{ .i16 = {} },
-                3 => Ty{ .i32 = {} },
-                4 => Ty{ .i64 = {} },
-                5 => Ty{ .i128 = {} },
-                6 => Ty{ .u8 = {} },
-                7 => Ty{ .u16 = {} },
-                8 => Ty{ .u32 = {} },
-                9 => Ty{ .u64 = {} },
-                10 => Ty{ .u128 = {} },
-                11 => Ty{ .float = {} },
-                12 => Ty{ .bool = {} },
-                13 => Ty{ .str = {} },
+                0 => Ty{ .i8 = {} },
+                1 => Ty{ .i16 = {} },
+                2 => Ty{ .i32 = {} },
+                3 => Ty{ .i64 = {} },
+                4 => Ty{ .i128 = {} },
+                5 => Ty{ .u8 = {} },
+                6 => Ty{ .u16 = {} },
+                7 => Ty{ .u32 = {} },
+                8 => Ty{ .u64 = {} },
+                9 => Ty{ .u128 = {} },
+                10 => Ty{ .float = {} },
+                11 => Ty{ .bool = {} },
+                12 => Ty{ .str = {} },
                 else => unreachable,
             };
         }
-        
+
         // Create the function type that will return our desired type
         const return_type_ptr = try allocator.create(Ty);
         return_type_ptr.* = return_type.*;
-        
+
         const func_type = Ty{ .function = .{
             .parameter_types = arg_types,
             .return_type = return_type_ptr,
         } };
-        
+
         // Generate a function expression that has this type (always a literal closure)
         const func_value = try Value.generateRandom(allocator, random, &func_type);
         const func_value_ptr = try allocator.create(Value);
@@ -545,7 +539,7 @@ const Expr = union(enum) {
         const func_expr = Expr{ .literal = func_value_ptr };
         const func_expr_ptr = try allocator.create(Expr);
         func_expr_ptr.* = func_expr;
-        
+
         // Generate arguments of the appropriate types (always literals)
         var arguments = try allocator.alloc(Expr, num_args);
         for (0..num_args) |i| {
@@ -554,7 +548,7 @@ const Expr = union(enum) {
             arg_value_ptr.* = arg_value;
             arguments[i] = Expr{ .literal = arg_value_ptr };
         }
-        
+
         return Expr{ .application = .{
             .function = func_expr_ptr,
             .arguments = arguments,
@@ -565,13 +559,13 @@ const Expr = union(enum) {
         _ = depth; // Unused for now
         // Choose a binary operator based on the desired result type
         const ops_for_type = switch (result_type.*) {
-            .int, .i8, .i16, .i32, .i64, .i128, .u8, .u16, .u32, .u64, .u128 => &[_]BinaryOp{ .add, .subtract, .multiply, .divide },
+            .i8, .i16, .i32, .i64, .i128, .u8, .u16, .u32, .u64, .u128 => &[_]BinaryOp{ .add, .subtract, .multiply, .divide },
             .bool => &[_]BinaryOp{ .equals, .not_equals, .less_than, .greater_than, .and_op, .or_op },
             else => &[_]BinaryOp{.equals}, // Default to equality for other types
         };
-        
+
         const op = ops_for_type[random.int(usize) % ops_for_type.len];
-        
+
         // Generate operand types based on the operator
         const operand_type = switch (op) {
             .add, .subtract, .multiply, .divide, .less_than, .greater_than => result_type.*, // Use the same type as result for arithmetic
@@ -580,38 +574,37 @@ const Expr = union(enum) {
                 // For equality, use a random basic type
                 const type_choice = random.int(u32) % 14; // Now we have 14 basic types
                 break :blk switch (type_choice) {
-                    0 => Ty{ .int = {} },
-                    1 => Ty{ .i8 = {} },
-                    2 => Ty{ .i16 = {} },
-                    3 => Ty{ .i32 = {} },
-                    4 => Ty{ .i64 = {} },
-                    5 => Ty{ .i128 = {} },
-                    6 => Ty{ .u8 = {} },
-                    7 => Ty{ .u16 = {} },
-                    8 => Ty{ .u32 = {} },
-                    9 => Ty{ .u64 = {} },
-                    10 => Ty{ .u128 = {} },
-                    11 => Ty{ .float = {} },
-                    12 => Ty{ .bool = {} },
-                    13 => Ty{ .str = {} },
+                    0 => Ty{ .i8 = {} },
+                    1 => Ty{ .i16 = {} },
+                    2 => Ty{ .i32 = {} },
+                    3 => Ty{ .i64 = {} },
+                    4 => Ty{ .i128 = {} },
+                    5 => Ty{ .u8 = {} },
+                    6 => Ty{ .u16 = {} },
+                    7 => Ty{ .u32 = {} },
+                    8 => Ty{ .u64 = {} },
+                    9 => Ty{ .u128 = {} },
+                    10 => Ty{ .float = {} },
+                    11 => Ty{ .bool = {} },
+                    12 => Ty{ .str = {} },
                     else => unreachable,
                 };
             },
         };
-        
+
         // Generate left and right operands (use literals to avoid deep recursion)
         const left_value = try Value.generateRandom(allocator, random, &operand_type);
         const left_value_ptr = try allocator.create(Value);
         left_value_ptr.* = left_value;
         const left_expr_ptr = try allocator.create(Expr);
         left_expr_ptr.* = Expr{ .literal = left_value_ptr };
-        
+
         const right_value = try Value.generateRandom(allocator, random, &operand_type);
         const right_value_ptr = try allocator.create(Value);
         right_value_ptr.* = right_value;
         const right_expr_ptr = try allocator.create(Expr);
         right_expr_ptr.* = Expr{ .literal = right_value_ptr };
-        
+
         return Expr{ .binary = .{
             .op = op,
             .left = left_expr_ptr,
@@ -621,24 +614,24 @@ const Expr = union(enum) {
 
     fn generateUnaryExpression(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, depth: u32) !Expr {
         _ = depth; // Unused for now
-        
+
         // Choose a unary operator based on the desired result type
         const op = switch (result_type.*) {
-            .int, .i8, .i16, .i32, .i64, .i128, .u8, .u16, .u32, .u64, .u128 => UnaryOp.negate,
+            .i8, .i16, .i32, .i64, .i128, .u8, .u16, .u32, .u64, .u128 => UnaryOp.negate,
             .bool => UnaryOp.not,
             else => return error.UnsupportedUnaryType,
         };
-        
+
         // The operand type should match the result type for these operators
         const operand_type = result_type.*;
-        
+
         // Generate operand (use literal to avoid deep recursion)
         const operand_value = try Value.generateRandom(allocator, random, &operand_type);
         const operand_value_ptr = try allocator.create(Value);
         operand_value_ptr.* = operand_value;
         const operand_expr_ptr = try allocator.create(Expr);
         operand_expr_ptr.* = Expr{ .literal = operand_value_ptr };
-        
+
         return Expr{ .unary = .{
             .op = op,
             .operand = operand_expr_ptr,
@@ -647,22 +640,22 @@ const Expr = union(enum) {
 
     fn generateFieldAccess(allocator: std.mem.Allocator, random: *const std.Random, field_type: *const Ty, depth: u32) !Expr {
         _ = depth; // Unused for now
-        
+
         // Generate a record with a field of the desired type
         const field_name = "field"; // Simple field name for now
         const field_ty = FieldTy{ .name = field_name, .ty = field_type.* };
         const record_fields = try allocator.alloc(FieldTy, 1);
         record_fields[0] = field_ty;
-        
+
         const record_type = Ty{ .record = .{ .fields = record_fields } };
-        
+
         // Generate a record value (use literal to avoid deep recursion)
         const record_value = try Value.generateRandom(allocator, random, &record_type);
         const record_value_ptr = try allocator.create(Value);
         record_value_ptr.* = record_value;
         const record_expr_ptr = try allocator.create(Expr);
         record_expr_ptr.* = Expr{ .literal = record_value_ptr };
-        
+
         return Expr{ .field_access = .{
             .record = record_expr_ptr,
             .field_name = field_name,
@@ -799,33 +792,26 @@ const Interp = struct {
 
                 for (list_lit.elements) |element_expr| {
                     // For simplicity, use a generic type for list elements
-                    const element_value = try self.eval(scope, &Ty{ .int = {} }, &element_expr);
+                    const element_value = try self.eval(scope, &Ty{ .u8 = {} }, &element_expr);
                     try elements.append(element_value);
                 }
 
                 return Value{ .list = .{ .elements = try elements.toOwnedSlice() } };
             },
             .binary => |bin| {
-                // For simplicity, just return a random result of the appropriate type
-                return switch (bin.op) {
-                    .add, .subtract, .multiply, .divide => Value{ .int = @import("std").crypto.random.int(i128) },
-                    .equals, .not_equals, .less_than, .greater_than, .and_op, .or_op => Value{ .bool = @import("std").crypto.random.boolean() },
-                };
+                _ = bin;
+                @panic("todo");
             },
             .unary => |un| {
-                // For simplicity, just return a random result of the appropriate type
-                return switch (un.op) {
-                    .negate => Value{ .int = @import("std").crypto.random.int(i128) },
-                    .not => Value{ .bool = @import("std").crypto.random.boolean() },
-                };
+                _ = un;
+                @panic("todo");
             },
             .field_access => |_| {
-                // For simplicity, return a random int (would need proper field lookup in real implementation)
-                return Value{ .int = @import("std").crypto.random.int(i128) };
+                @panic("todo");
             },
             .application => |app| {
-                _ = app; // We need to evaluate the function and arguments.
-                return error.ApplicationNotImplemented;
+                _ = app;
+                @panic("todo");
             },
             .if_expression => |if_expr| {
                 // Evaluate condition
@@ -845,22 +831,6 @@ const Interp = struct {
         }
     }
 
-    fn storeValue(self: *Interp, value: Value) !ValueIdx {
-        // Check if this value is already a TBD that exists in our context
-        switch (value) {
-            .tbd => |tbd_idx| {
-                // Return the existing ValueIdx for this TBD
-                return tbd_idx;
-            },
-            else => {
-                const idx = self.context.values.items.len;
-                _ = try self.context.value_uf.makeSet();
-                try self.context.values.append(value);
-                return ValueIdx{ .index = idx };
-            },
-        }
-    }
-
     fn evalBlock(self: *Interp, scope: *const Scope, ty: *const Ty, block: *const Block) error{ OutOfGas, UnificationFailed, ContradictoryConstraint, TypeMismatch, VariableNotFound, TbdExpressionNotImplemented, ApplicationNotImplemented, IfExpressionNotImplemented, OutOfMemory }!Value {
         // For simplicity, just evaluate the return expression
         // In a full implementation, you'd need to handle statements
@@ -872,9 +842,20 @@ pub fn main() !void {
     var gpa: std.heap.DebugAllocator(.{}) = .{};
     const allocator = gpa.allocator();
 
+    // Parse command line arguments
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    const count = if (args.len > 1)
+        std.fmt.parseInt(u32, args[1], 10) catch 1
+    else
+        1;
+
     var prng = std.Random.DefaultPrng.init(@intCast(std.time.timestamp()));
     const random = prng.random();
 
-    const expr = try Expr.generateRandom(allocator, &random, &Ty{ .int = {} });
-    std.debug.print("Generated expression: {}\n", .{expr});
+    for (0..count) |_| {
+        const expr = try Expr.generateRandom(allocator, &random, &Ty{ .u8 = {} });
+        std.debug.print("Generated expression: {}\n", .{expr});
+    }
 }
