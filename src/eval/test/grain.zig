@@ -56,52 +56,169 @@ const Value = union(enum) {
     pub fn format(self: Value, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
+        var buffer = std.ArrayList(u8).init(std.heap.page_allocator);
+        defer buffer.deinit();
+        try self.formatWithIndent(&buffer, 0, 80);
+        try writer.writeAll(buffer.items);
+    }
 
+    pub fn formatWithIndent(self: Value, buffer: *std.ArrayList(u8), indent: ?u32, max_width: u32) std.fmt.AllocPrintError!void {
         switch (self) {
-            .i8 => |i| try writer.print("{}i8", .{i}),
-            .i16 => |i| try writer.print("{}i16", .{i}),
-            .i32 => |i| try writer.print("{}i32", .{i}),
-            .i64 => |i| try writer.print("{}i64", .{i}),
-            .i128 => |i| try writer.print("{}i128", .{i}),
-            .u8 => |i| try writer.print("{}u8", .{i}),
-            .u16 => |i| try writer.print("{}u16", .{i}),
-            .u32 => |i| try writer.print("{}u32", .{i}),
-            .u64 => |i| try writer.print("{}u64", .{i}),
-            .u128 => |i| try writer.print("{}u128", .{i}),
-            .float => |f| try writer.print("{d}", .{f}),
-            .bool => |b| try writer.print("{}", .{b}),
-            .str => |s| try writer.print("\"{s}\"", .{s}),
+            .i8 => |i| try buffer.writer().print("{}i8", .{i}),
+            .i16 => |i| try buffer.writer().print("{}i16", .{i}),
+            .i32 => |i| try buffer.writer().print("{}i32", .{i}),
+            .i64 => |i| try buffer.writer().print("{}i64", .{i}),
+            .i128 => |i| try buffer.writer().print("{}i128", .{i}),
+            .u8 => |i| try buffer.writer().print("{}u8", .{i}),
+            .u16 => |i| try buffer.writer().print("{}u16", .{i}),
+            .u32 => |i| try buffer.writer().print("{}u32", .{i}),
+            .u64 => |i| try buffer.writer().print("{}u64", .{i}),
+            .u128 => |i| try buffer.writer().print("{}u128", .{i}),
+            .float => |f| try buffer.writer().print("{d}", .{f}),
+            .bool => |b| try buffer.writer().print("{}", .{b}),
+            .str => |s| try buffer.writer().print("\"{s}\"", .{s}),
             .list => |lst| {
-                try writer.print("List(", .{});
-                for (lst.elements, 0..) |element, i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    try writer.print("{}", .{element});
+                if (indent == null) {
+                    try buffer.writer().print("List(", .{});
+                    for (lst.elements, 0..) |element, i| {
+                        if (i > 0) try buffer.writer().print(", ", .{});
+                        try element.formatWithIndent(buffer, null, max_width);
+                    }
+                    try buffer.writer().print(")", .{});
+                    return;
                 }
-                try writer.print(")", .{});
+
+                const start_pos = buffer.items.len;
+                try buffer.writer().print("List(", .{});
+                for (lst.elements, 0..) |element, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try element.formatWithIndent(buffer, null, max_width);
+                }
+                try buffer.writer().print(")", .{});
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try buffer.writer().print("List(\n", .{});
+                for (lst.elements, 0..) |element, i| {
+                    if (i > 0) try buffer.writer().print(",\n", .{});
+                    try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+                    try element.formatWithIndent(buffer, current_indent + 4, max_width);
+                }
+                try buffer.writer().print("\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent);
+                try buffer.writer().print(")", .{});
             },
             .record => |rec| {
-                try writer.print("{{", .{});
-                for (rec.fields, 0..) |field, i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    try writer.print("{s}: {}", .{ field.name, field.value });
+                if (indent == null) {
+                    try buffer.writer().print("{{", .{});
+                    for (rec.fields, 0..) |field, i| {
+                        if (i > 0) try buffer.writer().print(", ", .{});
+                        try buffer.writer().print("{s}: ", .{field.name});
+                        try field.value.formatWithIndent(buffer, null, max_width);
+                    }
+                    try buffer.writer().print("}}", .{});
+                    return;
                 }
-                try writer.print("}}", .{});
+
+                const start_pos = buffer.items.len;
+                try buffer.writer().print("{{", .{});
+                for (rec.fields, 0..) |field, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try buffer.writer().print("{s}: ", .{field.name});
+                    try field.value.formatWithIndent(buffer, null, max_width);
+                }
+                try buffer.writer().print("}}", .{});
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try buffer.writer().print("{{\n", .{});
+                for (rec.fields, 0..) |field, i| {
+                    if (i > 0) try buffer.writer().print(",\n", .{});
+                    try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+                    try buffer.writer().print("{s}: ", .{field.name});
+                    try field.value.formatWithIndent(buffer, current_indent + 4, max_width);
+                }
+                try buffer.writer().print("\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent);
+                try buffer.writer().print("}}", .{});
             },
             .tag => |tag| {
-                try writer.print("{s}(", .{tag.name});
-                for (tag.arguments, 0..) |arg, i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    try writer.print("{}", .{arg});
+                if (indent == null) {
+                    try buffer.writer().print("{s}(", .{tag.name});
+                    for (tag.arguments, 0..) |arg, i| {
+                        if (i > 0) try buffer.writer().print(", ", .{});
+                        try arg.formatWithIndent(buffer, null, max_width);
+                    }
+                    try buffer.writer().print(")", .{});
+                    return;
                 }
-                try writer.print(")", .{});
+
+                const start_pos = buffer.items.len;
+                try buffer.writer().print("{s}(", .{tag.name});
+                for (tag.arguments, 0..) |arg, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try arg.formatWithIndent(buffer, null, max_width);
+                }
+                try buffer.writer().print(")", .{});
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try buffer.writer().print("{s}(\n", .{tag.name});
+                for (tag.arguments, 0..) |arg, i| {
+                    if (i > 0) try buffer.writer().print(",\n", .{});
+                    try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+                    try arg.formatWithIndent(buffer, current_indent + 4, max_width);
+                }
+                try buffer.writer().print("\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent);
+                try buffer.writer().print(")", .{});
             },
             .closure => |closure| {
-                try writer.print("|", .{});
-                for (closure.function.parameter_types, 0..) |param, i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    try writer.print("{}", .{param});
+                if (indent == null) {
+                    try buffer.writer().print("|", .{});
+                    for (closure.function.parameter_types, 0..) |param, i| {
+                        if (i > 0) try buffer.writer().print(", ", .{});
+                        try buffer.writer().print("{}", .{param});
+                    }
+                    try buffer.writer().print("| ", .{});
+                    try closure.function.body.formatWithIndent(buffer, null, max_width);
+                    return;
                 }
-                try writer.print("| {}", .{closure.function.body});
+
+                const start_pos = buffer.items.len;
+                try buffer.writer().print("|", .{});
+                for (closure.function.parameter_types, 0..) |param, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try buffer.writer().print("{}", .{param});
+                }
+                try buffer.writer().print("| ", .{});
+                try closure.function.body.formatWithIndent(buffer, null, max_width);
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try buffer.writer().print("|", .{});
+                for (closure.function.parameter_types, 0..) |param, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try buffer.writer().print("{}", .{param});
+                }
+                try buffer.writer().print("| ", .{});
+                try closure.function.body.formatWithIndent(buffer, current_indent, max_width);
             },
         }
     }
@@ -959,64 +1076,252 @@ const Expr = union(enum) {
     pub fn format(self: Expr, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
+        var buffer = std.ArrayList(u8).init(std.heap.page_allocator);
+        defer buffer.deinit();
+        try self.formatWithIndent(&buffer, 0, 80);
+        try writer.writeAll(buffer.items);
+    }
 
+    pub fn formatWithIndent(self: Expr, buffer: *std.ArrayList(u8), indent: ?u32, max_width: u32) std.fmt.AllocPrintError!void {
         switch (self) {
             .tbd => |ty| {
-                try writer.print("<tbd: {}>", .{ty.*});
+                try buffer.writer().print("<tbd: {}>", .{ty.*});
             },
-            .literal => |val| try writer.print("{}", .{val.*}),
-            .variable => |v| try writer.print("{s}", .{v.name}),
+            .literal => |val| try val.formatWithIndent(buffer, indent, max_width),
+            .variable => |v| try buffer.writer().print("{s}", .{v.name}),
             .function => |f| {
-                try writer.print("|", .{});
-                for (f.parameter_types, 0..) |param, i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    try writer.print("{}", .{param});
+                if (indent == null) {
+                    try buffer.writer().print("|", .{});
+                    for (f.parameter_types, 0..) |param, i| {
+                        if (i > 0) try buffer.writer().print(", ", .{});
+                        try buffer.writer().print("{}", .{param});
+                    }
+                    try buffer.writer().print("| ", .{});
+                    try f.body.formatWithIndent(buffer, null, max_width);
+                    return;
                 }
-                try writer.print("| {}", .{f.body});
+
+                const start_pos = buffer.items.len;
+                try buffer.writer().print("|", .{});
+                for (f.parameter_types, 0..) |param, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try buffer.writer().print("{}", .{param});
+                }
+                try buffer.writer().print("| ", .{});
+                try f.body.formatWithIndent(buffer, null, max_width);
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try buffer.writer().print("|", .{});
+                for (f.parameter_types, 0..) |param, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try buffer.writer().print("{}", .{param});
+                }
+                try buffer.writer().print("| ", .{});
+                try f.body.formatWithIndent(buffer, current_indent, max_width);
             },
             .application => |app| {
-                try writer.print("{}(", .{app.function.*});
-                for (app.arguments, 0..) |arg, i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    try writer.print("{}", .{arg});
+                if (indent == null) {
+                    try app.function.formatWithIndent(buffer, null, max_width);
+                    try buffer.writer().print("(", .{});
+                    for (app.arguments, 0..) |arg, i| {
+                        if (i > 0) try buffer.writer().print(", ", .{});
+                        try arg.formatWithIndent(buffer, null, max_width);
+                    }
+                    try buffer.writer().print(")", .{});
+                    return;
                 }
-                try writer.print(")", .{});
+
+                const start_pos = buffer.items.len;
+                try app.function.formatWithIndent(buffer, null, max_width);
+                try buffer.writer().print("(", .{});
+                for (app.arguments, 0..) |arg, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try arg.formatWithIndent(buffer, null, max_width);
+                }
+                try buffer.writer().print(")", .{});
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try app.function.formatWithIndent(buffer, current_indent, max_width);
+                try buffer.writer().print("(\n", .{});
+                for (app.arguments, 0..) |arg, i| {
+                    if (i > 0) try buffer.writer().print(",\n", .{});
+                    try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+                    try arg.formatWithIndent(buffer, current_indent + 4, max_width);
+                }
+                try buffer.writer().print("\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent);
+                try buffer.writer().print(")", .{});
             },
             .list_literal => |lst| {
-                try writer.print("[", .{});
-                for (lst.elements, 0..) |element, i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    try writer.print("{}", .{element});
+                if (indent == null) {
+                    try buffer.writer().print("[", .{});
+                    for (lst.elements, 0..) |element, i| {
+                        if (i > 0) try buffer.writer().print(", ", .{});
+                        try element.formatWithIndent(buffer, null, max_width);
+                    }
+                    try buffer.writer().print("]", .{});
+                    return;
                 }
-                try writer.print("]", .{});
+
+                const start_pos = buffer.items.len;
+                try buffer.writer().print("[", .{});
+                for (lst.elements, 0..) |element, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try element.formatWithIndent(buffer, null, max_width);
+                }
+                try buffer.writer().print("]", .{});
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try buffer.writer().print("[\n", .{});
+                for (lst.elements, 0..) |element, i| {
+                    if (i > 0) try buffer.writer().print(",\n", .{});
+                    try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+                    try element.formatWithIndent(buffer, current_indent + 4, max_width);
+                }
+                try buffer.writer().print("\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent);
+                try buffer.writer().print("]", .{});
             },
             .record_literal => |rec| {
-                try writer.print("{{", .{});
-                for (rec.fields, 0..) |field, i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    try writer.print("{s}: {}", .{ field.name, field.value });
+                if (indent == null) {
+                    try buffer.writer().print("{{", .{});
+                    for (rec.fields, 0..) |field, i| {
+                        if (i > 0) try buffer.writer().print(", ", .{});
+                        try buffer.writer().print("{s}: ", .{field.name});
+                        try field.value.formatWithIndent(buffer, null, max_width);
+                    }
+                    try buffer.writer().print("}}", .{});
+                    return;
                 }
-                try writer.print("}}", .{});
+
+                const start_pos = buffer.items.len;
+                try buffer.writer().print("{{", .{});
+                for (rec.fields, 0..) |field, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try buffer.writer().print("{s}: ", .{field.name});
+                    try field.value.formatWithIndent(buffer, null, max_width);
+                }
+                try buffer.writer().print("}}", .{});
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try buffer.writer().print("{{\n", .{});
+                for (rec.fields, 0..) |field, i| {
+                    if (i > 0) try buffer.writer().print(",\n", .{});
+                    try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+                    try buffer.writer().print("{s}: ", .{field.name});
+                    try field.value.formatWithIndent(buffer, current_indent + 4, max_width);
+                }
+                try buffer.writer().print("\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent);
+                try buffer.writer().print("}}", .{});
             },
             .tag_literal => |tag| {
-                try writer.print("{s}(", .{tag.name});
-                for (tag.arguments, 0..) |arg, i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    try writer.print("{}", .{arg});
+                if (indent == null) {
+                    try buffer.writer().print("{s}(", .{tag.name});
+                    for (tag.arguments, 0..) |arg, i| {
+                        if (i > 0) try buffer.writer().print(", ", .{});
+                        try arg.formatWithIndent(buffer, null, max_width);
+                    }
+                    try buffer.writer().print(")", .{});
+                    return;
                 }
-                try writer.print(")", .{});
+
+                const start_pos = buffer.items.len;
+                try buffer.writer().print("{s}(", .{tag.name});
+                for (tag.arguments, 0..) |arg, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try arg.formatWithIndent(buffer, null, max_width);
+                }
+                try buffer.writer().print(")", .{});
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try buffer.writer().print("{s}(\n", .{tag.name});
+                for (tag.arguments, 0..) |arg, i| {
+                    if (i > 0) try buffer.writer().print(",\n", .{});
+                    try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+                    try arg.formatWithIndent(buffer, current_indent + 4, max_width);
+                }
+                try buffer.writer().print("\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent);
+                try buffer.writer().print(")", .{});
             },
             .binary => |bin| {
-                try writer.print("({} {} {})", .{ bin.left.*, bin.op, bin.right.* });
+                try buffer.writer().print("(", .{});
+                try bin.left.formatWithIndent(buffer, indent, max_width);
+                try buffer.writer().print(" {} ", .{bin.op});
+                try bin.right.formatWithIndent(buffer, indent, max_width);
+                try buffer.writer().print(")", .{});
             },
             .unary => |un| {
-                try writer.print("({}{})", .{ un.op, un.operand.* });
+                try buffer.writer().print("(", .{});
+                try buffer.writer().print("{}", .{un.op});
+                try un.operand.formatWithIndent(buffer, indent, max_width);
+                try buffer.writer().print(")", .{});
             },
             .field_access => |field| {
-                try writer.print("{}.{s}", .{ field.record.*, field.field_name });
+                try field.record.formatWithIndent(buffer, indent, max_width);
+                try buffer.writer().print(".{s}", .{field.field_name});
             },
             .if_expression => |if_expr| {
-                try writer.print("if ({}) {} else {}", .{ if_expr.condition.*, if_expr.then_branch, if_expr.else_branch });
+                if (indent == null) {
+                    try buffer.writer().print("if (", .{});
+                    try if_expr.condition.formatWithIndent(buffer, null, max_width);
+                    try buffer.writer().print(") ", .{});
+                    try if_expr.then_branch.formatWithIndent(buffer, null, max_width);
+                    try buffer.writer().print(" else ", .{});
+                    try if_expr.else_branch.formatWithIndent(buffer, null, max_width);
+                    return;
+                }
+
+                const start_pos = buffer.items.len;
+                try buffer.writer().print("if (", .{});
+                try if_expr.condition.formatWithIndent(buffer, null, max_width);
+                try buffer.writer().print(") ", .{});
+                try if_expr.then_branch.formatWithIndent(buffer, null, max_width);
+                try buffer.writer().print(" else ", .{});
+                try if_expr.else_branch.formatWithIndent(buffer, null, max_width);
+
+                if (buffer.items.len - start_pos <= max_width) {
+                    return;
+                }
+
+                buffer.shrinkRetainingCapacity(start_pos);
+                const current_indent = indent.?;
+                try buffer.writer().print("if (", .{});
+                try if_expr.condition.formatWithIndent(buffer, current_indent + 4, max_width);
+                try buffer.writer().print(")\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+                try if_expr.then_branch.formatWithIndent(buffer, current_indent + 4, max_width);
+                try buffer.writer().print("\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent);
+                try buffer.writer().print("else\n", .{});
+                try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+                try if_expr.else_branch.formatWithIndent(buffer, current_indent + 4, max_width);
             },
         }
     }
@@ -1513,13 +1818,54 @@ const Block = struct {
     return_expr: Expr,
 
     pub fn format(self: Block, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        try writer.print("{{", .{});
-        for (self.statements, 0..) |stmt, i| {
-            if (i > 0) try writer.print("\n", .{});
-            try stmt.format(fmt, options, writer);
+        _ = fmt;
+        _ = options;
+        var buffer = std.ArrayList(u8).init(std.heap.page_allocator);
+        defer buffer.deinit();
+        try self.formatWithIndent(&buffer, 0, 80);
+        try writer.writeAll(buffer.items);
+    }
+
+    pub fn formatWithIndent(self: Block, buffer: *std.ArrayList(u8), indent: ?u32, max_width: u32) std.fmt.AllocPrintError!void {
+        if (indent == null) {
+            try buffer.writer().print("{{", .{});
+            for (self.statements, 0..) |stmt, i| {
+                if (i > 0) try buffer.writer().print("; ", .{});
+                try stmt.formatWithIndent(buffer, null, max_width);
+            }
+            if (self.statements.len > 0) try buffer.writer().print("; ", .{});
+            try self.return_expr.formatWithIndent(buffer, null, max_width);
+            try buffer.writer().print("}}", .{});
+            return;
         }
-        try writer.print("{}", .{self.return_expr});
-        try writer.print("}}", .{});
+
+        const start_pos = buffer.items.len;
+        try buffer.writer().print("{{", .{});
+        for (self.statements, 0..) |stmt, i| {
+            if (i > 0) try buffer.writer().print("; ", .{});
+            try stmt.formatWithIndent(buffer, null, max_width);
+        }
+        if (self.statements.len > 0) try buffer.writer().print("; ", .{});
+        try self.return_expr.formatWithIndent(buffer, null, max_width);
+        try buffer.writer().print("}}", .{});
+
+        if (buffer.items.len - start_pos <= max_width) {
+            return;
+        }
+
+        buffer.shrinkRetainingCapacity(start_pos);
+        const current_indent = indent.?;
+        try buffer.writer().print("{{\n", .{});
+        for (self.statements) |stmt| {
+            try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+            try stmt.formatWithIndent(buffer, current_indent + 4, max_width);
+            try buffer.writer().print("\n", .{});
+        }
+        try buffer.writer().writeByteNTimes(' ', current_indent + 4);
+        try self.return_expr.formatWithIndent(buffer, current_indent + 4, max_width);
+        try buffer.writer().print("\n", .{});
+        try buffer.writer().writeByteNTimes(' ', current_indent);
+        try buffer.writer().print("}}", .{});
     }
 };
 
@@ -1534,11 +1880,23 @@ const Stmt = union(enum) {
     pub fn format(self: Stmt, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
+        var buffer = std.ArrayList(u8).init(std.heap.page_allocator);
+        defer buffer.deinit();
+        try self.formatWithIndent(&buffer, 0, 80);
+        try writer.writeAll(buffer.items);
+    }
 
+    pub fn formatWithIndent(self: Stmt, buffer: *std.ArrayList(u8), indent: ?u32, max_width: u32) std.fmt.AllocPrintError!void {
         switch (self) {
-            .assignment => |assign| try writer.print("{s} = {}", .{ assign.variable_name, assign.value }),
-            .expression => |expr| try writer.print("{}", .{expr}),
-            .return_statement => |ret| try writer.print("return {}", .{ret}),
+            .assignment => |assign| {
+                try buffer.writer().print("{s} = ", .{assign.variable_name});
+                try assign.value.formatWithIndent(buffer, indent, max_width);
+            },
+            .expression => |expr| try expr.formatWithIndent(buffer, indent, max_width),
+            .return_statement => |ret| {
+                try buffer.writer().print("return ", .{});
+                try ret.formatWithIndent(buffer, indent, max_width);
+            },
         }
     }
 };
