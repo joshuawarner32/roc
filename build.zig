@@ -18,6 +18,7 @@ pub fn build(b: *std.Build) void {
     const fmt_step = b.step("fmt", "Format all zig code");
     const check_fmt_step = b.step("check-fmt", "Check formatting of all zig code");
     const snapshot_step = b.step("snapshot", "Run the snapshot tool to update snapshot files");
+    const grain_step = b.step("grain", "Run the grain fuzzer to test random expressions");
     const playground_step = b.step("playground", "Build the WASM playground");
     const playground_test_step = b.step("playground-test", "Build the integration test suite for the WASM playground");
 
@@ -84,6 +85,18 @@ pub fn build(b: *std.Build) void {
     roc_modules.addAll(snapshot_exe);
     add_tracy(b, roc_modules.build_options, snapshot_exe, target, false, flag_enable_tracy);
     install_and_run(b, no_bin, snapshot_exe, snapshot_step, snapshot_step);
+
+    // Add grain fuzzer tool
+    const grain_exe = b.addExecutable(.{
+        .name = "grain",
+        .root_source_file = b.path("src/grain.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    roc_modules.addAll(grain_exe);
+    add_tracy(b, roc_modules.build_options, grain_exe, target, false, flag_enable_tracy);
+    install_and_run(b, no_bin, grain_exe, grain_step, grain_step);
 
     // Add playground WASM executable
     const playground_exe = b.addExecutable(.{

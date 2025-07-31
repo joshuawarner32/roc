@@ -2,7 +2,7 @@ const std = @import("std");
 
 const ValueIdx = struct { index: usize };
 
-const Value = union(enum) {
+pub const Value = union(enum) {
     i8: i8,
     i16: i16,
     i32: i32,
@@ -774,7 +774,7 @@ const FunctionTy = struct {
     return_type: *const Ty,
 };
 
-const Ty = union(enum) {
+pub const Ty = union(enum) {
     i8,
     i16,
     i32,
@@ -1035,7 +1035,9 @@ const UnaryOp = enum {
 
 const GenError = error{ OutOfMemory, UnsupportedUnaryType };
 
-const Expr = union(enum) {
+const TbdReplaceError = error{OutOfMemory};
+
+pub const Expr = union(enum) {
     tbd: *const Ty,
     literal: *Value,
     variable: Var,
@@ -1338,6 +1340,59 @@ const Expr = union(enum) {
         var root_scope = GeneratingScope.init(allocator, &[_]Parameter{}, null);
         defer root_scope.deinit();
         return generateBlockWithScope(allocator, random, typ, &root_scope, 0);
+    }
+
+    /// Replace all tbd expressions with simple concrete expressions of the appropriate type
+    pub fn replaceTbdExpressions(self: *Expr, interp: *Interp) TbdReplaceError!void {
+        switch (self.*) {
+            .tbd => |ty| {
+                // Replace this tbd with a simple expression of the same type
+                self.* = try interp.makeSimpleExpr(ty);
+                // Recursively clean the new expression too
+                try self.replaceTbdExpressions(interp);
+            },
+            .literal => {}, // Nothing to clean
+            .variable => {}, // Nothing to clean
+            .function => |f| {
+                try f.body.replaceTbdExpressions(interp);
+            },
+            .application => |app| {
+                try app.function.replaceTbdExpressions(interp);
+                for (app.arguments) |arg| {
+                    try arg.replaceTbdExpressions(interp);
+                }
+            },
+            .list_literal => |lst| {
+                for (lst.elements) |*element| {
+                    try element.replaceTbdExpressions(interp);
+                }
+            },
+            .record_literal => |rec| {
+                for (rec.fields) |*field| {
+                    try field.value.replaceTbdExpressions(interp);
+                }
+            },
+            .tag_literal => |tag| {
+                for (tag.arguments) |*arg| {
+                    try arg.replaceTbdExpressions(interp);
+                }
+            },
+            .binary => |bin| {
+                try bin.left.replaceTbdExpressions(interp);
+                try bin.right.replaceTbdExpressions(interp);
+            },
+            .unary => |un| {
+                try un.operand.replaceTbdExpressions(interp);
+            },
+            .field_access => |field| {
+                try field.record.replaceTbdExpressions(interp);
+            },
+            .if_expression => |if_expr| {
+                try if_expr.condition.replaceTbdExpressions(interp);
+                try if_expr.then_branch.replaceTbdExpressions(interp);
+                try if_expr.else_branch.replaceTbdExpressions(interp);
+            },
+        }
     }
 
     fn generateSimpleRandom(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
@@ -1814,7 +1869,7 @@ const Func = struct {
 };
 
 const Block = struct {
-    statements: []const Stmt,
+    statements: []Stmt,
     return_expr: Expr,
 
     pub fn format(self: Block, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
@@ -1867,6 +1922,14 @@ const Block = struct {
         try buffer.writer().writeByteNTimes(' ', current_indent);
         try buffer.writer().print("}}", .{});
     }
+
+    /// Replace all tbd expressions in this block with simple concrete expressions
+    pub fn replaceTbdExpressions(self: *Block, interp: *Interp) TbdReplaceError!void {
+        for (self.statements) |*stmt| {
+            try stmt.replaceTbdExpressions(interp);
+        }
+        try self.return_expr.replaceTbdExpressions(interp);
+    }
 };
 
 const Stmt = union(enum) {
@@ -1899,6 +1962,21 @@ const Stmt = union(enum) {
             },
         }
     }
+
+    /// Replace all tbd expressions in this statement with simple concrete expressions
+    pub fn replaceTbdExpressions(self: *Stmt, interp: *Interp) TbdReplaceError!void {
+        switch (self.*) {
+            .assignment => |*assign| {
+                try assign.value.replaceTbdExpressions(interp);
+            },
+            .expression => |*expr| {
+                try expr.replaceTbdExpressions(interp);
+            },
+            .return_statement => |*ret| {
+                try ret.replaceTbdExpressions(interp);
+            },
+        }
+    }
 };
 
 const Module = struct {
@@ -1911,11 +1989,11 @@ const ScopeItem = struct {
     value: Value,
 };
 
-const Scope = struct {
+pub const Scope = struct {
     values: std.ArrayList(ScopeItem),
     parent: ?*const Scope,
 
-    fn init(allocator: std.mem.Allocator) Scope {
+    pub fn init(allocator: std.mem.Allocator) Scope {
         return Scope{
             .values = std.ArrayList(ScopeItem).init(allocator),
             .parent = null,
@@ -1968,12 +2046,12 @@ const InterpError = error{
     DivideByZero,
 };
 
-const Interp = struct {
+pub const Interp = struct {
     allocator: std.mem.Allocator,
     gas: u64,
     random: std.Random,
 
-    fn init(allocator: std.mem.Allocator, gas: u64, random: std.Random) Interp {
+    pub fn init(allocator: std.mem.Allocator, gas: u64, random: std.Random) Interp {
         return Interp{
             .allocator = allocator,
             .gas = gas,
