@@ -3,7 +3,6 @@ const std = @import("std");
 const ValueIdx = struct { index: usize };
 
 const Value = union(enum) {
-    int: i128,
     i8: i8,
     i16: i16,
     i32: i32,
@@ -34,7 +33,6 @@ const Value = union(enum) {
 
     fn ty(self: *const Value) Ty {
         return switch (self.*) {
-            .int => Ty{ .int = {} },
             .i8 => Ty{ .i8 = {} },
             .i16 => Ty{ .i16 = {} },
             .i32 => Ty{ .i32 = {} },
@@ -428,6 +426,7 @@ const UnaryOp = enum {
 const GenError = error{ OutOfMemory, UnsupportedUnaryType };
 
 const Expr = union(enum) {
+    tbd: *const Ty,
     literal: *Value,
     variable: Var,
     function: *Func,
@@ -469,6 +468,9 @@ const Expr = union(enum) {
         _ = options;
 
         switch (self) {
+            .tbd => |ty| {
+                try writer.print("<tbd: {}>", .{ty.*});
+            },
             .literal => |val| try writer.print("{}", .{val.*}),
             .variable => |v| try writer.print("{s}", .{v.name}),
             .function => |f| {
@@ -1052,13 +1054,26 @@ const Module = struct {
     statements: []const Stmt,
 };
 
+const ScopeItem = struct {
+    name: []const u8,
+    ty: Ty,
+    value: Value,
+};
+
 const Scope = struct {
-    values: std.ArrayList(struct { name: []const u8, ty: Ty, value: Value }),
+    values: std.ArrayList(ScopeItem),
     parent: ?*const Scope,
+
+    fn init(allocator: std.mem.Allocator) Scope {
+        return Scope{
+            .values = std.ArrayList(ScopeItem).init(allocator),
+            .parent = null,
+        };
+    }
 
     fn get(self: *const Scope, v: Var) Value {
         for (self.values.items) |item| {
-            if (item.name == v.name) {
+            if (std.mem.eql(u8, item.name, v.name)) {
                 return item.value;
             }
         }
@@ -1067,15 +1082,31 @@ const Scope = struct {
 };
 
 const Interp = struct {
+    allocator: std.mem.Allocator,
     gas: u64,
+    random: std.Random,
+
+    fn init(allocator: std.mem.Allocator, gas: u64, random: std.Random) Interp {
+        return Interp{
+            .allocator = allocator,
+            .gas = gas,
+            .random = random,
+        };
+    }
 
     /// Evaluate the program and return the final value.
-    pub fn eval(self: *Interp, scope: *Scope, ty: *const Ty, expr: *const Expr) !Value {
+    pub fn eval(self: *Interp, scope: *Scope, ty: *const Ty, expr: *Expr) !Value {
         if (self.gas == 0) {
             return error.OutOfGas;
         }
 
         switch (expr.*) {
+            .tbd => |t| {
+                // We need to generate a random expression!
+                const generated_expr = try Expr.generateRandom(self.allocator, &self.random, t);
+                expr.* = generated_expr;
+                return self.eval(scope, t, expr);
+            },
             .literal => |lit| {
                 switch (lit.*) {
                     else => {
@@ -1097,12 +1128,12 @@ const Interp = struct {
                 } };
             },
             .list_literal => |list_lit| {
-                var elements = std.ArrayList(Value).init(self.context.values.allocator);
+                var elements = std.ArrayList(Value).init(self.allocator);
                 defer elements.deinit();
 
-                for (list_lit.elements) |element_expr| {
+                for (list_lit.elements) |*element_expr| {
                     // For simplicity, use a generic type for list elements
-                    const element_value = try self.eval(scope, &Ty{ .u8 = {} }, &element_expr);
+                    const element_value = try self.eval(scope, &Ty{ .u8 = {} }, element_expr);
                     try elements.append(element_value);
                 }
 
@@ -1115,6 +1146,29 @@ const Interp = struct {
             .unary => |un| {
                 _ = un;
                 @panic("todo");
+            },
+            .record_literal => |rec| {
+                var fields = std.ArrayList(Field).init(self.allocator);
+                defer fields.deinit();
+
+                for (rec.fields) |field| {
+                    const field_value = try self.eval(scope, &field.value.ty(), &field.value);
+                    try fields.append(Field{ .name = field.name, .value = field_value });
+                }
+
+                return Value{ .record = .{ .fields = try fields.toOwnedSlice() } };
+            },
+            .tag_literal => |tag| {
+                var arguments = std.ArrayList(Value).init(self.allocator);
+                defer arguments.deinit();
+                for (tag.arguments) |arg_expr| {
+                    const arg_value = try self.eval(scope, &Ty{ .u8 = {} }, &arg_expr);
+                    try arguments.append(arg_value);
+                }
+                return Value{ .tag = .{
+                    .name = tag.name,
+                    .arguments = try arguments.toOwnedSlice(),
+                } };
             },
             .field_access => |_| {
                 @panic("todo");
@@ -1156,16 +1210,21 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    const count = if (args.len > 1)
-        std.fmt.parseInt(u32, args[1], 10) catch 1
-    else
-        1;
+    // const count = if (args.len > 1)
+    //     std.fmt.parseInt(u32, args[1], 10) catch 1
+    // else
+    //     1;
+
+    const int_ty = Ty{ .u8 = {} };
 
     var prng = std.Random.DefaultPrng.init(@intCast(std.time.timestamp()));
     const random = prng.random();
 
-    for (0..count) |_| {
-        const expr = try Expr.generateRandom(allocator, &random, &Ty{ .u8 = {} });
-        std.debug.print("Generated expression: {}\n", .{expr});
-    }
+    var interp = Interp.init(allocator, 100, random);
+
+    var value = Expr{ .tbd = &int_ty };
+
+    var scope = Scope.init(allocator);
+
+    try interp.eval(&scope, &int_ty, &value);
 }
