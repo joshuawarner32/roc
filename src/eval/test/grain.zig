@@ -561,7 +561,13 @@ const Expr = union(enum) {
         }
     }
 
-    fn generateRandomWithScopeAndDepth(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
+    fn generateRandomWithScopeAndDepth(
+        allocator: std.mem.Allocator,
+        random: *const std.Random,
+        typ: *const Ty,
+        scope: *GeneratingScope,
+        depth: u32,
+    ) GenError!Expr {
         // Prevent infinite recursion by limiting depth or for function types
         if (depth > 3 and typ.* != .function and typ.* != .list and typ.* != .record and typ.* != .tag) {
             // Generate a literal value
@@ -597,7 +603,7 @@ const Expr = union(enum) {
             },
             1 => {
                 // Generate an application that resolves to the given type
-                return try generateApplicationWithScope(allocator, random, typ, scope, depth);
+                return try generateApplication(allocator, random, typ, scope, depth);
             },
             2 => {
                 // Generate a binary expression that resolves to the given type
@@ -642,7 +648,13 @@ const Expr = union(enum) {
         }
     }
 
-    fn generateApplicationWithDepth(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty) GenError!Expr {
+    fn generateApplication(
+        allocator: std.mem.Allocator,
+        random: *const std.Random,
+        return_type: *const Ty,
+        scope: *GeneratingScope,
+        depth: u32,
+    ) GenError!Expr {
         // Generate random argument types - for simplicity, use 0-2 arguments
         const num_args = random.int(u32) % 3;
         var arg_types = try allocator.alloc(Ty, num_args);
@@ -678,17 +690,14 @@ const Expr = union(enum) {
         } };
 
         // Generate a function expression that has this type (always a literal closure)
-        const func_expr = try Expr.generateRandom(allocator, random, &func_type);
+        const func_expr = try Expr.generateRandomWithScopeAndDepth(allocator, random, &func_type, scope, depth + 1);
         const func_expr_ptr = try allocator.create(Expr);
         func_expr_ptr.* = func_expr;
 
         // Generate arguments of the appropriate types (always literals)
         var arguments = try allocator.alloc(Expr, num_args);
         for (0..num_args) |i| {
-            const arg_value = try Value.generateRandom(allocator, random, &arg_types[i]);
-            const arg_value_ptr = try allocator.create(Value);
-            arg_value_ptr.* = arg_value;
-            arguments[i] = Expr{ .literal = arg_value_ptr };
+            arguments[i] = try Expr.generateRandomWithScopeAndDepth(allocator, random, &arg_types[i], scope, depth + 1);
         }
 
         return Expr{ .application = .{
@@ -865,13 +874,6 @@ const Expr = union(enum) {
         };
 
         return Expr{ .function = func_ptr };
-    }
-
-    // Scope-aware generation functions
-    fn generateApplicationWithScope(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
-        _ = scope;
-        _ = depth; // TODO: use scope for argument generation
-        return generateApplicationWithDepth(allocator, random, return_type);
     }
 
     fn generateBinaryExpressionWithScope(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
