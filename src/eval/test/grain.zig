@@ -29,7 +29,7 @@ const Value = union(enum) {
     },
     closure: struct {
         function: *Func,
-        captured_variables: Scope,
+        captured_variables: *Scope,
     },
 
     fn ty(self: *const Value) Ty {
@@ -159,7 +159,7 @@ const FieldExpr = struct {
 
 const TyIdx = struct { index: usize };
 
-const Var = struct { index: usize };
+const Var = struct { name: []const u8 };
 
 const FunctionTy = struct {
     parameter_types: []const Ty,
@@ -470,7 +470,7 @@ const Expr = union(enum) {
 
         switch (self) {
             .literal => |val| try writer.print("{}", .{val.*}),
-            .variable => |v| try writer.print("var[{}]", .{v.index}),
+            .variable => |v| try writer.print("{s}", .{v.name}),
             .function => |f| {
                 try writer.print("|", .{});
                 for (f.parameter_types, 0..) |param, i| {
@@ -633,9 +633,8 @@ const Expr = union(enum) {
                 // Generate a variable reference (only if we have matching variables)
                 if (matching_vars.items.len > 0) {
                     const chosen_var_name = matching_vars.items[random.int(usize) % matching_vars.items.len];
-                    const var_idx = Var{ .index = 0 }; // TODO: proper variable indexing
-                    _ = chosen_var_name; // TODO: use the chosen variable name
-                    return Expr{ .variable = var_idx };
+                    const v = Var{ .name = chosen_var_name };
+                    return Expr{ .variable = v };
                 } else {
                     // Fallback to literal
                     const value = try Value.generateRandom(allocator, random, typ);
@@ -1054,13 +1053,16 @@ const Module = struct {
 };
 
 const Scope = struct {
-    values: std.ArrayList(Value),
+    values: std.ArrayList(struct { name: []const u8, ty: Ty, value: Value }),
+    parent: ?*const Scope,
 
-    fn get(self: *const Scope, v: Var) !Value {
-        if (v.index >= self.values.items.len) {
-            return error.VariableNotFound;
+    fn get(self: *const Scope, v: Var) Value {
+        for (self.values.items) |item| {
+            if (item.name == v.name) {
+                return item.value;
+            }
         }
-        return self.values.items[v.index];
+        @panic("Variable not found in scope");
     }
 };
 
@@ -1085,13 +1087,13 @@ const Interp = struct {
                     },
                 }
             },
-            .variable => |index| {
-                return scope.get(index);
+            .variable => |v| {
+                return scope.get(v);
             },
             .function => |func| {
                 return Value{ .closure = .{
                     .function = func,
-                    .captured_variables = scope.*,
+                    .captured_variables = scope,
                 } };
             },
             .list_literal => |list_lit| {
