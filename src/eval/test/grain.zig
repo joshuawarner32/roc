@@ -142,6 +142,411 @@ const Value = union(enum) {
             },
         };
     }
+
+    pub fn add(self: Value, other: Value) !Value {
+        return switch (self) {
+            .i8 => |a| switch (other) {
+                .i8 => |b| Value{ .i8 = a + b },
+                else => error.TypeMismatch,
+            },
+            .i16 => |a| switch (other) {
+                .i16 => |b| Value{ .i16 = a + b },
+                else => error.TypeMismatch,
+            },
+            .i32 => |a| switch (other) {
+                .i32 => |b| Value{ .i32 = a + b },
+                else => error.TypeMismatch,
+            },
+            .i64 => |a| switch (other) {
+                .i64 => |b| Value{ .i64 = a + b },
+                else => error.TypeMismatch,
+            },
+            .i128 => |a| switch (other) {
+                .i128 => |b| Value{ .i128 = a + b },
+                else => error.TypeMismatch,
+            },
+            .u8 => |a| switch (other) {
+                .u8 => |b| Value{ .u8 = a + b },
+                else => error.TypeMismatch,
+            },
+            .u16 => |a| switch (other) {
+                .u16 => |b| Value{ .u16 = a + b },
+                else => error.TypeMismatch,
+            },
+            .u32 => |a| switch (other) {
+                .u32 => |b| Value{ .u32 = a + b },
+                else => error.TypeMismatch,
+            },
+            .u64 => |a| switch (other) {
+                .u64 => |b| Value{ .u64 = a + b },
+                else => error.TypeMismatch,
+            },
+            .u128 => |a| switch (other) {
+                .u128 => |b| Value{ .u128 = a + b },
+                else => error.TypeMismatch,
+            },
+            .float => |a| switch (other) {
+                .float => |b| Value{ .float = a + b },
+                else => error.TypeMismatch,
+            },
+            else => error.TypeMismatch,
+        };
+    }
+
+    pub fn subtract(self: Value, other: Value) !Value {
+        return switch (self) {
+            .i8 => |a| switch (other) {
+                .i8 => |b| Value{ .i8 = a - b },
+                else => error.TypeMismatch,
+            },
+            .i16 => |a| switch (other) {
+                .i16 => |b| Value{ .i16 = a - b },
+                else => error.TypeMismatch,
+            },
+            .i32 => |a| switch (other) {
+                .i32 => |b| Value{ .i32 = a - b },
+                else => error.TypeMismatch,
+            },
+            .i64 => |a| switch (other) {
+                .i64 => |b| Value{ .i64 = a - b },
+                else => error.TypeMismatch,
+            },
+            .i128 => |a| switch (other) {
+                .i128 => |b| Value{ .i128 = a - b },
+                else => error.TypeMismatch,
+            },
+            .u8 => |a| switch (other) {
+                .u8 => |b| Value{ .u8 = a - b },
+                else => error.TypeMismatch,
+            },
+            .u16 => |a| switch (other) {
+                .u16 => |b| Value{ .u16 = a - b },
+                else => error.TypeMismatch,
+            },
+            .u32 => |a| switch (other) {
+                .u32 => |b| Value{ .u32 = a - b },
+                else => error.TypeMismatch,
+            },
+            .u64 => |a| switch (other) {
+                .u64 => |b| Value{ .u64 = a - b },
+                else => error.TypeMismatch,
+            },
+            .u128 => |a| switch (other) {
+                .u128 => |b| Value{ .u128 = a - b },
+                else => error.TypeMismatch,
+            },
+            .float => |a| switch (other) {
+                .float => |b| Value{ .float = a - b },
+                else => error.TypeMismatch,
+            },
+            else => error.TypeMismatch,
+        };
+    }
+
+    pub fn multiply(self: Value, other: Value) !Value {
+        return switch (self) {
+            .i8 => |a| switch (other) {
+                .i8 => |b| Value{ .i8 = a * b },
+                else => error.TypeMismatch,
+            },
+            .i16 => |a| switch (other) {
+                .i16 => |b| Value{ .i16 = a * b },
+                else => error.TypeMismatch,
+            },
+            .i32 => |a| switch (other) {
+                .i32 => |b| Value{ .i32 = a * b },
+                else => error.TypeMismatch,
+            },
+            .i64 => |a| switch (other) {
+                .i64 => |b| Value{ .i64 = a * b },
+                else => error.TypeMismatch,
+            },
+            .i128 => |a| switch (other) {
+                .i128 => |b| Value{ .i128 = a * b },
+                else => error.TypeMismatch,
+            },
+            .u8 => |a| switch (other) {
+                .u8 => |b| Value{ .u8 = a * b },
+                else => error.TypeMismatch,
+            },
+            .u16 => |a| switch (other) {
+                .u16 => |b| Value{ .u16 = a * b },
+                else => error.TypeMismatch,
+            },
+            .u32 => |a| switch (other) {
+                .u32 => |b| Value{ .u32 = a * b },
+                else => error.TypeMismatch,
+            },
+            .u64 => |a| switch (other) {
+                .u64 => |b| Value{ .u64 = a * b },
+                else => error.TypeMismatch,
+            },
+            .u128 => |a| switch (other) {
+                .u128 => |b| Value{ .u128 = a * b },
+                else => error.TypeMismatch,
+            },
+            .float => |a| switch (other) {
+                .float => |b| Value{ .float = a * b },
+                else => error.TypeMismatch,
+            },
+            else => error.TypeMismatch,
+        };
+    }
+
+    pub fn divide(self: Value, other: Value) !Value {
+        return switch (self) {
+            .i8 => |a| switch (other) {
+                .i8 => |b| if (b == 0) error.DivideByZero else Value{ .i8 = @divTrunc(a, b) },
+                else => error.TypeMismatch,
+            },
+            .i16 => |a| switch (other) {
+                .i16 => |b| if (b == 0) error.DivideByZero else Value{ .i16 = @divTrunc(a, b) },
+                else => error.TypeMismatch,
+            },
+            .i32 => |a| switch (other) {
+                .i32 => |b| if (b == 0) error.DivideByZero else Value{ .i32 = @divTrunc(a, b) },
+                else => error.TypeMismatch,
+            },
+            .i64 => |a| switch (other) {
+                .i64 => |b| if (b == 0) error.DivideByZero else Value{ .i64 = @divTrunc(a, b) },
+                else => error.TypeMismatch,
+            },
+            .i128 => |a| switch (other) {
+                .i128 => |b| if (b == 0) error.DivideByZero else Value{ .i128 = @divTrunc(a, b) },
+                else => error.TypeMismatch,
+            },
+            .u8 => |a| switch (other) {
+                .u8 => |b| if (b == 0) error.DivideByZero else Value{ .u8 = a / b },
+                else => error.TypeMismatch,
+            },
+            .u16 => |a| switch (other) {
+                .u16 => |b| if (b == 0) error.DivideByZero else Value{ .u16 = a / b },
+                else => error.TypeMismatch,
+            },
+            .u32 => |a| switch (other) {
+                .u32 => |b| if (b == 0) error.DivideByZero else Value{ .u32 = a / b },
+                else => error.TypeMismatch,
+            },
+            .u64 => |a| switch (other) {
+                .u64 => |b| if (b == 0) error.DivideByZero else Value{ .u64 = a / b },
+                else => error.TypeMismatch,
+            },
+            .u128 => |a| switch (other) {
+                .u128 => |b| if (b == 0) error.DivideByZero else Value{ .u128 = a / b },
+                else => error.TypeMismatch,
+            },
+            .float => |a| switch (other) {
+                .float => |b| if (b == 0.0) error.DivideByZero else Value{ .float = a / b },
+                else => error.TypeMismatch,
+            },
+            else => error.TypeMismatch,
+        };
+    }
+
+    pub fn equals(self: Value, other: Value) !Value {
+        const result = switch (self) {
+            .i8 => |a| switch (other) {
+                .i8 => |b| a == b,
+                else => false,
+            },
+            .i16 => |a| switch (other) {
+                .i16 => |b| a == b,
+                else => false,
+            },
+            .i32 => |a| switch (other) {
+                .i32 => |b| a == b,
+                else => false,
+            },
+            .i64 => |a| switch (other) {
+                .i64 => |b| a == b,
+                else => false,
+            },
+            .i128 => |a| switch (other) {
+                .i128 => |b| a == b,
+                else => false,
+            },
+            .u8 => |a| switch (other) {
+                .u8 => |b| a == b,
+                else => false,
+            },
+            .u16 => |a| switch (other) {
+                .u16 => |b| a == b,
+                else => false,
+            },
+            .u32 => |a| switch (other) {
+                .u32 => |b| a == b,
+                else => false,
+            },
+            .u64 => |a| switch (other) {
+                .u64 => |b| a == b,
+                else => false,
+            },
+            .u128 => |a| switch (other) {
+                .u128 => |b| a == b,
+                else => false,
+            },
+            .float => |a| switch (other) {
+                .float => |b| a == b,
+                else => false,
+            },
+            .bool => |a| switch (other) {
+                .bool => |b| a == b,
+                else => false,
+            },
+            .str => |a| switch (other) {
+                .str => |b| std.mem.eql(u8, a, b),
+                else => false,
+            },
+            else => false, // Lists, records, tags, closures not comparable for now
+        };
+        return Value{ .bool = result };
+    }
+
+    pub fn notEquals(self: Value, other: Value) !Value {
+        const eq_result = try self.equals(other);
+        return Value{ .bool = !eq_result.bool };
+    }
+
+    pub fn lessThan(self: Value, other: Value) !Value {
+        const result = switch (self) {
+            .i8 => |a| switch (other) {
+                .i8 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .i16 => |a| switch (other) {
+                .i16 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .i32 => |a| switch (other) {
+                .i32 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .i64 => |a| switch (other) {
+                .i64 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .i128 => |a| switch (other) {
+                .i128 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .u8 => |a| switch (other) {
+                .u8 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .u16 => |a| switch (other) {
+                .u16 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .u32 => |a| switch (other) {
+                .u32 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .u64 => |a| switch (other) {
+                .u64 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .u128 => |a| switch (other) {
+                .u128 => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            .float => |a| switch (other) {
+                .float => |b| a < b,
+                else => return error.TypeMismatch,
+            },
+            else => return error.TypeMismatch,
+        };
+        return Value{ .bool = result };
+    }
+
+    pub fn greaterThan(self: Value, other: Value) !Value {
+        const result = switch (self) {
+            .i8 => |a| switch (other) {
+                .i8 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .i16 => |a| switch (other) {
+                .i16 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .i32 => |a| switch (other) {
+                .i32 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .i64 => |a| switch (other) {
+                .i64 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .i128 => |a| switch (other) {
+                .i128 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .u8 => |a| switch (other) {
+                .u8 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .u16 => |a| switch (other) {
+                .u16 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .u32 => |a| switch (other) {
+                .u32 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .u64 => |a| switch (other) {
+                .u64 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .u128 => |a| switch (other) {
+                .u128 => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            .float => |a| switch (other) {
+                .float => |b| a > b,
+                else => return error.TypeMismatch,
+            },
+            else => return error.TypeMismatch,
+        };
+        return Value{ .bool = result };
+    }
+
+    pub fn andValue(self: Value, other: Value) !Value {
+        return switch (self) {
+            .bool => |a| switch (other) {
+                .bool => |b| Value{ .bool = a and b },
+                else => error.TypeMismatch,
+            },
+            else => error.TypeMismatch,
+        };
+    }
+
+    pub fn orValue(self: Value, other: Value) !Value {
+        return switch (self) {
+            .bool => |a| switch (other) {
+                .bool => |b| Value{ .bool = a or b },
+                else => error.TypeMismatch,
+            },
+            else => error.TypeMismatch,
+        };
+    }
+
+    pub fn negate(self: Value) !Value {
+        return switch (self) {
+            .i8 => |a| Value{ .i8 = -a },
+            .i16 => |a| Value{ .i16 = -a },
+            .i32 => |a| Value{ .i32 = -a },
+            .i64 => |a| Value{ .i64 = -a },
+            .i128 => |a| Value{ .i128 = -a },
+            .float => |a| Value{ .float = -a },
+            else => error.TypeMismatch,
+        };
+    }
+
+    pub fn not(self: Value) !Value {
+        return switch (self) {
+            .bool => |a| Value{ .bool = !a },
+            else => error.TypeMismatch,
+        };
+    }
 };
 
 const Field = struct {
@@ -1011,7 +1416,7 @@ const Expr = union(enum) {
 
 const Func = struct {
     parameter_types: []Ty,
-    body: *const Block,
+    body: *Block,
 };
 
 const Block = struct {
@@ -1080,6 +1485,8 @@ const Scope = struct {
     }
 };
 
+const InterpError = error{ OutOfGas, UnificationFailed, ContradictoryConstraint, TypeMismatch, VariableNotFound, TbdExpressionNotImplemented, ApplicationNotImplemented, IfExpressionNotImplemented, UnsupportedUnaryType, OutOfMemory, DivideByZero };
+
 const Interp = struct {
     allocator: std.mem.Allocator,
     gas: u64,
@@ -1094,7 +1501,7 @@ const Interp = struct {
     }
 
     /// Evaluate the program and return the final value.
-    pub fn eval(self: *Interp, scope: *Scope, expr: *Expr) !Value {
+    pub fn eval(self: *Interp, scope: *Scope, expr: *Expr) InterpError!Value {
         if (self.gas == 0) {
             return error.OutOfGas;
         }
@@ -1193,8 +1600,50 @@ const Interp = struct {
                 return error.VariableNotFound; // Field not found
             },
             .application => |app| {
-                _ = app;
-                @panic("todo");
+                // Evaluate the function expression
+                const func_value = try self.eval(scope, app.function);
+                
+                // It should be a closure
+                if (func_value != .closure) {
+                    return error.TypeMismatch;
+                }
+                
+                const closure = func_value.closure;
+                
+                // Check argument count
+                if (app.arguments.len != closure.function.parameter_types.len) {
+                    return error.TypeMismatch;
+                }
+                
+                // Evaluate arguments
+                var arg_values = try self.allocator.alloc(Value, app.arguments.len);
+                defer self.allocator.free(arg_values);
+                
+                for (app.arguments, 0..) |*arg_expr, i| {
+                    arg_values[i] = try self.eval(scope, arg_expr);
+                }
+                
+                // Create new scope for function execution
+                var func_scope = Scope.init(self.allocator);
+                defer func_scope.values.deinit();
+                
+                // Set parent to captured variables
+                func_scope.parent = closure.captured_variables;
+                
+                // Add parameters to scope
+                for (arg_values, 0..) |arg_value, i| {
+                    const param_name = try std.fmt.allocPrint(self.allocator, "arg{}", .{i});
+                    defer self.allocator.free(param_name);
+                    
+                    try func_scope.values.append(ScopeItem{
+                        .name = param_name,
+                        .ty = closure.function.parameter_types[i],
+                        .value = arg_value,
+                    });
+                }
+                
+                // Execute function body
+                return self.evalBlock(&func_scope, closure.function.body);
             },
             .if_expression => |if_expr| {
                 // Evaluate condition
@@ -1214,7 +1663,7 @@ const Interp = struct {
         }
     }
 
-    fn evalBlock(self: *Interp, scope: *Scope, block: *Block) error{ OutOfGas, UnificationFailed, ContradictoryConstraint, TypeMismatch, VariableNotFound, TbdExpressionNotImplemented, ApplicationNotImplemented, IfExpressionNotImplemented, UnsupportedUnaryType, OutOfMemory }!Value {
+    fn evalBlock(self: *Interp, scope: *Scope, block: *Block) InterpError!Value {
         // For simplicity, just evaluate the return expression
         // In a full implementation, you'd need to handle statements
         return self.eval(scope, &block.return_expr);
