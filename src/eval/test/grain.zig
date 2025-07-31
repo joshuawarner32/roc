@@ -58,7 +58,6 @@ const Value = union(enum) {
         _ = options;
 
         switch (self) {
-            .int => |i| try writer.print("{}", .{i}),
             .i8 => |i| try writer.print("{}i8", .{i}),
             .i16 => |i| try writer.print("{}i16", .{i}),
             .i32 => |i| try writer.print("{}i32", .{i}),
@@ -1095,7 +1094,7 @@ const Interp = struct {
     }
 
     /// Evaluate the program and return the final value.
-    pub fn eval(self: *Interp, scope: *Scope, ty: *const Ty, expr: *Expr) !Value {
+    pub fn eval(self: *Interp, scope: *Scope, expr: *Expr) !Value {
         if (self.gas == 0) {
             return error.OutOfGas;
         }
@@ -1105,18 +1104,10 @@ const Interp = struct {
                 // We need to generate a random expression!
                 const generated_expr = try Expr.generateRandom(self.allocator, &self.random, t);
                 expr.* = generated_expr;
-                return self.eval(scope, t, expr);
+                return self.eval(scope, expr);
             },
             .literal => |lit| {
-                switch (lit.*) {
-                    else => {
-                        const actual_ty = lit.ty();
-                        if (!actual_ty.equals(ty)) {
-                            return error.TypeMismatch;
-                        }
-                        return lit.*;
-                    },
-                }
+                return lit.*;
             },
             .variable => |v| {
                 return scope.get(v);
@@ -1133,26 +1124,41 @@ const Interp = struct {
 
                 for (list_lit.elements) |*element_expr| {
                     // For simplicity, use a generic type for list elements
-                    const element_value = try self.eval(scope, &Ty{ .u8 = {} }, element_expr);
+                    const element_value = try self.eval(scope, element_expr);
                     try elements.append(element_value);
                 }
 
                 return Value{ .list = .{ .elements = try elements.toOwnedSlice() } };
             },
             .binary => |bin| {
-                _ = bin;
-                @panic("todo");
+                const left_value = try self.eval(scope, bin.left);
+                const right_value = try self.eval(scope, bin.right);
+                return try switch (bin.op) {
+                    .add => left_value.add(right_value),
+                    .subtract => left_value.subtract(right_value),
+                    .multiply => left_value.multiply(right_value),
+                    .divide => left_value.divide(right_value),
+                    .equals => left_value.equals(right_value),
+                    .not_equals => left_value.notEquals(right_value),
+                    .less_than => left_value.lessThan(right_value),
+                    .greater_than => left_value.greaterThan(right_value),
+                    .and_op => left_value.andValue(right_value),
+                    .or_op => left_value.orValue(right_value),
+                };
             },
             .unary => |un| {
-                _ = un;
-                @panic("todo");
+                const operand_value = try self.eval(scope, un.operand);
+                return try switch (un.op) {
+                    .negate => operand_value.negate(),
+                    .not => operand_value.not(),
+                };
             },
             .record_literal => |rec| {
                 var fields = std.ArrayList(Field).init(self.allocator);
                 defer fields.deinit();
 
-                for (rec.fields) |field| {
-                    const field_value = try self.eval(scope, &field.value.ty(), &field.value);
+                for (rec.fields) |*field| {
+                    const field_value = try self.eval(scope, &field.value);
                     try fields.append(Field{ .name = field.name, .value = field_value });
                 }
 
@@ -1161,8 +1167,8 @@ const Interp = struct {
             .tag_literal => |tag| {
                 var arguments = std.ArrayList(Value).init(self.allocator);
                 defer arguments.deinit();
-                for (tag.arguments) |arg_expr| {
-                    const arg_value = try self.eval(scope, &Ty{ .u8 = {} }, &arg_expr);
+                for (tag.arguments) |*arg_expr| {
+                    const arg_value = try self.eval(scope, arg_expr);
                     try arguments.append(arg_value);
                 }
                 return Value{ .tag = .{
@@ -1170,8 +1176,21 @@ const Interp = struct {
                     .arguments = try arguments.toOwnedSlice(),
                 } };
             },
-            .field_access => |_| {
-                @panic("todo");
+            .field_access => |fa| {
+                // Evaluate the record expression first
+                const record_value = try self.eval(scope, fa.record);
+                // Check if it's a record
+                if (record_value != .record) {
+                    return error.TypeMismatch;
+                }
+                // Now access the field
+                const record = record_value.record;
+                for (record.fields) |field| {
+                    if (std.mem.eql(u8, field.name, fa.field_name)) {
+                        return field.value;
+                    }
+                }
+                return error.VariableNotFound; // Field not found
             },
             .application => |app| {
                 _ = app;
@@ -1179,7 +1198,7 @@ const Interp = struct {
             },
             .if_expression => |if_expr| {
                 // Evaluate condition
-                const condition_value = try self.eval(scope, &Ty{ .bool = {} }, if_expr.condition);
+                const condition_value = try self.eval(scope, if_expr.condition);
 
                 const should_take_then_branch = switch (condition_value) {
                     .bool => |b| b,
@@ -1187,18 +1206,18 @@ const Interp = struct {
                 };
 
                 if (should_take_then_branch) {
-                    return self.evalBlock(scope, ty, if_expr.then_branch);
+                    return self.evalBlock(scope, if_expr.then_branch);
                 } else {
-                    return self.evalBlock(scope, ty, if_expr.else_branch);
+                    return self.evalBlock(scope, if_expr.else_branch);
                 }
             },
         }
     }
 
-    fn evalBlock(self: *Interp, scope: *const Scope, ty: *const Ty, block: *const Block) error{ OutOfGas, UnificationFailed, ContradictoryConstraint, TypeMismatch, VariableNotFound, TbdExpressionNotImplemented, ApplicationNotImplemented, IfExpressionNotImplemented, OutOfMemory }!Value {
+    fn evalBlock(self: *Interp, scope: *Scope, block: *Block) error{ OutOfGas, UnificationFailed, ContradictoryConstraint, TypeMismatch, VariableNotFound, TbdExpressionNotImplemented, ApplicationNotImplemented, IfExpressionNotImplemented, UnsupportedUnaryType, OutOfMemory }!Value {
         // For simplicity, just evaluate the return expression
         // In a full implementation, you'd need to handle statements
-        return self.eval(scope, ty, &block.return_expr);
+        return self.eval(scope, &block.return_expr);
     }
 };
 
@@ -1226,5 +1245,7 @@ pub fn main() !void {
 
     var scope = Scope.init(allocator);
 
-    try interp.eval(&scope, &int_ty, &value);
+    const res = try interp.eval(&scope, &value);
+    std.debug.print("Result: {}\n", .{res});
+    std.debug.print("Final expr: {}", .{value});
 }
