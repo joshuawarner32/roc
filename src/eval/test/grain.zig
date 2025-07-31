@@ -160,36 +160,8 @@ const Value = union(enum) {
                 }
                 return Value{ .tag = .{ .name = tag_ty.name, .arguments = try arguments.toOwnedSlice() } };
             },
-            .function => |func_ty| {
-                // Generate a closure with the specified function type
-                const func_ptr = try allocator.create(Func);
-
-                // Copy parameter types
-                var param_types = try allocator.alloc(Ty, func_ty.parameter_types.len);
-                for (func_ty.parameter_types, 0..) |param_ty, i| {
-                    param_types[i] = param_ty;
-                }
-
-                // Create a simple block that returns a literal value of the return type
-                const return_value = try Value.generateRandom(allocator, random, func_ty.return_type);
-                const return_value_ptr = try allocator.create(Value);
-                return_value_ptr.* = return_value;
-                const return_expr = Expr{ .literal = return_value_ptr };
-                const block_ptr = try allocator.create(Block);
-                block_ptr.* = Block{
-                    .statements = &[_]Stmt{}, // No statements for simplicity
-                    .return_expr = return_expr,
-                };
-
-                func_ptr.* = Func{
-                    .parameter_types = param_types,
-                    .body = block_ptr,
-                };
-
-                return Value{ .closure = .{
-                    .function = func_ptr,
-                    .captured_variables = Scope{ .values = std.ArrayList(Value).init(allocator) },
-                } };
+            .function => |_| {
+                @panic("Generating function literals is not supported - generate an Expr instead");
             },
         };
     }
@@ -203,6 +175,11 @@ const Field = struct {
 const TyIdx = struct { index: usize };
 
 const Var = struct { index: usize };
+
+const FunctionTy = struct {
+    parameter_types: []const Ty,
+    return_type: *const Ty,
+};
 
 const Ty = union(enum) {
     i8,
@@ -226,10 +203,7 @@ const Ty = union(enum) {
         name: []const u8,
         arguments: []const Ty,
     },
-    function: struct {
-        parameter_types: []const Ty,
-        return_type: *const Ty,
-    },
+    function: FunctionTy,
 
     pub fn equals(self: *const Ty, other: *const Ty) bool {
         if (self == other) return true;
@@ -326,6 +300,99 @@ const FieldTy = struct {
 };
 
 const ExprIdx = struct { index: usize };
+
+// For tracking bound variables during generation
+const BoundVar = struct {
+    name: []const u8,
+    ty: Ty,
+    is_pending_function: bool, // true if this is a function that needs body generation
+};
+
+// For tracking function parameters during generation
+const Parameter = struct {
+    name: []const u8,
+    ty: Ty,
+};
+
+// Variable info for scope tracking
+const VarInfo = struct {
+    name: []const u8,
+    ty: Ty,
+};
+
+// Scope tracking during expression generation
+const GeneratingScope = struct {
+    // Function parameters (in order)
+    parameters: []const Parameter,
+    // Assigned variables in body (in reverse order)
+    assignments: std.ArrayList(BoundVar),
+    // Parent scope (linked list)
+    parent: ?*const GeneratingScope,
+
+    fn init(allocator: std.mem.Allocator, parameters: []const Parameter, parent: ?*const GeneratingScope) GeneratingScope {
+        return GeneratingScope{
+            .parameters = parameters,
+            .assignments = std.ArrayList(BoundVar).init(allocator),
+            .parent = parent,
+        };
+    }
+
+    fn deinit(self: *GeneratingScope) void {
+        self.assignments.deinit();
+    }
+
+    // Find a variable by name in this scope or parent scopes
+    fn findVar(self: *const GeneratingScope, name: []const u8) ?struct { ty: Ty, is_param: bool } {
+        // Check parameters first
+        for (self.parameters) |param| {
+            if (std.mem.eql(u8, param.name, name)) {
+                return .{ .ty = param.ty, .is_param = true };
+            }
+        }
+
+        // Check assignments (most recent first)
+        for (self.assignments.items) |assignment| {
+            if (std.mem.eql(u8, assignment.name, name)) {
+                return .{ .ty = assignment.ty, .is_param = false };
+            }
+        }
+
+        // Check parent scope
+        if (self.parent) |parent| {
+            return parent.findVar(name);
+        }
+
+        return null;
+    }
+
+    // Get all available variables (parameters + assignments from all scopes)
+    fn getAllVars(self: *const GeneratingScope, allocator: std.mem.Allocator) ![]VarInfo {
+        var vars = std.ArrayList(VarInfo).init(allocator);
+
+        // Add parameters
+        for (self.parameters) |param| {
+            try vars.append(.{ .name = param.name, .ty = param.ty });
+        }
+
+        // Add assignments (reverse order, so most recent first)
+        for (self.assignments.items) |assignment| {
+            if (!assignment.is_pending_function) { // Don't include pending functions as variables
+                try vars.append(.{ .name = assignment.name, .ty = assignment.ty });
+            }
+        }
+
+        // Add from parent scope
+        if (self.parent) |parent| {
+            const parent_vars = try parent.getAllVars(allocator);
+            defer allocator.free(parent_vars);
+            for (parent_vars) |parent_var| {
+                try vars.append(parent_var);
+            }
+        }
+
+        return vars.toOwnedSlice();
+    }
+};
 
 const BinaryOp = enum {
     add,
@@ -450,10 +517,20 @@ const Expr = union(enum) {
     }
 
     pub fn generateRandom(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty) !Expr {
-        return generateRandomWithDepth(allocator, random, typ, 0);
+        // Create an empty root scope for simple generation
+        var root_scope = GeneratingScope.init(allocator, &[_]Parameter{}, null);
+        defer root_scope.deinit();
+        return generateRandomWithScopeAndDepth(allocator, random, typ, &root_scope, 0);
     }
 
-    fn generateRandomWithDepth(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty, depth: u32) !Expr {
+    pub fn generateRandomBlock(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty) !*Block {
+        // Create an empty root scope for block generation
+        var root_scope = GeneratingScope.init(allocator, &[_]Parameter{}, null);
+        defer root_scope.deinit();
+        return generateBlockWithScope(allocator, random, typ, &root_scope, 0);
+    }
+
+    fn generateRandomWithScopeAndDepth(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
         // Prevent infinite recursion by limiting depth or for function types
         if (depth > 3 or typ.* == .function) {
             // Generate a literal value
@@ -463,10 +540,32 @@ const Expr = union(enum) {
             return Expr{ .literal = value_ptr };
         }
 
-        // there are lots of ways we can construct an expr!
-        const which = random.int(u32) % 6;
+        // Get available variables in scope
+        const available_vars = try scope.getAllVars(allocator);
+        defer allocator.free(available_vars);
+
+        // Filter variables that match the desired type
+        var matching_vars = std.ArrayList([]const u8).init(allocator);
+        defer matching_vars.deinit();
+        for (available_vars) |var_info| {
+            if (var_info.ty.equals(typ)) {
+                try matching_vars.append(var_info.name);
+            }
+        }
+
+        // Decide what kind of expression to generate
+        // More options if we have variables available
+        const base_options: u32 = 6; // literal, application, binary, unary, field_access, if
+        const has_vars = matching_vars.items.len > 0;
+        const total_options: u32 = if (has_vars) base_options + 1 else base_options;
+
+        const which = random.int(u32) % total_options;
         switch (which) {
             0 => {
+                // If this is a fucntion type, we can't make a literal
+                if (typ.* == .function) {
+                    return generateFunctionWithScope(allocator, random, typ, scope, depth);
+                }
                 // Generate a literal value
                 const value = try Value.generateRandom(allocator, random, typ);
                 const value_ptr = try allocator.create(Value);
@@ -475,23 +574,38 @@ const Expr = union(enum) {
             },
             1 => {
                 // Generate an application that resolves to the given type
-                return try generateApplicationWithDepth(allocator, random, typ);
+                return try generateApplicationWithScope(allocator, random, typ, scope, depth);
             },
             2 => {
                 // Generate a binary expression that resolves to the given type
-                return try generateBinaryExpression(allocator, random, typ, depth);
+                return try generateBinaryExpressionWithScope(allocator, random, typ, scope, depth);
             },
             3 => {
                 // Generate a unary expression that resolves to the given type
-                return try generateUnaryExpression(allocator, random, typ, depth);
+                return try generateUnaryExpressionWithScope(allocator, random, typ, scope, depth);
             },
             4 => {
                 // Generate a field access expression that resolves to the given type
-                return try generateFieldAccess(allocator, random, typ, depth);
+                return try generateFieldAccessWithScope(allocator, random, typ, scope, depth);
             },
             5 => {
                 // Generate an if expression that resolves to the given type
-                return try generateIfExpression(allocator, random, typ, depth);
+                return try generateIfExpressionWithScope(allocator, random, typ, scope, depth);
+            },
+            6 => {
+                // Generate a variable reference (only if we have matching variables)
+                if (matching_vars.items.len > 0) {
+                    const chosen_var_name = matching_vars.items[random.int(usize) % matching_vars.items.len];
+                    const var_idx = Var{ .index = 0 }; // TODO: proper variable indexing
+                    _ = chosen_var_name; // TODO: use the chosen variable name
+                    return Expr{ .variable = var_idx };
+                } else {
+                    // Fallback to literal
+                    const value = try Value.generateRandom(allocator, random, typ);
+                    const value_ptr = try allocator.create(Value);
+                    value_ptr.* = value;
+                    return Expr{ .literal = value_ptr };
+                }
             },
             else => unreachable,
         }
@@ -662,6 +776,154 @@ const Expr = union(enum) {
         } };
     }
 
+    fn generateFunctionWithScope(allocator: std.mem.Allocator, random: *const std.Random, func_ty: *const FunctionTy, scope: *GeneratingScope, depth: u32) !Expr {
+        _ = scope; // Unused for now
+        _ = depth; // Unused for now
+
+        // Generate a closure with the specified function type
+        const func_ptr = try allocator.create(Func);
+
+        // Copy parameter types
+        var param_types = try allocator.alloc(Ty, func_ty.parameter_types.len);
+        for (func_ty.parameter_types, 0..) |param_ty, i| {
+            param_types[i] = param_ty;
+        }
+
+        // Create parameters for the function scope
+        var parameters = try allocator.alloc(Parameter, func_ty.parameter_types.len);
+        for (func_ty.parameter_types, 0..) |param_ty, i| {
+            const param_name = try std.fmt.allocPrint(allocator, "arg{}", .{i});
+            parameters[i] = Parameter{ .name = param_name, .ty = param_ty };
+        }
+
+        // Create function scope with parameters
+        var func_scope = GeneratingScope.init(allocator, parameters, null);
+        defer func_scope.deinit();
+
+        // Generate a block with assignments and return expression
+        const block_ptr = try Expr.generateBlockWithScope(allocator, random, func_ty.return_type, &func_scope, 0);
+
+        func_ptr.* = Func{
+            .parameter_types = param_types,
+            .body = block_ptr,
+        };
+
+        return Value{ .closure = .{
+            .function = func_ptr,
+            .captured_variables = Scope{ .values = std.ArrayList(Value).init(allocator) },
+        } };
+    }
+
+    // Scope-aware generation functions
+    fn generateApplicationWithScope(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
+        _ = scope;
+        _ = depth; // TODO: use scope for argument generation
+        return generateApplicationWithDepth(allocator, random, return_type);
+    }
+
+    fn generateBinaryExpressionWithScope(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
+        _ = scope; // TODO: use scope for operand generation
+        return generateBinaryExpression(allocator, random, result_type, depth);
+    }
+
+    fn generateUnaryExpressionWithScope(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
+        _ = scope; // TODO: use scope for operand generation
+        return generateUnaryExpression(allocator, random, result_type, depth);
+    }
+
+    fn generateFieldAccessWithScope(allocator: std.mem.Allocator, random: *const std.Random, field_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
+        _ = scope; // TODO: use scope for record generation
+        return generateFieldAccess(allocator, random, field_type, depth);
+    }
+
+    fn generateIfExpressionWithScope(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
+        // Generate a condition (always a boolean literal for simplicity)
+        const condition_value = Value{ .bool = random.boolean() };
+        const condition_value_ptr = try allocator.create(Value);
+        condition_value_ptr.* = condition_value;
+        const condition_expr_ptr = try allocator.create(Expr);
+        condition_expr_ptr.* = Expr{ .literal = condition_value_ptr };
+
+        // Generate then branch using scope-aware block generation
+        const then_block_ptr = try generateBlockWithScope(allocator, random, result_type, scope, depth + 1);
+
+        // Generate else branch using scope-aware block generation
+        const else_block_ptr = try generateBlockWithScope(allocator, random, result_type, scope, depth + 1);
+
+        return Expr{ .if_expression = .{
+            .condition = condition_expr_ptr,
+            .then_branch = then_block_ptr,
+            .else_branch = else_block_ptr,
+        } };
+    }
+
+    // Generate a Block with assignments and return expression
+    fn generateBlockWithScope(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty, scope: *GeneratingScope, depth: u32) error{ OutOfMemory, UnsupportedUnaryType }!*Block {
+        // Only generate assignments if we're not too deep (to avoid infinite recursion)
+        const num_assignments = if (depth > 2) 0 else random.int(u32) % 3;
+
+        var statements = std.ArrayList(Stmt).init(allocator);
+        var local_scope = GeneratingScope.init(allocator, &[_]Parameter{}, scope);
+        defer local_scope.deinit();
+
+        // Generate assignments
+        for (0..num_assignments) |i| {
+            // Generate a random variable name
+            const var_name = try std.fmt.allocPrint(allocator, "var{}", .{i});
+
+            // Generate a random type for this variable
+            const var_type_choice = random.int(u32) % 13;
+            const var_type = switch (var_type_choice) {
+                0 => Ty{ .i8 = {} },
+                1 => Ty{ .i16 = {} },
+                2 => Ty{ .i32 = {} },
+                3 => Ty{ .i64 = {} },
+                4 => Ty{ .i128 = {} },
+                5 => Ty{ .u8 = {} },
+                6 => Ty{ .u16 = {} },
+                7 => Ty{ .u32 = {} },
+                8 => Ty{ .u64 = {} },
+                9 => Ty{ .u128 = {} },
+                10 => Ty{ .float = {} },
+                11 => Ty{ .bool = {} },
+                12 => Ty{ .str = {} },
+                else => unreachable,
+            };
+
+            // Generate an expression for the assignment value (use literal to avoid deep recursion)
+            const assignment_value = try Value.generateRandom(allocator, random, &var_type);
+            const assignment_value_ptr = try allocator.create(Value);
+            assignment_value_ptr.* = assignment_value;
+            const assignment_expr = Expr{ .literal = assignment_value_ptr };
+
+            // Add this variable to our local scope
+            try local_scope.assignments.append(BoundVar{
+                .name = var_name,
+                .ty = var_type,
+                .is_pending_function = false,
+            });
+
+            // Create the assignment statement
+            try statements.append(Stmt{
+                .assignment = .{
+                    .variable_name = var_name,
+                    .value = assignment_expr,
+                },
+            });
+        }
+
+        // Generate return expression using the local scope (which now has assignments)
+        const return_expr = try generateRandomWithScopeAndDepth(allocator, random, return_type, &local_scope, depth + 1);
+
+        const block_ptr = try allocator.create(Block);
+        block_ptr.* = Block{
+            .statements = try statements.toOwnedSlice(),
+            .return_expr = return_expr,
+        };
+
+        return block_ptr;
+    }
+
     fn generateIfExpression(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, depth: u32) !Expr {
         _ = depth; // Unused for now
 
@@ -724,6 +986,7 @@ const Block = struct {
 
 const Stmt = union(enum) {
     assignment: struct {
+        variable_name: []const u8,
         value: Expr,
     },
     expression: Expr,
@@ -734,7 +997,7 @@ const Stmt = union(enum) {
         _ = options;
 
         switch (self) {
-            .assignment => |assign| try writer.print("{s} = {}", .{ "var", assign.value }),
+            .assignment => |assign| try writer.print("{s} = {}", .{ assign.variable_name, assign.value }),
             .expression => |expr| try writer.print("{}", .{expr}),
             .return_statement => |ret| try writer.print("return {}", .{ret}),
         }
