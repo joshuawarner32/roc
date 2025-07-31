@@ -131,36 +131,16 @@ const Value = union(enum) {
                 }
                 break :blk Value{ .str = buffer }; // Don't free the buffer, it's owned by the Value
             },
-            .list => |element_ty| {
-                var elements = std.ArrayList(Value).init(allocator);
-                errdefer elements.deinit();
-                const count = random.int(u32) % 5 + 1; // Random list size between 1 and 5
-                for (0..count) |_| {
-                    const element_value = try generateRandom(allocator, random, element_ty);
-                    try elements.append(element_value);
-                }
-                return Value{ .list = .{ .elements = try elements.toOwnedSlice() } };
+            .list => {
+                @panic("Generating list literals is not supported - generate an Expr instead");
             },
-            .record => |record_ty| {
-                var fields = std.ArrayList(Field).init(allocator);
-                errdefer fields.deinit();
-                for (record_ty.fields) |field_ty| {
-                    const field_value = try generateRandom(allocator, random, &field_ty.ty);
-                    try fields.append(Field{ .name = field_ty.name, .value = field_value });
-                }
-                return Value{ .record = .{ .fields = try fields.toOwnedSlice() } };
+            .record => {
+                @panic("Generating record literals is not supported - generate an Expr instead");
             },
-            .tag => |tag_ty| {
-                var arguments = std.ArrayList(Value).init(allocator);
-                errdefer arguments.deinit();
-                const count = random.int(u32) % 3; // Random number of arguments between 0 and 2
-                for (0..count) |_| {
-                    const arg_value = try generateRandom(allocator, random, &tag_ty.arguments[0]); // Use first argument type for simplicity
-                    try arguments.append(arg_value);
-                }
-                return Value{ .tag = .{ .name = tag_ty.name, .arguments = try arguments.toOwnedSlice() } };
+            .tag => {
+                @panic("Generating tag literals is not supported - generate an Expr instead");
             },
-            .function => |_| {
+            .function => {
                 @panic("Generating function literals is not supported - generate an Expr instead");
             },
         };
@@ -170,6 +150,11 @@ const Value = union(enum) {
 const Field = struct {
     name: []const u8,
     value: Value,
+};
+
+const FieldExpr = struct {
+    name: []const u8,
+    value: Expr,
 };
 
 const TyIdx = struct { index: usize };
@@ -440,6 +425,8 @@ const UnaryOp = enum {
     }
 };
 
+const GenError = error{ OutOfMemory, UnsupportedUnaryType };
+
 const Expr = union(enum) {
     literal: *Value,
     variable: Var,
@@ -450,6 +437,13 @@ const Expr = union(enum) {
     },
     list_literal: struct {
         elements: []Expr,
+    },
+    record_literal: struct {
+        fields: []FieldExpr,
+    },
+    tag_literal: struct {
+        name: []const u8,
+        arguments: []Expr,
     },
     binary: struct {
         op: BinaryOp,
@@ -501,6 +495,22 @@ const Expr = union(enum) {
                 }
                 try writer.print("]", .{});
             },
+            .record_literal => |rec| {
+                try writer.print("{{", .{});
+                for (rec.fields, 0..) |field, i| {
+                    if (i > 0) try writer.print(", ", .{});
+                    try writer.print("{s}: {}", .{ field.name, field.value });
+                }
+                try writer.print("}}", .{});
+            },
+            .tag_literal => |tag| {
+                try writer.print("{s}(", .{tag.name});
+                for (tag.arguments, 0..) |arg, i| {
+                    if (i > 0) try writer.print(", ", .{});
+                    try writer.print("{}", .{arg});
+                }
+                try writer.print(")", .{});
+            },
             .binary => |bin| {
                 try writer.print("({} {} {})", .{ bin.left.*, bin.op, bin.right.* });
             },
@@ -516,7 +526,7 @@ const Expr = union(enum) {
         }
     }
 
-    pub fn generateRandom(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty) !Expr {
+    pub fn generateRandom(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty) GenError!Expr {
         // Create an empty root scope for simple generation
         var root_scope = GeneratingScope.init(allocator, &[_]Parameter{}, null);
         defer root_scope.deinit();
@@ -530,9 +540,30 @@ const Expr = union(enum) {
         return generateBlockWithScope(allocator, random, typ, &root_scope, 0);
     }
 
-    fn generateRandomWithScopeAndDepth(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
+    fn generateSimpleRandom(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
+        if (typ.* == .function) {
+            return generateFunction(allocator, random, &typ.function, scope, depth);
+        } else if (typ.* == .list) {
+            // Generate a list literal
+            return try Expr.generateList(allocator, random, typ.list);
+        } else if (typ.* == .record) {
+            // Generate a record literal
+            return try Expr.generateRecord(allocator, random, typ.record.fields);
+        } else if (typ.* == .tag) {
+            // Generate a tag literal
+            return try Expr.generateTag(allocator, random, typ.tag.name, typ.tag.arguments);
+        } else {
+            // Generate a literal value
+            const value = try Value.generateRandom(allocator, random, typ);
+            const value_ptr = try allocator.create(Value);
+            value_ptr.* = value;
+            return Expr{ .literal = value_ptr };
+        }
+    }
+
+    fn generateRandomWithScopeAndDepth(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
         // Prevent infinite recursion by limiting depth or for function types
-        if (depth > 3 or typ.* == .function) {
+        if (depth > 3 and typ.* != .function and typ.* != .list and typ.* != .record and typ.* != .tag) {
             // Generate a literal value
             const value = try Value.generateRandom(allocator, random, typ);
             const value_ptr = try allocator.create(Value);
@@ -562,15 +593,7 @@ const Expr = union(enum) {
         const which = random.int(u32) % total_options;
         switch (which) {
             0 => {
-                // If this is a fucntion type, we can't make a literal
-                if (typ.* == .function) {
-                    return generateFunctionWithScope(allocator, random, typ, scope, depth);
-                }
-                // Generate a literal value
-                const value = try Value.generateRandom(allocator, random, typ);
-                const value_ptr = try allocator.create(Value);
-                value_ptr.* = value;
-                return Expr{ .literal = value_ptr };
+                return try generateSimpleRandom(allocator, random, typ, scope, depth);
             },
             1 => {
                 // Generate an application that resolves to the given type
@@ -582,11 +605,19 @@ const Expr = union(enum) {
             },
             3 => {
                 // Generate a unary expression that resolves to the given type
-                return try generateUnaryExpressionWithScope(allocator, random, typ, scope, depth);
+                const res = generateUnaryExpression(allocator, random, typ, scope, depth) catch |err| {
+                    if (err == error.UnsupportedUnaryType) {
+                        return try generateSimpleRandom(allocator, random, typ, scope, depth);
+                    } else {
+                        return err; // Propagate other errors
+                    }
+                };
+
+                return res;
             },
             4 => {
                 // Generate a field access expression that resolves to the given type
-                return try generateFieldAccessWithScope(allocator, random, typ, scope, depth);
+                return try generateFieldAccess(allocator, random, typ, scope, depth);
             },
             5 => {
                 // Generate an if expression that resolves to the given type
@@ -611,7 +642,7 @@ const Expr = union(enum) {
         }
     }
 
-    fn generateApplicationWithDepth(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty) !Expr {
+    fn generateApplicationWithDepth(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty) GenError!Expr {
         // Generate random argument types - for simplicity, use 0-2 arguments
         const num_args = random.int(u32) % 3;
         var arg_types = try allocator.alloc(Ty, num_args);
@@ -647,10 +678,7 @@ const Expr = union(enum) {
         } };
 
         // Generate a function expression that has this type (always a literal closure)
-        const func_value = try Value.generateRandom(allocator, random, &func_type);
-        const func_value_ptr = try allocator.create(Value);
-        func_value_ptr.* = func_value;
-        const func_expr = Expr{ .literal = func_value_ptr };
+        const func_expr = try Expr.generateRandom(allocator, random, &func_type);
         const func_expr_ptr = try allocator.create(Expr);
         func_expr_ptr.* = func_expr;
 
@@ -669,7 +697,39 @@ const Expr = union(enum) {
         } };
     }
 
-    fn generateBinaryExpression(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, depth: u32) !Expr {
+    fn generateList(allocator: std.mem.Allocator, random: *const std.Random, element_ty: *const Ty) GenError!Expr {
+        var elements = std.ArrayList(Expr).init(allocator);
+        errdefer elements.deinit();
+        const count = random.int(u32) % 5 + 1; // Random list size between 1 and 5
+        for (0..count) |_| {
+            const element_value = try generateRandom(allocator, random, element_ty);
+            try elements.append(element_value);
+        }
+        return Expr{ .list_literal = .{ .elements = try elements.toOwnedSlice() } };
+    }
+
+    fn generateRecord(allocator: std.mem.Allocator, random: *const std.Random, record_fields: []const FieldTy) GenError!Expr {
+        var fields = std.ArrayList(FieldExpr).init(allocator);
+        errdefer fields.deinit();
+        for (record_fields) |field_ty| {
+            const field_value = try generateRandom(allocator, random, &field_ty.ty);
+            try fields.append(FieldExpr{ .name = field_ty.name, .value = field_value });
+        }
+        return Expr{ .record_literal = .{ .fields = try fields.toOwnedSlice() } };
+    }
+
+    fn generateTag(allocator: std.mem.Allocator, random: *const std.Random, name: []const u8, argument_tys: []const Ty) GenError!Expr {
+        var arguments = std.ArrayList(Expr).init(allocator);
+        errdefer arguments.deinit();
+        const count = random.int(u32) % 3; // Random number of arguments between 0 and 2
+        for (0..count) |_| {
+            const arg_value = try generateRandom(allocator, random, &argument_tys[0]); // Use first argument type for simplicity
+            try arguments.append(arg_value);
+        }
+        return Expr{ .tag_literal = .{ .name = name, .arguments = try arguments.toOwnedSlice() } };
+    }
+
+    fn generateBinaryExpression(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, depth: u32) GenError!Expr {
         _ = depth; // Unused for now
         // Choose a binary operator based on the desired result type
         const ops_for_type = switch (result_type.*) {
@@ -686,7 +746,7 @@ const Expr = union(enum) {
             .and_op, .or_op => Ty{ .bool = {} },
             .equals, .not_equals => blk: {
                 // For equality, use a random basic type
-                const type_choice = random.int(u32) % 14; // Now we have 14 basic types
+                const type_choice = random.int(u32) % 13;
                 break :blk switch (type_choice) {
                     0 => Ty{ .i8 = {} },
                     1 => Ty{ .i16 = {} },
@@ -726,8 +786,9 @@ const Expr = union(enum) {
         } };
     }
 
-    fn generateUnaryExpression(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, depth: u32) !Expr {
+    fn generateUnaryExpression(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
         _ = depth; // Unused for now
+        _ = scope; // Unused for now
 
         // Choose a unary operator based on the desired result type
         const op = switch (result_type.*) {
@@ -752,9 +813,7 @@ const Expr = union(enum) {
         } };
     }
 
-    fn generateFieldAccess(allocator: std.mem.Allocator, random: *const std.Random, field_type: *const Ty, depth: u32) !Expr {
-        _ = depth; // Unused for now
-
+    fn generateFieldAccess(allocator: std.mem.Allocator, random: *const std.Random, field_type: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
         // Generate a record with a field of the desired type
         const field_name = "field"; // Simple field name for now
         const field_ty = FieldTy{ .name = field_name, .ty = field_type.* };
@@ -763,12 +822,9 @@ const Expr = union(enum) {
 
         const record_type = Ty{ .record = .{ .fields = record_fields } };
 
-        // Generate a record value (use literal to avoid deep recursion)
-        const record_value = try Value.generateRandom(allocator, random, &record_type);
-        const record_value_ptr = try allocator.create(Value);
-        record_value_ptr.* = record_value;
+        const record_expr = try Expr.generateRandomWithScopeAndDepth(allocator, random, &record_type, scope, depth + 1);
         const record_expr_ptr = try allocator.create(Expr);
-        record_expr_ptr.* = Expr{ .literal = record_value_ptr };
+        record_expr_ptr.* = record_expr;
 
         return Expr{ .field_access = .{
             .record = record_expr_ptr,
@@ -776,7 +832,7 @@ const Expr = union(enum) {
         } };
     }
 
-    fn generateFunctionWithScope(allocator: std.mem.Allocator, random: *const std.Random, func_ty: *const FunctionTy, scope: *GeneratingScope, depth: u32) !Expr {
+    fn generateFunction(allocator: std.mem.Allocator, random: *const std.Random, func_ty: *const FunctionTy, scope: *GeneratingScope, depth: u32) GenError!Expr {
         _ = scope; // Unused for now
         _ = depth; // Unused for now
 
@@ -808,35 +864,22 @@ const Expr = union(enum) {
             .body = block_ptr,
         };
 
-        return Value{ .closure = .{
-            .function = func_ptr,
-            .captured_variables = Scope{ .values = std.ArrayList(Value).init(allocator) },
-        } };
+        return Expr{ .function = func_ptr };
     }
 
     // Scope-aware generation functions
-    fn generateApplicationWithScope(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
+    fn generateApplicationWithScope(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
         _ = scope;
         _ = depth; // TODO: use scope for argument generation
         return generateApplicationWithDepth(allocator, random, return_type);
     }
 
-    fn generateBinaryExpressionWithScope(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
+    fn generateBinaryExpressionWithScope(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
         _ = scope; // TODO: use scope for operand generation
         return generateBinaryExpression(allocator, random, result_type, depth);
     }
 
-    fn generateUnaryExpressionWithScope(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
-        _ = scope; // TODO: use scope for operand generation
-        return generateUnaryExpression(allocator, random, result_type, depth);
-    }
-
-    fn generateFieldAccessWithScope(allocator: std.mem.Allocator, random: *const std.Random, field_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
-        _ = scope; // TODO: use scope for record generation
-        return generateFieldAccess(allocator, random, field_type, depth);
-    }
-
-    fn generateIfExpressionWithScope(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) !Expr {
+    fn generateIfExpressionWithScope(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, scope: *GeneratingScope, depth: u32) GenError!Expr {
         // Generate a condition (always a boolean literal for simplicity)
         const condition_value = Value{ .bool = random.boolean() };
         const condition_value_ptr = try allocator.create(Value);
@@ -858,7 +901,7 @@ const Expr = union(enum) {
     }
 
     // Generate a Block with assignments and return expression
-    fn generateBlockWithScope(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty, scope: *GeneratingScope, depth: u32) error{ OutOfMemory, UnsupportedUnaryType }!*Block {
+    fn generateBlockWithScope(allocator: std.mem.Allocator, random: *const std.Random, return_type: *const Ty, scope: *GeneratingScope, depth: u32) GenError!*Block {
         // Only generate assignments if we're not too deep (to avoid infinite recursion)
         const num_assignments = if (depth > 2) 0 else random.int(u32) % 3;
 
@@ -924,7 +967,7 @@ const Expr = union(enum) {
         return block_ptr;
     }
 
-    fn generateIfExpression(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, depth: u32) !Expr {
+    fn generateIfExpression(allocator: std.mem.Allocator, random: *const std.Random, result_type: *const Ty, depth: u32) GenError!Expr {
         _ = depth; // Unused for now
 
         // Generate a condition (always a boolean literal for simplicity)
