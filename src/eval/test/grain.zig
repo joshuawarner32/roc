@@ -106,7 +106,7 @@ const Value = union(enum) {
         }
     }
 
-    pub fn generateRandom(allocator: std.mem.Allocator, random: *const std.Random, typ: *const Ty) !Value {
+    pub fn generateRandom(allocator: std.mem.Allocator, random: std.Random, typ: *const Ty) !Value {
         return switch (typ.*) {
             .i8 => Value{ .i8 = random.int(i8) },
             .i16 => Value{ .i16 = random.int(i16) },
@@ -146,43 +146,43 @@ const Value = union(enum) {
     pub fn add(self: Value, other: Value) !Value {
         return switch (self) {
             .i8 => |a| switch (other) {
-                .i8 => |b| Value{ .i8 = a + b },
+                .i8 => |b| Value{ .i8 = a +% b },
                 else => error.TypeMismatch,
             },
             .i16 => |a| switch (other) {
-                .i16 => |b| Value{ .i16 = a + b },
+                .i16 => |b| Value{ .i16 = a +% b },
                 else => error.TypeMismatch,
             },
             .i32 => |a| switch (other) {
-                .i32 => |b| Value{ .i32 = a + b },
+                .i32 => |b| Value{ .i32 = a +% b },
                 else => error.TypeMismatch,
             },
             .i64 => |a| switch (other) {
-                .i64 => |b| Value{ .i64 = a + b },
+                .i64 => |b| Value{ .i64 = a +% b },
                 else => error.TypeMismatch,
             },
             .i128 => |a| switch (other) {
-                .i128 => |b| Value{ .i128 = a + b },
+                .i128 => |b| Value{ .i128 = a +% b },
                 else => error.TypeMismatch,
             },
             .u8 => |a| switch (other) {
-                .u8 => |b| Value{ .u8 = a + b },
+                .u8 => |b| Value{ .u8 = a +% b },
                 else => error.TypeMismatch,
             },
             .u16 => |a| switch (other) {
-                .u16 => |b| Value{ .u16 = a + b },
+                .u16 => |b| Value{ .u16 = a +% b },
                 else => error.TypeMismatch,
             },
             .u32 => |a| switch (other) {
-                .u32 => |b| Value{ .u32 = a + b },
+                .u32 => |b| Value{ .u32 = a +% b },
                 else => error.TypeMismatch,
             },
             .u64 => |a| switch (other) {
-                .u64 => |b| Value{ .u64 = a + b },
+                .u64 => |b| Value{ .u64 = a +% b },
                 else => error.TypeMismatch,
             },
             .u128 => |a| switch (other) {
-                .u128 => |b| Value{ .u128 = a + b },
+                .u128 => |b| Value{ .u128 = a +% b },
                 else => error.TypeMismatch,
             },
             .float => |a| switch (other) {
@@ -196,43 +196,43 @@ const Value = union(enum) {
     pub fn subtract(self: Value, other: Value) !Value {
         return switch (self) {
             .i8 => |a| switch (other) {
-                .i8 => |b| Value{ .i8 = a - b },
+                .i8 => |b| Value{ .i8 = a -% b },
                 else => error.TypeMismatch,
             },
             .i16 => |a| switch (other) {
-                .i16 => |b| Value{ .i16 = a - b },
+                .i16 => |b| Value{ .i16 = a -% b },
                 else => error.TypeMismatch,
             },
             .i32 => |a| switch (other) {
-                .i32 => |b| Value{ .i32 = a - b },
+                .i32 => |b| Value{ .i32 = a -% b },
                 else => error.TypeMismatch,
             },
             .i64 => |a| switch (other) {
-                .i64 => |b| Value{ .i64 = a - b },
+                .i64 => |b| Value{ .i64 = a -% b },
                 else => error.TypeMismatch,
             },
             .i128 => |a| switch (other) {
-                .i128 => |b| Value{ .i128 = a - b },
+                .i128 => |b| Value{ .i128 = a -% b },
                 else => error.TypeMismatch,
             },
             .u8 => |a| switch (other) {
-                .u8 => |b| Value{ .u8 = a - b },
+                .u8 => |b| Value{ .u8 = a -% b },
                 else => error.TypeMismatch,
             },
             .u16 => |a| switch (other) {
-                .u16 => |b| Value{ .u16 = a - b },
+                .u16 => |b| Value{ .u16 = a -% b },
                 else => error.TypeMismatch,
             },
             .u32 => |a| switch (other) {
-                .u32 => |b| Value{ .u32 = a - b },
+                .u32 => |b| Value{ .u32 = a -% b },
                 else => error.TypeMismatch,
             },
             .u64 => |a| switch (other) {
-                .u64 => |b| Value{ .u64 = a - b },
+                .u64 => |b| Value{ .u64 = a -% b },
                 else => error.TypeMismatch,
             },
             .u128 => |a| switch (other) {
-                .u128 => |b| Value{ .u128 = a - b },
+                .u128 => |b| Value{ .u128 = a -% b },
                 else => error.TypeMismatch,
             },
             .float => |a| switch (other) {
@@ -246,43 +246,43 @@ const Value = union(enum) {
     pub fn multiply(self: Value, other: Value) !Value {
         return switch (self) {
             .i8 => |a| switch (other) {
-                .i8 => |b| Value{ .i8 = a * b },
+                .i8 => |b| Value{ .i8 = a *% b },
                 else => error.TypeMismatch,
             },
             .i16 => |a| switch (other) {
-                .i16 => |b| Value{ .i16 = a * b },
+                .i16 => |b| Value{ .i16 = a *% b },
                 else => error.TypeMismatch,
             },
             .i32 => |a| switch (other) {
-                .i32 => |b| Value{ .i32 = a * b },
+                .i32 => |b| Value{ .i32 = a *% b },
                 else => error.TypeMismatch,
             },
             .i64 => |a| switch (other) {
-                .i64 => |b| Value{ .i64 = a * b },
+                .i64 => |b| Value{ .i64 = a *% b },
                 else => error.TypeMismatch,
             },
             .i128 => |a| switch (other) {
-                .i128 => |b| Value{ .i128 = a * b },
+                .i128 => |b| Value{ .i128 = a *% b },
                 else => error.TypeMismatch,
             },
             .u8 => |a| switch (other) {
-                .u8 => |b| Value{ .u8 = a * b },
+                .u8 => |b| Value{ .u8 = a *% b },
                 else => error.TypeMismatch,
             },
             .u16 => |a| switch (other) {
-                .u16 => |b| Value{ .u16 = a * b },
+                .u16 => |b| Value{ .u16 = a *% b },
                 else => error.TypeMismatch,
             },
             .u32 => |a| switch (other) {
-                .u32 => |b| Value{ .u32 = a * b },
+                .u32 => |b| Value{ .u32 = a *% b },
                 else => error.TypeMismatch,
             },
             .u64 => |a| switch (other) {
-                .u64 => |b| Value{ .u64 = a * b },
+                .u64 => |b| Value{ .u64 = a *% b },
                 else => error.TypeMismatch,
             },
             .u128 => |a| switch (other) {
-                .u128 => |b| Value{ .u128 = a * b },
+                .u128 => |b| Value{ .u128 = a *% b },
                 else => error.TypeMismatch,
             },
             .float => |a| switch (other) {
@@ -406,54 +406,89 @@ const Value = union(enum) {
         const eq_result = try self.equals(other);
         return Value{ .bool = !eq_result.bool };
     }
-
     pub fn lessThan(self: Value, other: Value) !Value {
         const result = switch (self) {
             .i8 => |a| switch (other) {
                 .i8 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .i16 => |a| switch (other) {
                 .i16 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .i32 => |a| switch (other) {
                 .i32 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .i64 => |a| switch (other) {
                 .i64 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .i128 => |a| switch (other) {
                 .i128 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u8 => |a| switch (other) {
                 .u8 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u16 => |a| switch (other) {
                 .u16 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u32 => |a| switch (other) {
                 .u32 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u64 => |a| switch (other) {
                 .u64 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u128 => |a| switch (other) {
                 .u128 => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .float => |a| switch (other) {
                 .float => |b| a < b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
-            else => return error.TypeMismatch,
+            else => {
+                std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                return error.TypeMismatch;
+            },
         };
         return Value{ .bool = result };
     }
@@ -462,49 +497,85 @@ const Value = union(enum) {
         const result = switch (self) {
             .i8 => |a| switch (other) {
                 .i8 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .i16 => |a| switch (other) {
                 .i16 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .i32 => |a| switch (other) {
                 .i32 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .i64 => |a| switch (other) {
                 .i64 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .i128 => |a| switch (other) {
                 .i128 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u8 => |a| switch (other) {
                 .u8 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u16 => |a| switch (other) {
                 .u16 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u32 => |a| switch (other) {
                 .u32 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u64 => |a| switch (other) {
                 .u64 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .u128 => |a| switch (other) {
                 .u128 => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
             .float => |a| switch (other) {
                 .float => |b| a > b,
-                else => return error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                    return error.TypeMismatch;
+                },
             },
-            else => return error.TypeMismatch,
+            else => {
+                std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+                return error.TypeMismatch;
+            },
         };
         return Value{ .bool = result };
     }
@@ -513,9 +584,15 @@ const Value = union(enum) {
         return switch (self) {
             .bool => |a| switch (other) {
                 .bool => |b| Value{ .bool = a and b },
-                else => error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in and: {s}\n", .{self.ty()});
+                    return error.TypeMismatch;
+                },
             },
-            else => error.TypeMismatch,
+            else => {
+                std.debug.print("Type mismatch in and: {s}\n", .{self.ty()});
+                return error.TypeMismatch;
+            },
         };
     }
 
@@ -523,28 +600,40 @@ const Value = union(enum) {
         return switch (self) {
             .bool => |a| switch (other) {
                 .bool => |b| Value{ .bool = a or b },
-                else => error.TypeMismatch,
+                else => {
+                    std.debug.print("Type mismatch in or: {s}\n", .{self.ty()});
+                    return error.TypeMismatch;
+                },
             },
-            else => error.TypeMismatch,
+            else => {
+                std.debug.print("Type mismatch in or: {s}\n", .{self.ty()});
+                return error.TypeMismatch;
+            },
         };
     }
 
     pub fn negate(self: Value) !Value {
         return switch (self) {
-            .i8 => |a| Value{ .i8 = -a },
-            .i16 => |a| Value{ .i16 = -a },
-            .i32 => |a| Value{ .i32 = -a },
-            .i64 => |a| Value{ .i64 = -a },
-            .i128 => |a| Value{ .i128 = -a },
+            .i8 => |a| Value{ .i8 = -%a },
+            .i16 => |a| Value{ .i16 = -%a },
+            .i32 => |a| Value{ .i32 = -%a },
+            .i64 => |a| Value{ .i64 = -%a },
+            .i128 => |a| Value{ .i128 = -%a },
             .float => |a| Value{ .float = -a },
-            else => error.TypeMismatch,
+            else => {
+                std.debug.print("Type mismatch in negate: {s}\n", .{self.ty()});
+                return error.TypeMismatch;
+            },
         };
     }
 
     pub fn not(self: Value) !Value {
         return switch (self) {
             .bool => |a| Value{ .bool = !a },
-            else => error.TypeMismatch,
+            else => {
+                std.debug.print("Type mismatch in not: {s}\n", .{self.ty()});
+                return error.TypeMismatch;
+            },
         };
     }
 };
@@ -564,7 +653,7 @@ const TyIdx = struct { index: usize };
 const Var = struct { name: []const u8 };
 
 const FunctionTy = struct {
-    parameter_types: []const Ty,
+    parameter_types: []*const Ty,
     return_type: *const Ty,
 };
 
@@ -588,7 +677,7 @@ const Ty = union(enum) {
     },
     tag: struct {
         name: []const u8,
-        arguments: []const Ty,
+        arguments: []*const Ty,
     },
     function: FunctionTy,
 
@@ -626,7 +715,7 @@ const Ty = union(enum) {
                     return false;
                 }
                 for (tag.arguments, other.tag.arguments) |arg, other_arg| {
-                    if (!arg.equals(&other_arg)) {
+                    if (!arg.equals(other_arg)) {
                         return false;
                     }
                 }
@@ -637,7 +726,7 @@ const Ty = union(enum) {
                 if (func.parameter_types.len != other.function.parameter_types.len) return false;
                 if (!func.return_type.equals(other.function.return_type)) return false;
                 for (func.parameter_types, other.function.parameter_types) |param, other_param| {
-                    if (!param.equals(&other_param)) return false;
+                    if (!param.equals(other_param)) return false;
                 }
                 return true;
             },
@@ -679,10 +768,10 @@ const Ty = union(enum) {
 
 const FieldTy = struct {
     name: []const u8,
-    ty: Ty,
+    ty: *const Ty,
 
     pub fn eql(self: FieldTy, other: FieldTy) bool {
-        return std.mem.eql(u8, self.name, other.name) and self.ty.equals(&other.ty);
+        return std.mem.eql(u8, self.name, other.name) and self.ty.equals(other.ty);
     }
 };
 
@@ -805,8 +894,8 @@ const BinaryOp = enum {
             .not_equals => "!=",
             .less_than => "<",
             .greater_than => ">",
-            .and_op => "&&",
-            .or_op => "||",
+            .and_op => "and",
+            .or_op => "or",
         };
         try writer.print("{s}", .{op_str});
     }
@@ -836,7 +925,7 @@ const Expr = union(enum) {
     function: *Func,
     application: struct {
         function: *Expr,
-        arguments: []Expr,
+        arguments: []*Expr,
     },
     list_literal: struct {
         elements: []Expr,
@@ -1415,7 +1504,7 @@ const Expr = union(enum) {
 };
 
 const Func = struct {
-    parameter_types: []Ty,
+    parameter_types: []*const Ty,
     body: *Block,
 };
 
@@ -1460,7 +1549,7 @@ const Module = struct {
 
 const ScopeItem = struct {
     name: []const u8,
-    ty: Ty,
+    ty: *const Ty,
     value: Value,
 };
 
@@ -1475,6 +1564,27 @@ const Scope = struct {
         };
     }
 
+    fn findRandomItemWithType(self: *const Scope, random: std.Random, ty: *const Ty) ?ScopeItem {
+        // Use reservoir sampling to find a random value of the given type
+        var found_value: ?ScopeItem = null;
+        var count: u32 = 0;
+
+        var scope_ptr: ?*const Scope = self;
+        while (scope_ptr) |scope| {
+            for (scope.values.items) |item| {
+                if (item.ty.equals(ty)) {
+                    count += 1;
+                    if (random.int(u32) % count == 0) {
+                        found_value = item;
+                    }
+                }
+            }
+            scope_ptr = scope.parent;
+        }
+
+        return found_value;
+    }
+
     fn get(self: *const Scope, v: Var) Value {
         for (self.values.items) |item| {
             if (std.mem.eql(u8, item.name, v.name)) {
@@ -1485,7 +1595,20 @@ const Scope = struct {
     }
 };
 
-const InterpError = error{ OutOfGas, UnificationFailed, ContradictoryConstraint, TypeMismatch, VariableNotFound, TbdExpressionNotImplemented, ApplicationNotImplemented, IfExpressionNotImplemented, UnsupportedUnaryType, OutOfMemory, DivideByZero };
+const InterpError = error{
+    OutOfGas,
+    StackOverflow,
+    UnificationFailed,
+    ContradictoryConstraint,
+    TypeMismatch,
+    VariableNotFound,
+    TbdExpressionNotImplemented,
+    ApplicationNotImplemented,
+    IfExpressionNotImplemented,
+    UnsupportedUnaryType,
+    OutOfMemory,
+    DivideByZero,
+};
 
 const Interp = struct {
     allocator: std.mem.Allocator,
@@ -1500,173 +1623,475 @@ const Interp = struct {
         };
     }
 
-    /// Evaluate the program and return the final value.
-    pub fn eval(self: *Interp, scope: *Scope, expr: *Expr) InterpError!Value {
-        if (self.gas == 0) {
-            return error.OutOfGas;
-        }
-
-        switch (expr.*) {
-            .tbd => |t| {
-                // We need to generate a random expression!
-                const generated_expr = try Expr.generateRandom(self.allocator, &self.random, t);
-                expr.* = generated_expr;
-                return self.eval(scope, expr);
+    fn makeSimpleExpr(self: *Interp, ty: *const Ty) !Expr {
+        switch (ty.*) {
+            .function => |fty| {
+                var body = try self.allocator.create(Block);
+                body.statements = &[_]Stmt{};
+                body.return_expr = Expr{ .tbd = fty.return_type };
+                var func = try self.allocator.create(Func);
+                func.parameter_types = fty.parameter_types;
+                func.body = body;
+                return Expr{ .function = func };
             },
-            .literal => |lit| {
-                return lit.*;
-            },
-            .variable => |v| {
-                return scope.get(v);
-            },
-            .function => |func| {
-                return Value{ .closure = .{
-                    .function = func,
-                    .captured_variables = scope,
-                } };
-            },
-            .list_literal => |list_lit| {
-                var elements = std.ArrayList(Value).init(self.allocator);
-                defer elements.deinit();
-
-                for (list_lit.elements) |*element_expr| {
-                    // For simplicity, use a generic type for list elements
-                    const element_value = try self.eval(scope, element_expr);
-                    try elements.append(element_value);
+            .list => |el_ty| {
+                const len = self.random.int(u32) % 6;
+                const elements = try self.allocator.alloc(Expr, len);
+                for (0..len) |i| {
+                    elements[i] = .{ .tbd = el_ty };
                 }
-
-                return Value{ .list = .{ .elements = try elements.toOwnedSlice() } };
+                return Expr{ .list_literal = .{ .elements = elements } };
             },
-            .binary => |bin| {
-                const left_value = try self.eval(scope, bin.left);
-                const right_value = try self.eval(scope, bin.right);
-                return try switch (bin.op) {
-                    .add => left_value.add(right_value),
-                    .subtract => left_value.subtract(right_value),
-                    .multiply => left_value.multiply(right_value),
-                    .divide => left_value.divide(right_value),
-                    .equals => left_value.equals(right_value),
-                    .not_equals => left_value.notEquals(right_value),
-                    .less_than => left_value.lessThan(right_value),
-                    .greater_than => left_value.greaterThan(right_value),
-                    .and_op => left_value.andValue(right_value),
-                    .or_op => left_value.orValue(right_value),
-                };
+            .record => |fields| {
+                const field_exprs = try self.allocator.alloc(FieldExpr, fields.fields.len);
+                for (fields.fields, 0..) |*field, i| {
+                    field_exprs[i] = FieldExpr{ .name = field.name, .value = .{ .tbd = field.ty } };
+                }
+                return Expr{ .record_literal = .{ .fields = field_exprs } };
             },
-            .unary => |un| {
-                const operand_value = try self.eval(scope, un.operand);
-                return try switch (un.op) {
-                    .negate => operand_value.negate(),
-                    .not => operand_value.not(),
-                };
+            .tag => |tag| {
+                const arg_exprs = try self.allocator.alloc(Expr, tag.arguments.len);
+                for (tag.arguments, 0..) |arg_ty, i| {
+                    arg_exprs[i] = .{ .tbd = arg_ty };
+                }
+                return Expr{ .tag_literal = .{ .name = tag.name, .arguments = arg_exprs } };
             },
-            .record_literal => |rec| {
-                var fields = std.ArrayList(Field).init(self.allocator);
-                defer fields.deinit();
-
-                for (rec.fields) |*field| {
-                    const field_value = try self.eval(scope, &field.value);
-                    try fields.append(Field{ .name = field.name, .value = field_value });
-                }
-
-                return Value{ .record = .{ .fields = try fields.toOwnedSlice() } };
-            },
-            .tag_literal => |tag| {
-                var arguments = std.ArrayList(Value).init(self.allocator);
-                defer arguments.deinit();
-                for (tag.arguments) |*arg_expr| {
-                    const arg_value = try self.eval(scope, arg_expr);
-                    try arguments.append(arg_value);
-                }
-                return Value{ .tag = .{
-                    .name = tag.name,
-                    .arguments = try arguments.toOwnedSlice(),
-                } };
-            },
-            .field_access => |fa| {
-                // Evaluate the record expression first
-                const record_value = try self.eval(scope, fa.record);
-                // Check if it's a record
-                if (record_value != .record) {
-                    return error.TypeMismatch;
-                }
-                // Now access the field
-                const record = record_value.record;
-                for (record.fields) |field| {
-                    if (std.mem.eql(u8, field.name, fa.field_name)) {
-                        return field.value;
-                    }
-                }
-                return error.VariableNotFound; // Field not found
-            },
-            .application => |app| {
-                // Evaluate the function expression
-                const func_value = try self.eval(scope, app.function);
-                
-                // It should be a closure
-                if (func_value != .closure) {
-                    return error.TypeMismatch;
-                }
-                
-                const closure = func_value.closure;
-                
-                // Check argument count
-                if (app.arguments.len != closure.function.parameter_types.len) {
-                    return error.TypeMismatch;
-                }
-                
-                // Evaluate arguments
-                var arg_values = try self.allocator.alloc(Value, app.arguments.len);
-                defer self.allocator.free(arg_values);
-                
-                for (app.arguments, 0..) |*arg_expr, i| {
-                    arg_values[i] = try self.eval(scope, arg_expr);
-                }
-                
-                // Create new scope for function execution
-                var func_scope = Scope.init(self.allocator);
-                defer func_scope.values.deinit();
-                
-                // Set parent to captured variables
-                func_scope.parent = closure.captured_variables;
-                
-                // Add parameters to scope
-                for (arg_values, 0..) |arg_value, i| {
-                    const param_name = try std.fmt.allocPrint(self.allocator, "arg{}", .{i});
-                    defer self.allocator.free(param_name);
-                    
-                    try func_scope.values.append(ScopeItem{
-                        .name = param_name,
-                        .ty = closure.function.parameter_types[i],
-                        .value = arg_value,
-                    });
-                }
-                
-                // Execute function body
-                return self.evalBlock(&func_scope, closure.function.body);
-            },
-            .if_expression => |if_expr| {
-                // Evaluate condition
-                const condition_value = try self.eval(scope, if_expr.condition);
-
-                const should_take_then_branch = switch (condition_value) {
-                    .bool => |b| b,
-                    else => return error.TypeMismatch,
-                };
-
-                if (should_take_then_branch) {
-                    return self.evalBlock(scope, if_expr.then_branch);
-                } else {
-                    return self.evalBlock(scope, if_expr.else_branch);
-                }
+            else => {
+                const value = try Value.generateRandom(self.allocator, self.random, ty);
+                const value_ptr = try self.allocator.create(Value);
+                value_ptr.* = value;
+                return Expr{ .literal = value_ptr };
             },
         }
     }
 
-    fn evalBlock(self: *Interp, scope: *Scope, block: *Block) InterpError!Value {
+    fn makeTrivialExpr(self: *Interp, ty: *const Ty) !*Expr {
+        const expr_ptr = try self.allocator.create(Expr);
+        expr_ptr.* = Expr{ .tbd = ty };
+        return expr_ptr;
+    }
+
+    fn makeTrivialBlock(self: *Interp, ty: *const Ty) !*Block {
+        const block_ptr = try self.allocator.create(Block);
+        block_ptr.* = Block{
+            .statements = &[_]Stmt{},
+            .return_expr = Expr{ .tbd = ty }, // Default to i32 for simplicity
+        };
+        return block_ptr;
+    }
+
+    fn makeBoolTy(self: *Interp) !*const Ty {
+        const ty_ptr = try self.allocator.create(Ty);
+        ty_ptr.* = Ty{ .bool = {} };
+        return ty_ptr;
+    }
+
+    fn makeNumTy(self: *Interp) !*const Ty {
+        const ty_ptr = try self.allocator.create(Ty);
+        // Make a random type!
+        const type_choice = self.random.intRangeAtMost(u8, 0, 10);
+        ty_ptr.* = switch (type_choice) {
+            0 => Ty{ .i8 = {} },
+            1 => Ty{ .i16 = {} },
+            2 => Ty{ .i32 = {} },
+            3 => Ty{ .i64 = {} },
+            4 => Ty{ .i128 = {} },
+            5 => Ty{ .u8 = {} },
+            6 => Ty{ .u16 = {} },
+            7 => Ty{ .u32 = {} },
+            8 => Ty{ .u64 = {} },
+            9 => Ty{ .u128 = {} },
+            10 => Ty{ .float = {} },
+            else => unreachable,
+        };
+        return ty_ptr;
+    }
+
+    fn makeFuncTy(self: *Interp, return_ty: *const Ty) !struct { *const Ty, []const *const Ty } {
+        const ty_ptr = try self.allocator.create(Ty);
+        // Generate a function type with random parameters
+        const num_params = self.random.int(u32) % 3; // 0-2 parameters
+        var param_types = try self.allocator.alloc(*const Ty, num_params);
+        for (0..num_params) |i| {
+            param_types[i] = try self.makeAnyTy();
+        }
+        ty_ptr.* = Ty{ .function = .{
+            .parameter_types = param_types,
+            .return_type = return_ty,
+        } };
+        return .{ ty_ptr, param_types };
+    }
+
+    fn makeAnyTy(self: *Interp) !*const Ty {
+        const ty_ptr = try self.allocator.create(Ty);
+        // Make a random type!
+        const type_choice = self.random.intRangeAtMost(u8, 0, 16);
+        ty_ptr.* = blk: switch (type_choice) {
+            0 => Ty{ .i8 = {} },
+            1 => Ty{ .i16 = {} },
+            2 => Ty{ .i32 = {} },
+            3 => Ty{ .i64 = {} },
+            4 => Ty{ .i128 = {} },
+            5 => Ty{ .u8 = {} },
+            6 => Ty{ .u16 = {} },
+            7 => Ty{ .u32 = {} },
+            8 => Ty{ .u64 = {} },
+            9 => Ty{ .u128 = {} },
+            10 => Ty{ .float = {} },
+            11 => Ty{ .bool = {} },
+            12 => Ty{ .str = {} },
+            13 => {
+                // Generate a function type with random parameters
+                const num_params = self.random.int(u32) % 3;
+                var param_types = try self.allocator.alloc(*const Ty, num_params);
+                for (0..num_params) |i| {
+                    param_types[i] = try self.makeAnyTy();
+                }
+                break :blk Ty{ .function = .{
+                    .parameter_types = param_types,
+                    .return_type = try self.makeAnyTy(),
+                } };
+            },
+            14 => {
+                // Generate a list type with a random element type
+                const element_type = try self.makeAnyTy();
+                break :blk Ty{ .list = element_type };
+            },
+            15 => {
+                // Generate a record type with random fields
+                const num_fields = self.random.int(u32) % 3 + 1; // At least one field
+                var fields = try self.allocator.alloc(FieldTy, num_fields);
+                for (0..num_fields) |i| {
+                    const field_name = try std.fmt.allocPrint(self.allocator, "field{}", .{i});
+                    fields[i] = FieldTy{ .name = field_name, .ty = try self.makeAnyTy() };
+                }
+                break :blk Ty{ .record = .{ .fields = fields } };
+            },
+            16 => {
+                // Generate a tag type with a random name and arguments
+                const tag_name = try std.fmt.allocPrint(self.allocator, "Tag{}", .{self.random.int(u32)});
+                const num_args = self.random.int(u32) % 3; // 0-2 arguments
+                var arguments = try self.allocator.alloc(*const Ty, num_args);
+                for (0..num_args) |i| {
+                    arguments[i] = try self.makeAnyTy();
+                }
+                break :blk Ty{ .tag = .{ .name = tag_name, .arguments = arguments } };
+            },
+            else => unreachable,
+        };
+        return ty_ptr;
+    }
+
+    /// Evaluate the program and return the final value.
+    pub fn eval(self: *Interp, scope: *Scope, expr: *Expr, stack_depth: u32) InterpError!Value {
+        if (self.gas == 0) {
+            return error.OutOfGas;
+        }
+        if (stack_depth > 1000) {
+            return error.StackOverflow; // Prevent stack overflow
+        }
+
+        var retry_count: u32 = 0;
+        while (true) {
+            switch (expr.*) {
+                .tbd => |t| {
+                    // We need to generate a random expression!
+                    while (true) {
+                        if (stack_depth > 20) {
+                            // If we're too deep, just return a trivial expression
+                            expr.* = try self.makeSimpleExpr(t);
+                            break;
+                        }
+                        const rand_num = self.random.intRangeAtMost(i32, 0, 5);
+                        switch (rand_num) {
+                            0 => {
+                                expr.* = try self.makeSimpleExpr(t);
+                                break;
+                            },
+                            1 => {
+                                // Check if there's anything in scope that matches the type
+                                if (scope.findRandomItemWithType(self.random, t)) |var_info| {
+                                    expr.* = Expr{ .variable = Var{ .name = var_info.name } };
+                                    break;
+                                }
+                            },
+                            2 => {
+                                const condition = try self.allocator.create(Expr);
+                                condition.* = Expr{ .tbd = try self.makeBoolTy() };
+                                // Generate an if expression
+                                expr.* = Expr{
+                                    .if_expression = .{
+                                        .condition = condition,
+                                        .then_branch = try self.makeTrivialBlock(t),
+                                        .else_branch = try self.makeTrivialBlock(t),
+                                    },
+                                };
+                                break;
+                            },
+                            3 => {
+                                // Generate a binop
+                                switch (t.*) {
+                                    .function, .list, .record, .tag, .str => continue,
+                                    .i8, .i16, .i32, .i64, .i128, .u8, .u16, .u32, .u64, .u128, .float => {
+                                        const op = switch (self.random.int(u32) % 4) {
+                                            0 => BinaryOp.add,
+                                            1 => BinaryOp.subtract,
+                                            2 => BinaryOp.multiply,
+                                            3 => BinaryOp.divide,
+                                            else => unreachable,
+                                        };
+                                        expr.* = Expr{
+                                            .binary = .{
+                                                .op = op,
+                                                .left = try self.makeTrivialExpr(t),
+                                                .right = try self.makeTrivialExpr(t),
+                                            },
+                                        };
+                                        break;
+                                    },
+                                    .bool => {
+                                        const op = switch (self.random.int(u32) % 6) {
+                                            0 => BinaryOp.equals,
+                                            1 => BinaryOp.not_equals,
+                                            2 => BinaryOp.less_than,
+                                            3 => BinaryOp.greater_than,
+                                            4 => BinaryOp.and_op,
+                                            5 => BinaryOp.or_op,
+                                            else => unreachable,
+                                        };
+                                        const ty = switch (op) {
+                                            .equals, .not_equals => try self.makeAnyTy(),
+                                            .less_than, .greater_than => try self.makeNumTy(),
+                                            .and_op, .or_op => try self.makeBoolTy(),
+                                            else => unreachable,
+                                        };
+                                        expr.* = Expr{
+                                            .binary = .{
+                                                .op = op,
+                                                .left = try self.makeTrivialExpr(ty),
+                                                .right = try self.makeTrivialExpr(ty),
+                                            },
+                                        };
+                                        break;
+                                    },
+                                }
+                                break;
+                            },
+                            4 => {
+                                // Generate a unary expression
+                                switch (t.*) {
+                                    .i8, .i16, .i32, .i64, .i128, .float => {
+                                        const op = UnaryOp.negate;
+                                        expr.* = Expr{
+                                            .unary = .{
+                                                .op = op,
+                                                .operand = try self.makeTrivialExpr(t),
+                                            },
+                                        };
+                                        break;
+                                    },
+                                    .bool => {
+                                        const op = UnaryOp.not;
+                                        expr.* = Expr{
+                                            .unary = .{
+                                                .op = op,
+                                                .operand = try self.makeTrivialExpr(t),
+                                            },
+                                        };
+                                        break;
+                                    },
+                                    else => continue, // Unsupported unary type
+                                }
+                            },
+                            5 => {
+                                // Generate an application
+                                const func_ty, const param_types = try self.makeFuncTy(t);
+                                const func_expr = try self.makeTrivialExpr(func_ty);
+                                const args = try self.allocator.alloc(*Expr, param_types.len);
+                                for (param_types, 0..) |param_ty, i| {
+                                    args[i] = try self.makeTrivialExpr(param_ty);
+                                }
+                                expr.* = Expr{
+                                    .application = .{
+                                        .function = func_expr,
+                                        .arguments = args,
+                                    },
+                                };
+                                break;
+                            },
+                            else => @panic("boo"),
+                        }
+                    }
+                    const result = self.eval(scope, expr, stack_depth + 1) catch |err| {
+                        if (retry_count < 100 and (err == error.StackOverflow or err == error.DivideByZero)) {
+                            retry_count += 1;
+                            continue; // Retry evaluation
+                        }
+                        return err;
+                    };
+                    return result;
+                },
+                .literal => |lit| {
+                    return lit.*;
+                },
+                .variable => |v| {
+                    return scope.get(v);
+                },
+                .function => |func| {
+                    return Value{ .closure = .{
+                        .function = func,
+                        .captured_variables = scope,
+                    } };
+                },
+                .list_literal => |list_lit| {
+                    var elements = std.ArrayList(Value).init(self.allocator);
+                    defer elements.deinit();
+
+                    for (list_lit.elements) |*element_expr| {
+                        // For simplicity, use a generic type for list elements
+                        const element_value = try self.eval(scope, element_expr, stack_depth + 1);
+                        try elements.append(element_value);
+                    }
+
+                    return Value{ .list = .{ .elements = try elements.toOwnedSlice() } };
+                },
+                .binary => |bin| {
+                    const left_value = try self.eval(scope, bin.left, stack_depth + 1);
+                    const right_value = try self.eval(scope, bin.right, stack_depth + 1);
+                    return try switch (bin.op) {
+                        .add => left_value.add(right_value),
+                        .subtract => left_value.subtract(right_value),
+                        .multiply => left_value.multiply(right_value),
+                        .divide => left_value.divide(right_value),
+                        .equals => left_value.equals(right_value),
+                        .not_equals => left_value.notEquals(right_value),
+                        .less_than => left_value.lessThan(right_value),
+                        .greater_than => left_value.greaterThan(right_value),
+                        .and_op => left_value.andValue(right_value),
+                        .or_op => left_value.orValue(right_value),
+                    };
+                },
+                .unary => |un| {
+                    const operand_value = try self.eval(scope, un.operand, stack_depth + 1);
+                    return try switch (un.op) {
+                        .negate => operand_value.negate(),
+                        .not => operand_value.not(),
+                    };
+                },
+                .record_literal => |rec| {
+                    var fields = std.ArrayList(Field).init(self.allocator);
+                    defer fields.deinit();
+
+                    for (rec.fields) |*field| {
+                        const field_value = try self.eval(scope, &field.value, stack_depth + 1);
+                        try fields.append(Field{ .name = field.name, .value = field_value });
+                    }
+
+                    return Value{ .record = .{ .fields = try fields.toOwnedSlice() } };
+                },
+                .tag_literal => |tag| {
+                    var arguments = std.ArrayList(Value).init(self.allocator);
+                    defer arguments.deinit();
+                    for (tag.arguments) |*arg_expr| {
+                        const arg_value = try self.eval(scope, arg_expr, stack_depth + 1);
+                        try arguments.append(arg_value);
+                    }
+                    return Value{ .tag = .{
+                        .name = tag.name,
+                        .arguments = try arguments.toOwnedSlice(),
+                    } };
+                },
+                .field_access => |fa| {
+                    // Evaluate the record expression first
+                    const record_value = try self.eval(scope, fa.record, stack_depth + 1);
+                    // Check if it's a record
+                    if (record_value != .record) {
+                        return error.TypeMismatch;
+                    }
+                    // Now access the field
+                    const record = record_value.record;
+                    for (record.fields) |field| {
+                        if (std.mem.eql(u8, field.name, fa.field_name)) {
+                            return field.value;
+                        }
+                    }
+                    return error.VariableNotFound; // Field not found
+                },
+                .application => |app| {
+                    // Evaluate the function expression
+                    const func_value = try self.eval(scope, app.function, stack_depth + 1);
+
+                    // It should be a closure
+                    if (func_value != .closure) {
+                        std.debug.print("Expected closure, got: {}\n", .{func_value});
+                        std.debug.print("Function expression: {}\n", .{expr});
+                        return error.TypeMismatch;
+                    }
+
+                    const closure = func_value.closure;
+
+                    // Check argument count
+                    if (app.arguments.len != closure.function.parameter_types.len) {
+                        return error.TypeMismatch;
+                    }
+
+                    // Evaluate arguments
+                    var arg_values = try self.allocator.alloc(Value, app.arguments.len);
+                    defer self.allocator.free(arg_values);
+
+                    for (app.arguments, 0..) |arg_expr, i| {
+                        arg_values[i] = try self.eval(scope, arg_expr, stack_depth + 1);
+                    }
+
+                    // Create new scope for function execution
+                    var func_scope = Scope.init(self.allocator);
+
+                    // Set parent to captured variables
+                    func_scope.parent = closure.captured_variables;
+
+                    const func_scope_ptr = try self.allocator.create(Scope);
+                    func_scope_ptr.* = func_scope;
+
+                    // Add parameters to scope
+                    for (arg_values, 0..) |arg_value, i| {
+                        const param_name = try std.fmt.allocPrint(self.allocator, "arg{}", .{i});
+                        defer self.allocator.free(param_name);
+
+                        try func_scope.values.append(ScopeItem{
+                            .name = param_name,
+                            .ty = closure.function.parameter_types[i],
+                            .value = arg_value,
+                        });
+                    }
+
+                    // Execute function body
+                    return self.evalBlock(func_scope_ptr, closure.function.body, stack_depth + 1);
+                },
+                .if_expression => |if_expr| {
+                    // Evaluate condition
+                    const condition_value = try self.eval(scope, if_expr.condition, stack_depth + 1);
+
+                    const should_take_then_branch = switch (condition_value) {
+                        .bool => |b| b,
+                        else => return error.TypeMismatch,
+                    };
+
+                    if (should_take_then_branch) {
+                        return self.evalBlock(scope, if_expr.then_branch, stack_depth + 1);
+                    } else {
+                        return self.evalBlock(scope, if_expr.else_branch, stack_depth + 1);
+                    }
+                },
+            }
+
+            break;
+        }
+    }
+
+    fn evalBlock(self: *Interp, scope: *Scope, block: *Block, stack_depth: u32) InterpError!Value {
         // For simplicity, just evaluate the return expression
         // In a full implementation, you'd need to handle statements
-        return self.eval(scope, &block.return_expr);
+        return self.eval(scope, &block.return_expr, stack_depth + 1);
     }
 };
 
@@ -1678,23 +2103,33 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    // const count = if (args.len > 1)
-    //     std.fmt.parseInt(u32, args[1], 10) catch 1
-    // else
-    //     1;
+    const count = if (args.len > 1)
+        std.fmt.parseInt(u32, args[1], 10) catch 1
+    else
+        1;
 
     const int_ty = Ty{ .u8 = {} };
 
     var prng = std.Random.DefaultPrng.init(@intCast(std.time.timestamp()));
     const random = prng.random();
 
-    var interp = Interp.init(allocator, 100, random);
+    for (0..count) |_| {
+        var interp = Interp.init(allocator, 100, random);
 
-    var value = Expr{ .tbd = &int_ty };
+        var value = Expr{ .tbd = &int_ty };
 
-    var scope = Scope.init(allocator);
+        var scope = Scope.init(allocator);
 
-    const res = try interp.eval(&scope, &value);
-    std.debug.print("Result: {}\n", .{res});
-    std.debug.print("Final expr: {}", .{value});
+        const res = interp.eval(&scope, &value, 0) catch |err| {
+            std.debug.print("Error evaluating expression: {}\n", .{err});
+            std.debug.print("Final expr: {}\n\n", .{value});
+            if (err == error.DivideByZero or err == error.StackOverflow or err == error.OutOfGas) {
+                continue;
+            } else {
+                return err;
+            }
+        };
+        std.debug.print("Result: {}\n", .{res});
+        std.debug.print("Final expr: {}\n\n", .{value});
+    }
 }
