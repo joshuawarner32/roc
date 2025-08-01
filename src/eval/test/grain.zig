@@ -1037,6 +1037,381 @@ const GenError = error{ OutOfMemory, UnsupportedUnaryType };
 
 const TbdReplaceError = error{OutOfMemory};
 
+const ModificationIterator = struct {
+    allocator: std.mem.Allocator,
+    interp: *Interp,
+    original_expr: *Expr,
+    current_modifications: std.ArrayList(ModificationAttempt),
+    child_iterators: std.ArrayList(*ModificationIterator),
+    current_child_index: usize,
+    self_simplified: bool,
+
+    const ModificationAttempt = struct {
+        path: []usize, // Path to the expression to modify
+        replacement: Expr, // What to replace it with
+    };
+
+    pub fn init(allocator: std.mem.Allocator, interp: *Interp, expr: *Expr) !*ModificationIterator {
+        const iterator = try allocator.create(ModificationIterator);
+        iterator.* = ModificationIterator{
+            .allocator = allocator,
+            .interp = interp,
+            .original_expr = expr,
+            .current_modifications = std.ArrayList(ModificationAttempt).init(allocator),
+            .child_iterators = std.ArrayList(*ModificationIterator).init(allocator),
+            .current_child_index = 0,
+            .self_simplified = false,
+        };
+        return iterator;
+    }
+
+    pub fn deinit(self: *ModificationIterator) void {
+        for (self.child_iterators.items) |child| {
+            child.deinit();
+        }
+        self.child_iterators.deinit();
+        self.current_modifications.deinit();
+        self.allocator.destroy(self);
+    }
+
+    pub fn next(self: *ModificationIterator) !?Expr {
+        // First, try to simplify self (breadth-first)
+        if (!self.self_simplified) {
+            self.self_simplified = true;
+            if (try self.getSimplestReplacement()) |simple| {
+                return simple;
+            }
+        }
+
+        // Then, try modifications from child expressions
+        if (self.child_iterators.items.len == 0) {
+            try self.initializeChildIterators();
+        }
+
+        // Try getting next modification from current child
+        while (self.current_child_index < self.child_iterators.items.len) {
+            const child_iterator = self.child_iterators.items[self.current_child_index];
+            if (try child_iterator.next()) |child_modification| {
+                // Apply this child modification to a copy of our expression
+                var modified_expr = try self.copyExpr(self.original_expr.*);
+                try self.applyChildModification(&modified_expr, self.current_child_index, child_modification);
+                return modified_expr;
+            } else {
+                // This child is exhausted, move to next
+                self.current_child_index += 1;
+            }
+        }
+
+        // All children exhausted
+        return null;
+    }
+
+    fn getSimplestReplacement(self: *ModificationIterator) !?Expr {
+        // Check if the expression is already the simplest possible
+        if (self.isAlreadySimplest(self.original_expr.*)) {
+            return null; // No simpler replacement available
+        }
+
+        // Try to replace the entire expression with the simplest possible expression of the same type
+        const expr_type = try self.inferType(self.original_expr.*);
+        const simple_expr = try self.makeSimplestExpr(expr_type);
+        return simple_expr;
+    }
+
+    fn makeSimplestExpr(self: *ModificationIterator, ty: Ty) !Expr {
+        const value_ptr = try self.allocator.create(Value);
+        value_ptr.* = switch (ty) {
+            .i8 => Value{ .i8 = 0 },
+            .i16 => Value{ .i16 = 0 },
+            .i32 => Value{ .i32 = 0 },
+            .i64 => Value{ .i64 = 0 },
+            .i128 => Value{ .i128 = 0 },
+            .u8 => Value{ .u8 = 0 },
+            .u16 => Value{ .u16 = 0 },
+            .u32 => Value{ .u32 = 0 },
+            .u64 => Value{ .u64 = 0 },
+            .u128 => Value{ .u128 = 0 },
+            .float => Value{ .float = 0.0 },
+            .bool => Value{ .bool = false },
+            .str => Value{ .str = "" },
+            .list => return Expr{ .list_literal = .{ .elements = &[_]Expr{} } },
+            .record => return Expr{ .record_literal = .{ .fields = &[_]FieldExpr{} } },
+            .tag => |tag_ty| return Expr{ .tag_literal = .{ .name = tag_ty.name, .arguments = &[_]Expr{} } },
+            .function => {
+                // Create simplest function: || 0 (or appropriate return type)
+                const return_value_ptr = try self.allocator.create(Value);
+                return_value_ptr.* = switch (ty.function.return_type.*) {
+                    .i32 => Value{ .i32 = 0 },
+                    .bool => Value{ .bool = false },
+                    .str => Value{ .str = "" },
+                    else => Value{ .i32 = 0 }, // fallback
+                };
+                const return_expr = Expr{ .literal = return_value_ptr };
+                const block_ptr = try self.allocator.create(Block);
+                block_ptr.* = Block{ .statements = &[_]Stmt{}, .return_expr = return_expr };
+                const func_ptr = try self.allocator.create(Func);
+                func_ptr.* = Func{ .parameter_types = &[_]*const Ty{}, .body = block_ptr };
+                return Expr{ .function = func_ptr };
+            },
+        };
+        return Expr{ .literal = value_ptr };
+    }
+
+    fn initializeChildIterators(self: *ModificationIterator) !void {
+        switch (self.original_expr.*) {
+            .binary => |bin| {
+                if (!self.isAlreadySimplest(bin.left.*)) {
+                    const left_iter = try ModificationIterator.init(self.allocator, self.interp, bin.left);
+                    try self.child_iterators.append(left_iter);
+                }
+                if (!self.isAlreadySimplest(bin.right.*)) {
+                    const right_iter = try ModificationIterator.init(self.allocator, self.interp, bin.right);
+                    try self.child_iterators.append(right_iter);
+                }
+            },
+            .unary => |un| {
+                if (!self.isAlreadySimplest(un.operand.*)) {
+                    const operand_iter = try ModificationIterator.init(self.allocator, self.interp, un.operand);
+                    try self.child_iterators.append(operand_iter);
+                }
+            },
+            .application => |app| {
+                if (!self.isAlreadySimplest(app.function.*)) {
+                    const func_iter = try ModificationIterator.init(self.allocator, self.interp, app.function);
+                    try self.child_iterators.append(func_iter);
+                }
+                for (app.arguments) |arg| {
+                    if (!self.isAlreadySimplest(arg.*)) {
+                        const arg_iter = try ModificationIterator.init(self.allocator, self.interp, arg);
+                        try self.child_iterators.append(arg_iter);
+                    }
+                }
+            },
+            .list_literal => |lst| {
+                for (lst.elements) |*element| {
+                    if (!self.isAlreadySimplest(element.*)) {
+                        const elem_iter = try ModificationIterator.init(self.allocator, self.interp, element);
+                        try self.child_iterators.append(elem_iter);
+                    }
+                }
+            },
+            .record_literal => |rec| {
+                for (rec.fields) |*field| {
+                    if (!self.isAlreadySimplest(field.value)) {
+                        const field_iter = try ModificationIterator.init(self.allocator, self.interp, &field.value);
+                        try self.child_iterators.append(field_iter);
+                    }
+                }
+            },
+            .tag_literal => |tag| {
+                for (tag.arguments) |*arg| {
+                    if (!self.isAlreadySimplest(arg.*)) {
+                        const arg_iter = try ModificationIterator.init(self.allocator, self.interp, arg);
+                        try self.child_iterators.append(arg_iter);
+                    }
+                }
+            },
+            .if_expression => |if_expr| {
+                if (!self.isAlreadySimplest(if_expr.condition.*)) {
+                    const cond_iter = try ModificationIterator.init(self.allocator, self.interp, if_expr.condition);
+                    try self.child_iterators.append(cond_iter);
+                }
+                // Note: We'd need to add iterators for blocks too, but for simplicity we'll skip them for now
+            },
+            .field_access => |field| {
+                if (!self.isAlreadySimplest(field.record.*)) {
+                    const record_iter = try ModificationIterator.init(self.allocator, self.interp, field.record);
+                    try self.child_iterators.append(record_iter);
+                }
+            },
+            // Leaf nodes have no children
+            .literal, .variable, .tbd => {},
+            .function => {}, // Skip function bodies for now
+        }
+    }
+
+    fn applyChildModification(self: *ModificationIterator, target: *Expr, child_index: usize, modification: Expr) !void {
+        _ = self;
+        var current_child: usize = 0;
+        switch (target.*) {
+            .binary => |*bin| {
+                if (current_child == child_index) {
+                    bin.left.* = modification;
+                    return;
+                }
+                current_child += 1;
+                if (current_child == child_index) {
+                    bin.right.* = modification;
+                    return;
+                }
+                current_child += 1;
+            },
+            .unary => |*un| {
+                if (current_child == child_index) {
+                    un.operand.* = modification;
+                    return;
+                }
+                current_child += 1;
+            },
+            .application => |*app| {
+                if (current_child == child_index) {
+                    app.function.* = modification;
+                    return;
+                }
+                current_child += 1;
+                for (app.arguments) |arg| {
+                    if (current_child == child_index) {
+                        arg.* = modification;
+                        return;
+                    }
+                    current_child += 1;
+                }
+            },
+            .list_literal => |*lst| {
+                for (lst.elements) |*element| {
+                    if (current_child == child_index) {
+                        element.* = modification;
+                        return;
+                    }
+                    current_child += 1;
+                }
+            },
+            .record_literal => |*rec| {
+                for (rec.fields) |*field| {
+                    if (current_child == child_index) {
+                        field.value = modification;
+                        return;
+                    }
+                    current_child += 1;
+                }
+            },
+            .tag_literal => |*tag| {
+                for (tag.arguments) |*arg| {
+                    if (current_child == child_index) {
+                        arg.* = modification;
+                        return;
+                    }
+                    current_child += 1;
+                }
+            },
+            .if_expression => |*if_expr| {
+                if (current_child == child_index) {
+                    if_expr.condition.* = modification;
+                    return;
+                }
+                current_child += 1;
+            },
+            .field_access => |*field| {
+                if (current_child == child_index) {
+                    field.record.* = modification;
+                    return;
+                }
+                current_child += 1;
+            },
+            else => {},
+        }
+    }
+
+    fn copyExpr(self: *ModificationIterator, expr: Expr) !Expr {
+        _ = self;
+        // For simplicity, we'll do a shallow copy and rely on the fact that
+        // we're only modifying pointers, not the underlying data
+        return expr;
+    }
+
+    fn isAlreadySimplest(self: *ModificationIterator, expr: Expr) bool {
+        _ = self;
+        return switch (expr) {
+            // These are already the simplest possible for their types
+            .literal => |val| switch (val.*) {
+                .i8 => |i| i == 0,
+                .i16 => |i| i == 0,
+                .i32 => |i| i == 0,
+                .i64 => |i| i == 0,
+                .i128 => |i| i == 0,
+                .u8 => |i| i == 0,
+                .u16 => |i| i == 0,
+                .u32 => |i| i == 0,
+                .u64 => |i| i == 0,
+                .u128 => |i| i == 0,
+                .float => |f| f == 0.0,
+                .bool => |b| b == false,
+                .str => |s| s.len == 0,
+                .list => |lst| lst.elements.len == 0,
+                .record => |rec| rec.fields.len == 0,
+                .tag => |tag| tag.arguments.len == 0,
+                else => false,
+            },
+            .list_literal => |lst| lst.elements.len == 0,
+            .record_literal => |rec| rec.fields.len == 0,
+            .tag_literal => |tag| tag.arguments.len == 0,
+            // These can potentially be simplified further
+            .binary, .unary, .application, .if_expression, .field_access => false,
+            // Variables and functions are leaf nodes but might not be simplest
+            .variable, .function, .tbd => false,
+        };
+    }
+
+    fn inferType(self: *ModificationIterator, expr: Expr) !Ty {
+        // Simple type inference - in a real implementation this would be more sophisticated
+        return switch (expr) {
+            .literal => |val| val.ty(),
+            .tbd => |ty| ty.*,
+            .binary => |bin| switch (bin.op) {
+                .add, .subtract, .multiply, .divide => try self.inferType(bin.left.*),
+                .equals, .not_equals, .less_than, .greater_than, .and_op, .or_op => Ty{ .bool = {} },
+            },
+            .unary => |un| switch (un.op) {
+                .negate => try self.inferType(un.operand.*),
+                .not => Ty{ .bool = {} },
+            },
+            else => Ty{ .i32 = {} }, // Default fallback
+        };
+    }
+};
+
+/// Minimize an expression to the smallest form that still satisfies the given predicate
+pub fn minimize(allocator: std.mem.Allocator, interp: *Interp, expr: *Expr, predicate: fn (*Expr) bool) !Expr {
+    var current_best = expr.*;
+    var iterator = try ModificationIterator.init(allocator, interp, expr);
+    defer iterator.deinit();
+
+    // Try each modification from the iterator
+    while (try iterator.next()) |candidate| {
+        var candidate_copy = candidate;
+        if (predicate(&candidate_copy)) {
+            // This simpler expression still satisfies the predicate
+            current_best = candidate;
+            // Restart iteration with the new smaller expression
+            iterator.deinit();
+            iterator = try ModificationIterator.init(allocator, interp, &current_best);
+        }
+    }
+
+    return current_best;
+}
+
+/// Minimize an expression to the smallest form that still satisfies the given predicate with context
+pub fn minimizeWithContext(allocator: std.mem.Allocator, interp: *Interp, expr: *Expr, context: anytype, predicate: fn (*Expr, @TypeOf(context)) bool) !Expr {
+    var current_best = expr.*;
+    var iterator = try ModificationIterator.init(allocator, interp, expr);
+    defer iterator.deinit();
+
+    // Try each modification from the iterator
+    while (try iterator.next()) |candidate| {
+        var candidate_copy = candidate;
+        if (predicate(&candidate_copy, context)) {
+            // This simpler expression still satisfies the predicate
+            current_best = candidate;
+            // Restart iteration with the new smaller expression
+            iterator.deinit();
+            iterator = try ModificationIterator.init(allocator, interp, &current_best);
+        }
+    }
+
+    return current_best;
+}
+
 pub const Expr = union(enum) {
     tbd: *const Ty,
     literal: *Value,

@@ -283,6 +283,8 @@ pub const Repl = struct {
         const expr_idx: parse.AST.Expr.Idx = @enumFromInt(parse_ast.root_node_idx);
         const canonical_expr_idx = can.canonicalizeExpr(expr_idx) catch |err| {
             return try std.fmt.allocPrint(self.allocator, "Canonicalize expr error: {}", .{err});
+        } orelse {
+            return try self.allocator.dupe(u8, "Failed to canonicalize expression");
         };
 
         // Type check
