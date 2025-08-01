@@ -1,4 +1,236 @@
 const std = @import("std");
+const repl = @import("repl/eval.zig");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Parse command line arguments
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    const count = if (args.len > 1)
+        std.fmt.parseInt(u32, args[1], 10) catch 10
+    else
+        10;
+
+    const seed = if (args.len > 2)
+        std.fmt.parseInt(u64, args[2], 10) catch @as(u64, @intCast(std.time.timestamp()))
+    else
+        @as(u64, @intCast(std.time.timestamp()));
+
+    std.debug.print("Running grain fuzzer with {} iterations, seed {}\n", .{ count, seed });
+
+    // Initialize REPL
+    var repl_instance = try repl.Repl.init(allocator);
+    defer repl_instance.deinit();
+
+    // Initialize random number generator
+    var prng = std.Random.DefaultPrng.init(seed);
+    const random = prng.random();
+
+    var successes: u32 = 0;
+    var failures: u32 = 0;
+
+    for (0..count) |i| {
+        std.debug.print("\n--- Test {} ---\n", .{i + 1});
+
+        // Generate a random expression and evaluate it with our grain evaluator
+        var arena = std.heap.ArenaAllocator.init(allocator);
+        defer arena.deinit();
+        const result = try generateAndTestExpression(arena.allocator(), random, &repl_instance);
+
+        if (result) {
+            successes += 1;
+            std.debug.print("✓ PASS\n", .{});
+        } else {
+            failures += 1;
+            std.debug.print("✗ FAIL\n", .{});
+        }
+    }
+
+    std.debug.print("\n=== Summary ===\n", .{});
+    std.debug.print("Successes: {}\n", .{successes});
+    std.debug.print("Failures: {}\n", .{failures});
+    std.debug.print("Success rate: {d:.1}%\n", .{@as(f64, @floatFromInt(successes)) / @as(f64, @floatFromInt(count)) * 100.0});
+
+    if (failures > 0) {
+        std.process.exit(1);
+    }
+}
+
+fn evalExprInRepl(allocator: std.mem.Allocator, expr: *Expr) ![]const u8 {
+    var repl_instance = try repl.Repl.init(allocator);
+    defer repl_instance.deinit();
+
+    const roc_expr = try expressionToRocSyntax(allocator, expr);
+    defer allocator.free(roc_expr);
+
+    const repl_output = repl_instance.step(roc_expr) catch |err| {
+        std.debug.print("REPL evaluation failed: {}\n", .{err});
+        return error.ReplError;
+    };
+
+    return repl_output;
+}
+
+fn evalExprInGrain(allocator: std.mem.Allocator, expr: *Expr) ![]const u8 {
+    var random = std.Random.DefaultPrng.init(0);
+    var interp = Interp.init(allocator, 1000, random.random());
+    var scope = Scope.init(allocator);
+    defer scope.values.deinit();
+
+    const value = interp.eval(&scope, expr, 0) catch |err| {
+        std.debug.print("Grain evaluation failed: {}\n", .{err});
+        return error.GrainEvalError;
+    };
+
+    var buf = std.ArrayList(u8).init(allocator);
+    defer buf.deinit();
+    try value.formatWithIndent(&buf, 0, 80);
+    const result_str = buf.items;
+    return try allocator.dupe(u8, result_str);
+}
+
+const CheckResult = union(enum) {
+    match,
+    mismatch,
+    err: []const u8,
+};
+
+fn doCheck(allocator: std.mem.Allocator, expr: *Expr) !CheckResult {
+    const grain = try evalExprInGrain(allocator, expr);
+    const repl_output = try evalExprInRepl(allocator, expr);
+    if (!std.mem.eql(u8, grain, repl_output)) {
+        if (std.mem.indexOf(u8, repl_output, "error") != null) {
+            return .{ .err = repl_output };
+        }
+        return .mismatch;
+    }
+    return .match;
+}
+
+fn generateAndTestExpression(allocator: std.mem.Allocator, random: std.Random, repl_instance: *repl.Repl) !bool {
+    // Generate a random type (start with simple types)
+    const type_choice = random.int(u32) % 13;
+    const target_type = switch (type_choice) {
+        0 => Ty{ .i8 = {} },
+        1 => Ty{ .i16 = {} },
+        2 => Ty{ .i32 = {} },
+        3 => Ty{ .i64 = {} },
+        4 => Ty{ .i128 = {} },
+        5 => Ty{ .u8 = {} },
+        6 => Ty{ .u16 = {} },
+        7 => Ty{ .u32 = {} },
+        8 => Ty{ .u64 = {} },
+        9 => Ty{ .u128 = {} },
+        10 => Ty{ .float = {} },
+        11 => Ty{ .bool = {} },
+        12 => Ty{ .str = {} },
+        else => unreachable,
+    };
+
+    // Generate a random expression of this type
+    var expr = Expr{ .tbd = &target_type };
+
+    // Initialize grain interpreter
+    var interp = Interp.init(allocator, 1000, random);
+    var scope = Scope.init(allocator);
+    defer scope.values.deinit();
+
+    // Evaluate the expression with grain to get the expected result
+    _ = interp.eval(&scope, &expr, 0) catch |err| {
+        std.debug.print("Grain evaluation failed: {}\n", .{err});
+        return false;
+    };
+
+    // Replace all remaining tbd expressions with simple concrete expressions
+    // This is safe because these tbd expressions were never reached during evaluation
+    expr.replaceTbdExpressions(&interp) catch |err| {
+        std.debug.print("Failed to replace tbd expressions: {}\n", .{err});
+        return false;
+    };
+
+    const grain = try evalExprInGrain(allocator, &expr);
+    const initial_repl_output = try evalExprInRepl(allocator, &expr);
+    if (std.mem.eql(u8, grain, initial_repl_output)) {
+        std.debug.print("Expression matches in both evaluations: {}\n", .{expr});
+        std.debug.print("Output: {s}\n", .{initial_repl_output});
+        return true; // No issue found, the expression matches in both evaluations
+    }
+    var error_msg: ?[]const u8 = null;
+    if (std.mem.indexOf(u8, initial_repl_output, "error") != null) {
+        error_msg = initial_repl_output;
+    }
+
+    // Create a context for minimization
+    const MinContext = struct {
+        allocator: std.mem.Allocator,
+        repl_instance: *repl.Repl,
+        error_msg: ?[]const u8,
+    };
+
+    const min_context = MinContext{
+        .allocator = allocator,
+        .repl_instance = repl_instance,
+        .error_msg = error_msg,
+    };
+
+    // Define the predicate: an expression reproduces the issue if it fails in the same way
+    const ReproducePredicate = struct {
+        pub fn call(test_expr: *Expr, context: MinContext) bool {
+            std.debug.print("Trying expression to reproduce issue: {}\n", .{test_expr});
+            const res = doCheck(context.allocator, test_expr) catch |err| {
+                std.debug.print("Check failed: {}\n", .{err});
+                return false; // Skip this test case if check fails
+            };
+            switch (res) {
+                .match => return false, // This expression does not reproduce the issue
+                .mismatch => return context.error_msg == null, // This expression reproduces the issue
+                .err => {
+                    std.debug.print("Error during check: {s}\n", .{res.err});
+                    if (context.error_msg) |expected_err_msg| {
+                        return std.mem.eql(u8, res.err, expected_err_msg);
+                    } else {
+                        return false; // If no error message was expected, this is not a reproducing case
+                    }
+                },
+            }
+        }
+    };
+
+    // Minimize the expression to find the smallest reproducing case
+    std.debug.print("Minimizing expression...\n", .{});
+    const minimized_expr = minimizeWithContext(allocator, &interp, &expr, min_context, ReproducePredicate.call) catch |err| {
+        std.debug.print("Minimization failed: {}\n", .{err});
+        return false; // Skip this test case if minimization fails
+    };
+
+    // Use the minimized expression instead of the original
+    expr = minimized_expr;
+
+    std.debug.print("Minimized expression: {}\n", .{expr});
+
+    const grain_result = try evalExprInGrain(allocator, &expr);
+    const repl_output = try evalExprInRepl(allocator, &expr);
+    if (!std.mem.eql(u8, grain, repl_output)) {
+        std.debug.print("Mismatch after minimization:\nGrain: {s}\nREPL: {s}\n", .{ grain_result, repl_output });
+        return false;
+    }
+    std.debug.print("Expression passed check: {}\n", .{expr});
+    return true;
+}
+
+fn expressionToRocSyntax(allocator: std.mem.Allocator, expr: *Expr) ![]u8 {
+    var buf = std.ArrayList(u8).init(allocator);
+    defer buf.deinit();
+
+    try expr.formatWithIndent(&buf, 0, 30);
+
+    // Convert grain syntax to Roc syntax
+    return try allocator.dupe(u8, buf.items);
+}
 
 const ValueIdx = struct { index: usize };
 
@@ -493,82 +725,82 @@ pub const Value = union(enum) {
                 .i8 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .i16 => |a| switch (other) {
                 .i16 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .i32 => |a| switch (other) {
                 .i32 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .i64 => |a| switch (other) {
                 .i64 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .i128 => |a| switch (other) {
                 .i128 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u8 => |a| switch (other) {
                 .u8 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u16 => |a| switch (other) {
                 .u16 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u32 => |a| switch (other) {
                 .u32 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u64 => |a| switch (other) {
                 .u64 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u128 => |a| switch (other) {
                 .u128 => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .float => |a| switch (other) {
                 .float => |b| a < b,
                 else => {
                     std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             else => {
                 std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                return error.TypeMismatch;
+                @panic("Type mismatch");
             },
         };
         return Value{ .bool = result };
@@ -580,82 +812,82 @@ pub const Value = union(enum) {
                 .i8 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .i16 => |a| switch (other) {
                 .i16 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .i32 => |a| switch (other) {
                 .i32 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .i64 => |a| switch (other) {
                 .i64 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .i128 => |a| switch (other) {
                 .i128 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u8 => |a| switch (other) {
                 .u8 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u16 => |a| switch (other) {
                 .u16 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u32 => |a| switch (other) {
                 .u32 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u64 => |a| switch (other) {
                 .u64 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .u128 => |a| switch (other) {
                 .u128 => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             .float => |a| switch (other) {
                 .float => |b| a > b,
                 else => {
                     std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             else => {
                 std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                return error.TypeMismatch;
+                @panic("Type mismatch");
             },
         };
         return Value{ .bool = result };
@@ -667,12 +899,12 @@ pub const Value = union(enum) {
                 .bool => |b| Value{ .bool = a and b },
                 else => {
                     std.debug.print("Type mismatch in and: {s}\n", .{self.ty()});
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             else => {
                 std.debug.print("Type mismatch in and: {s}\n", .{self.ty()});
-                return error.TypeMismatch;
+                @panic("Type mismatch");
             },
         };
     }
@@ -683,12 +915,12 @@ pub const Value = union(enum) {
                 .bool => |b| Value{ .bool = a or b },
                 else => {
                     std.debug.print("Type mismatch in or: {s}\n", .{self.ty()});
-                    return error.TypeMismatch;
+                    @panic("Type mismatch");
                 },
             },
             else => {
                 std.debug.print("Type mismatch in or: {s}\n", .{self.ty()});
-                return error.TypeMismatch;
+                @panic("Type mismatch");
             },
         };
     }
@@ -703,7 +935,7 @@ pub const Value = union(enum) {
             .float => |a| Value{ .float = -a },
             else => {
                 std.debug.print("Type mismatch in negate: {s}\n", .{self.ty()});
-                return error.TypeMismatch;
+                @panic("Type mismatch");
             },
         };
     }
@@ -713,7 +945,7 @@ pub const Value = union(enum) {
             .bool => |a| Value{ .bool = !a },
             else => {
                 std.debug.print("Type mismatch in not: {s}\n", .{self.ty()});
-                return error.TypeMismatch;
+                @panic("Type mismatch");
             },
         };
     }
@@ -1082,9 +1314,9 @@ const ModificationIterator = struct {
         return simple_expr;
     }
 
-    fn makeSimplestExpr(self: *ModificationIterator, ty: Ty) !Expr {
+    fn makeSimplestExpr(self: *ModificationIterator, ty: *const Ty) !Expr {
         const value_ptr = try self.allocator.create(Value);
-        value_ptr.* = switch (ty) {
+        value_ptr.* = switch (ty.*) {
             .i8 => Value{ .i8 = 0 },
             .i16 => Value{ .i16 = 0 },
             .i32 => Value{ .i32 = 0 },
@@ -1098,23 +1330,43 @@ const ModificationIterator = struct {
             .float => Value{ .float = 0.0 },
             .bool => Value{ .bool = false },
             .str => Value{ .str = "" },
-            .list => return Expr{ .list_literal = .{ .elements = &[_]Expr{} } },
-            .record => return Expr{ .record_literal = .{ .fields = &[_]FieldExpr{} } },
-            .tag => |tag_ty| return Expr{ .tag_literal = .{ .name = tag_ty.name, .arguments = &[_]Expr{} } },
-            .function => {
-                // Create simplest function: || 0 (or appropriate return type)
-                const return_value_ptr = try self.allocator.create(Value);
-                return_value_ptr.* = switch (ty.function.return_type.*) {
-                    .i32 => Value{ .i32 = 0 },
-                    .bool => Value{ .bool = false },
-                    .str => Value{ .str = "" },
-                    else => Value{ .i32 = 0 }, // fallback
+            .list => |element_ty| {
+                return Expr{
+                    .list_literal = .{
+                        .elements = &[_]Expr{},
+                        .element_ty = element_ty,
+                    },
                 };
-                const return_expr = Expr{ .literal = return_value_ptr };
-                const block_ptr = try self.allocator.create(Block);
-                block_ptr.* = Block{ .statements = &[_]Stmt{}, .return_expr = return_expr };
+            },
+            .record => |record_ty| {
+                // Create a record with all fields initialized to simplest values
+                const fields = try self.allocator.alloc(FieldExpr, record_ty.fields.len);
+                for (record_ty.fields, 0..) |field, i| {
+                    const field_value = try self.makeSimplestExpr(field.ty);
+                    fields[i] = FieldExpr{ .name = field.name, .value = field_value };
+                }
+                return Expr{ .record_literal = .{ .fields = fields } };
+            },
+            .tag => |tag_ty| {
+                // Create a tag with all arguments initialized to simplest values
+                const args = try self.allocator.alloc(Expr, tag_ty.arguments.len);
+                for (tag_ty.arguments, 0..) |arg_ty, i| {
+                    args[i] = try self.makeSimplestExpr(arg_ty);
+                }
+                return Expr{ .tag_literal = .{ .name = tag_ty.name, .arguments = args } };
+            },
+            .function => |func_ty| {
+                // Create a function with the same parameters but with a body that returns a simplest value
+                const return_expr = try self.makeSimplestExpr(func_ty.return_type);
+                const return_block = Block{
+                    .statements = &[0]Stmt{},
+                    .return_expr = return_expr,
+                };
+                const return_block_ptr = try self.allocator.create(Block);
+                return_block_ptr.* = return_block;
                 const func_ptr = try self.allocator.create(Func);
-                func_ptr.* = Func{ .parameter_types = &[_]*const Ty{}, .body = block_ptr };
+                func_ptr.body = return_block_ptr;
+                func_ptr.parameter_types = func_ty.parameter_types;
                 return Expr{ .function = func_ptr };
             },
         };
@@ -1316,20 +1568,87 @@ const ModificationIterator = struct {
         };
     }
 
-    fn inferType(self: *ModificationIterator, expr: Expr) !Ty {
+    fn inferType(self: *ModificationIterator, expr: Expr) !*const Ty {
         // Simple type inference - in a real implementation this would be more sophisticated
         return switch (expr) {
-            .literal => |val| val.ty(),
-            .tbd => |ty| ty.*,
+            .literal => |val| {
+                const value_ty_ptr = try self.allocator.create(Ty);
+                value_ty_ptr.* = val.ty();
+                return value_ty_ptr;
+            },
             .binary => |bin| switch (bin.op) {
                 .add, .subtract, .multiply, .divide => try self.inferType(bin.left.*),
-                .equals, .not_equals, .less_than, .greater_than, .and_op, .or_op => Ty{ .bool = {} },
+                .equals, .not_equals, .less_than, .greater_than, .and_op, .or_op => self.interp.makeBoolTy(),
             },
             .unary => |un| switch (un.op) {
                 .negate => try self.inferType(un.operand.*),
-                .not => Ty{ .bool = {} },
+                .not => self.interp.makeBoolTy(),
             },
-            else => Ty{ .i32 = {} }, // Default fallback
+            .tbd => |ty| ty,
+            .variable => |v| v.ty,
+            .function => |f| {
+                const return_type = try self.inferType(f.body.return_expr);
+                const function_ty_ptr = try self.allocator.create(Ty);
+                function_ty_ptr.* = Ty{ .function = FunctionTy{
+                    .parameter_types = f.parameter_types,
+                    .return_type = return_type,
+                } };
+                return function_ty_ptr;
+            },
+            .application => |app| {
+                const func_ty = try self.inferType(app.function.*);
+                return switch (func_ty.*) {
+                    .function => |f| f.return_type,
+                    else => std.debug.panic("Cannot apply non-function type: {}", .{func_ty}),
+                };
+            },
+            .list_literal => |list| {
+                const list_ty_ptr = try self.allocator.create(Ty);
+                list_ty_ptr.* = .{ .list = list.element_ty };
+                return list_ty_ptr;
+            },
+            .record_literal => |record| {
+                var field_types = try self.allocator.alloc(FieldTy, record.fields.len);
+                for (record.fields, 0..) |field, i| {
+                    const field_ty = try self.inferType(field.value);
+                    field_types[i] = FieldTy{
+                        .name = field.name,
+                        .ty = field_ty,
+                    };
+                }
+                const record_ty_ptr = try self.allocator.create(Ty);
+                record_ty_ptr.* = Ty{ .record = .{ .fields = field_types } };
+                return record_ty_ptr;
+            },
+            .tag_literal => |tag| {
+                var arg_types = try self.allocator.alloc(*const Ty, tag.arguments.len);
+                for (tag.arguments, 0..) |arg, i| {
+                    const arg_ty = try self.inferType(arg);
+                    arg_types[i] = arg_ty;
+                }
+                // return Ty{ .tag = .{ .name = tag.name, .arguments = arg_types } };
+                const tag_ty_ptr = try self.allocator.create(Ty);
+                tag_ty_ptr.* = Ty{ .tag = .{
+                    .name = tag.name,
+                    .arguments = arg_types,
+                } };
+                return tag_ty_ptr;
+            },
+            .field_access => |access| {
+                const record_ty = try self.inferType(access.record.*);
+                return switch (record_ty.*) {
+                    .record => |record| {
+                        for (record.fields) |field| {
+                            if (std.mem.eql(u8, field.name, access.field_name)) {
+                                return field.ty;
+                            }
+                        }
+                        std.debug.panic("Field '{s}' not found in record", .{access.field_name});
+                    },
+                    else => std.debug.panic("Cannot access field on non-record type: {}", .{record_ty}),
+                };
+            },
+            .if_expression => |if_expr| try self.inferType(if_expr.then_branch.*.return_expr),
         };
     }
 };
@@ -1379,13 +1698,17 @@ pub fn minimizeWithContext(allocator: std.mem.Allocator, interp: *Interp, expr: 
 pub const Expr = union(enum) {
     tbd: *const Ty,
     literal: *Value,
-    variable: Var,
+    variable: struct {
+        variable: Var,
+        ty: *const Ty,
+    },
     function: *Func,
     application: struct {
         function: *Expr,
         arguments: []*Expr,
     },
     list_literal: struct {
+        element_ty: *const Ty,
         elements: []Expr,
     },
     record_literal: struct {
@@ -1429,7 +1752,7 @@ pub const Expr = union(enum) {
                 try buffer.writer().print("<tbd: {}>", .{ty.*});
             },
             .literal => |val| try val.formatWithIndent(buffer, indent, max_width),
-            .variable => |v| try buffer.writer().print("{s}", .{v.name}),
+            .variable => |v| try buffer.writer().print("{s}", .{v.variable.name}),
             .function => |f| {
                 if (indent == null) {
                     try buffer.writer().print("|", .{});
@@ -1928,7 +2251,7 @@ pub const Interp = struct {
                 for (0..len) |i| {
                     elements[i] = .{ .tbd = el_ty };
                 }
-                return Expr{ .list_literal = .{ .elements = elements } };
+                return Expr{ .list_literal = .{ .elements = elements, .element_ty = el_ty } };
             },
             .record => |fields| {
                 const field_exprs = try self.allocator.alloc(FieldExpr, fields.fields.len);
@@ -2119,7 +2442,7 @@ pub const Interp = struct {
                             1 => {
                                 // Check if there's anything in scope that matches the type
                                 if (scope.findRandomItemWithType(self.random, t)) |var_info| {
-                                    expr.* = Expr{ .variable = Var{ .name = var_info.name } };
+                                    expr.* = Expr{ .variable = .{ .variable = Var{ .name = var_info.name }, .ty = var_info.ty } };
                                     break;
                                 }
                             },
@@ -2230,8 +2553,10 @@ pub const Interp = struct {
                             else => @panic("boo"),
                         }
                     }
+                    const prev_gas = self.gas;
                     const result = self.eval(scope, expr, stack_depth + 1) catch |err| {
                         if (retry_count < 100 and (err == error.StackOverflow or err == error.DivideByZero)) {
+                            self.gas = prev_gas; // Reset gas
                             retry_count += 1;
                             continue; // Retry evaluation
                         }
@@ -2243,7 +2568,7 @@ pub const Interp = struct {
                     return lit.*;
                 },
                 .variable => |v| {
-                    return scope.get(v);
+                    return scope.get(v.variable);
                 },
                 .function => |func| {
                     return Value{ .closure = .{
@@ -2314,7 +2639,9 @@ pub const Interp = struct {
                     const record_value = try self.eval(scope, fa.record, stack_depth + 1);
                     // Check if it's a record
                     if (record_value != .record) {
-                        return error.TypeMismatch;
+                        std.debug.print("Expected record, got: {}\n", .{record_value});
+                        std.debug.print("Field access expression: {}\n", .{expr});
+                        @panic("Type mismatch");
                     }
                     // Now access the field
                     const record = record_value.record;
@@ -2333,14 +2660,16 @@ pub const Interp = struct {
                     if (func_value != .closure) {
                         std.debug.print("Expected closure, got: {}\n", .{func_value});
                         std.debug.print("Function expression: {}\n", .{expr});
-                        return error.TypeMismatch;
+                        @panic("Type mismatch");
                     }
 
                     const closure = func_value.closure;
 
                     // Check argument count
                     if (app.arguments.len != closure.function.parameter_types.len) {
-                        return error.TypeMismatch;
+                        std.debug.print("Function '{}' expects {} arguments, got {}\n", .{ closure.function, closure.function.parameter_types.len, app.arguments.len });
+                        std.debug.print("Function expression: {}\n", .{expr});
+                        @panic("Type mismatch");
                     }
 
                     // Evaluate arguments
@@ -2381,7 +2710,11 @@ pub const Interp = struct {
 
                     const should_take_then_branch = switch (condition_value) {
                         .bool => |b| b,
-                        else => return error.TypeMismatch,
+                        else => {
+                            std.debug.print("Expected boolean condition, got: {}\n", .{condition_value});
+                            std.debug.print("If expression: {}\n", .{expr});
+                            @panic("Type mismatch");
+                        },
                     };
 
                     if (should_take_then_branch) {
@@ -2402,42 +2735,3 @@ pub const Interp = struct {
         return self.eval(scope, &block.return_expr, stack_depth + 1);
     }
 };
-
-pub fn main() !void {
-    var gpa: std.heap.DebugAllocator(.{}) = .{};
-    const allocator = gpa.allocator();
-
-    // Parse command line arguments
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
-
-    const count = if (args.len > 1)
-        std.fmt.parseInt(u32, args[1], 10) catch 1
-    else
-        1;
-
-    const int_ty = Ty{ .u8 = {} };
-
-    var prng = std.Random.DefaultPrng.init(@intCast(std.time.timestamp()));
-    const random = prng.random();
-
-    for (0..count) |_| {
-        var interp = Interp.init(allocator, 100, random);
-
-        var value = Expr{ .tbd = &int_ty };
-
-        var scope = Scope.init(allocator);
-
-        const res = interp.eval(&scope, &value, 0) catch |err| {
-            std.debug.print("Error evaluating expression: {}\n", .{err});
-            std.debug.print("Final expr: {}\n\n", .{value});
-            if (err == error.DivideByZero or err == error.StackOverflow or err == error.OutOfGas) {
-                continue;
-            } else {
-                return err;
-            }
-        };
-        std.debug.print("Result: {}\n", .{res});
-        std.debug.print("Final expr: {}\n\n", .{value});
-    }
-}
