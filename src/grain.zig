@@ -113,21 +113,19 @@ fn doCheck(allocator: std.mem.Allocator, expr: *Expr) !CheckResult {
 
 fn generateAndTestExpression(allocator: std.mem.Allocator, random: std.Random, repl_instance: *repl.Repl) !bool {
     // Generate a random type (start with simple types)
-    const type_choice = random.int(u32) % 13;
+    const type_choice = random.intRangeAtMost(i32, 0, 11);
     const target_type = switch (type_choice) {
         0 => Ty{ .i8 = {} },
         1 => Ty{ .i16 = {} },
         2 => Ty{ .i32 = {} },
         3 => Ty{ .i64 = {} },
-        4 => Ty{ .i128 = {} },
-        5 => Ty{ .u8 = {} },
-        6 => Ty{ .u16 = {} },
-        7 => Ty{ .u32 = {} },
-        8 => Ty{ .u64 = {} },
-        9 => Ty{ .u128 = {} },
-        10 => Ty{ .float = {} },
-        11 => Ty{ .bool = {} },
-        12 => Ty{ .str = {} },
+        4 => Ty{ .u8 = {} },
+        5 => Ty{ .u16 = {} },
+        6 => Ty{ .u32 = {} },
+        7 => Ty{ .u64 = {} },
+        8 => Ty{ .float = {} },
+        9 => Ty{ .bool = {} },
+        10 => Ty{ .str = {} },
         else => unreachable,
     };
 
@@ -239,12 +237,12 @@ pub const Value = union(enum) {
     i16: i16,
     i32: i32,
     i64: i64,
-    i128: i128,
+    // i128: i128,
     u8: u8,
     u16: u16,
     u32: u32,
     u64: u64,
-    u128: u128,
+    // u128: u128,
     float: f64,
     bool: bool,
     str: []const u8,
@@ -269,12 +267,12 @@ pub const Value = union(enum) {
             .i16 => Ty{ .i16 = {} },
             .i32 => Ty{ .i32 = {} },
             .i64 => Ty{ .i64 = {} },
-            .i128 => Ty{ .i128 = {} },
+            // .i128 => Ty{ .i128 = {} },
             .u8 => Ty{ .u8 = {} },
             .u16 => Ty{ .u16 = {} },
             .u32 => Ty{ .u32 = {} },
             .u64 => Ty{ .u64 = {} },
-            .u128 => Ty{ .u128 = {} },
+            // .u128 => Ty{ .u128 = {} },
             .float => Ty{ .float = {} },
             .bool => Ty{ .bool = {} },
             .str => Ty{ .str = {} },
@@ -300,12 +298,12 @@ pub const Value = union(enum) {
             .i16 => |i| try buffer.writer().print("{}", .{i}),
             .i32 => |i| try buffer.writer().print("{}", .{i}),
             .i64 => |i| try buffer.writer().print("{}", .{i}),
-            .i128 => |i| try buffer.writer().print("{}", .{i}),
+            // .i128 => |i| try buffer.writer().print("{}", .{i}),
             .u8 => |i| try buffer.writer().print("{}", .{i}),
             .u16 => |i| try buffer.writer().print("{}", .{i}),
             .u32 => |i| try buffer.writer().print("{}", .{i}),
             .u64 => |i| try buffer.writer().print("{}", .{i}),
-            .u128 => |i| try buffer.writer().print("{}", .{i}),
+            // .u128 => |i| try buffer.writer().print("{}", .{i}),
             .float => |f| try buffer.writer().print("{d}", .{f}),
             .bool => |b| try buffer.writer().print("{}", .{b}),
             .str => |s| try buffer.writer().print("\"{s}\"", .{s}),
@@ -462,12 +460,12 @@ pub const Value = union(enum) {
             .i16 => |ai| b.i16 == ai,
             .i32 => |ai| b.i32 == ai,
             .i64 => |ai| b.i64 == ai,
-            .i128 => |ai| b.i128 == ai,
+            // .i128 => |ai| b.i128 == ai,
             .u8 => |ai| b.u8 == ai,
             .u16 => |ai| b.u16 == ai,
             .u32 => |ai| b.u32 == ai,
             .u64 => |ai| b.u64 == ai,
-            .u128 => |ai| b.u128 == ai,
+            // .u128 => |ai| b.u128 == ai,
             .float => |af| b.float == af,
             .bool => |ab| b.bool == ab,
             .str => |as| std.mem.eql(u8, b.str, as),
@@ -525,10 +523,10 @@ pub const Value = union(enum) {
                 .i64 => |b| Value{ .i64 = a +% b },
                 else => error.TypeMismatch,
             },
-            .i128 => |a| switch (other) {
-                .i128 => |b| Value{ .i128 = a +% b },
-                else => error.TypeMismatch,
-            },
+            // .i128 => |a| switch (other) {
+            //     .i128 => |b| Value{ .i128 = a +% b },
+            //     else => error.TypeMismatch,
+            // },
             .u8 => |a| switch (other) {
                 .u8 => |b| Value{ .u8 = a +% b },
                 else => error.TypeMismatch,
@@ -545,10 +543,10 @@ pub const Value = union(enum) {
                 .u64 => |b| Value{ .u64 = a +% b },
                 else => error.TypeMismatch,
             },
-            .u128 => |a| switch (other) {
-                .u128 => |b| Value{ .u128 = a +% b },
-                else => error.TypeMismatch,
-            },
+            // .u128 => |a| switch (other) {
+            //     .u128 => |b| Value{ .u128 = a +% b },
+            //     else => error.TypeMismatch,
+            // },
             .float => |a| switch (other) {
                 .float => |b| Value{ .float = a + b },
                 else => error.TypeMismatch,
@@ -575,10 +573,10 @@ pub const Value = union(enum) {
                 .i64 => |b| Value{ .i64 = a -% b },
                 else => error.TypeMismatch,
             },
-            .i128 => |a| switch (other) {
-                .i128 => |b| Value{ .i128 = a -% b },
-                else => error.TypeMismatch,
-            },
+            // .i128 => |a| switch (other) {
+            //     .i128 => |b| Value{ .i128 = a -% b },
+            //     else => error.TypeMismatch,
+            // },
             .u8 => |a| switch (other) {
                 .u8 => |b| Value{ .u8 = a -% b },
                 else => error.TypeMismatch,
@@ -595,10 +593,10 @@ pub const Value = union(enum) {
                 .u64 => |b| Value{ .u64 = a -% b },
                 else => error.TypeMismatch,
             },
-            .u128 => |a| switch (other) {
-                .u128 => |b| Value{ .u128 = a -% b },
-                else => error.TypeMismatch,
-            },
+            // .u128 => |a| switch (other) {
+            //     .u128 => |b| Value{ .u128 = a -% b },
+            //     else => error.TypeMismatch,
+            // },
             .float => |a| switch (other) {
                 .float => |b| Value{ .float = a - b },
                 else => error.TypeMismatch,
@@ -625,10 +623,10 @@ pub const Value = union(enum) {
                 .i64 => |b| Value{ .i64 = a *% b },
                 else => error.TypeMismatch,
             },
-            .i128 => |a| switch (other) {
-                .i128 => |b| Value{ .i128 = a *% b },
-                else => error.TypeMismatch,
-            },
+            // .i128 => |a| switch (other) {
+            //     .i128 => |b| Value{ .i128 = a *% b },
+            //     else => error.TypeMismatch,
+            // },
             .u8 => |a| switch (other) {
                 .u8 => |b| Value{ .u8 = a *% b },
                 else => error.TypeMismatch,
@@ -645,10 +643,10 @@ pub const Value = union(enum) {
                 .u64 => |b| Value{ .u64 = a *% b },
                 else => error.TypeMismatch,
             },
-            .u128 => |a| switch (other) {
-                .u128 => |b| Value{ .u128 = a *% b },
-                else => error.TypeMismatch,
-            },
+            // .u128 => |a| switch (other) {
+            //     .u128 => |b| Value{ .u128 = a *% b },
+            //     else => error.TypeMismatch,
+            // },
             .float => |a| switch (other) {
                 .float => |b| Value{ .float = a * b },
                 else => error.TypeMismatch,
@@ -675,10 +673,10 @@ pub const Value = union(enum) {
                 .i64 => |b| if (b == 0) error.DivideByZero else Value{ .i64 = @divTrunc(a, b) },
                 else => error.TypeMismatch,
             },
-            .i128 => |a| switch (other) {
-                .i128 => |b| if (b == 0) error.DivideByZero else Value{ .i128 = @divTrunc(a, b) },
-                else => error.TypeMismatch,
-            },
+            // .i128 => |a| switch (other) {
+            //     .i128 => |b| if (b == 0) error.DivideByZero else Value{ .i128 = @divTrunc(a, b) },
+            //     else => error.TypeMismatch,
+            // },
             .u8 => |a| switch (other) {
                 .u8 => |b| if (b == 0) error.DivideByZero else Value{ .u8 = a / b },
                 else => error.TypeMismatch,
@@ -695,10 +693,10 @@ pub const Value = union(enum) {
                 .u64 => |b| if (b == 0) error.DivideByZero else Value{ .u64 = a / b },
                 else => error.TypeMismatch,
             },
-            .u128 => |a| switch (other) {
-                .u128 => |b| if (b == 0) error.DivideByZero else Value{ .u128 = a / b },
-                else => error.TypeMismatch,
-            },
+            // .u128 => |a| switch (other) {
+            //     .u128 => |b| if (b == 0) error.DivideByZero else Value{ .u128 = a / b },
+            //     else => error.TypeMismatch,
+            // },
             .float => |a| switch (other) {
                 .float => |b| if (b == 0.0) error.DivideByZero else Value{ .float = a / b },
                 else => error.TypeMismatch,
@@ -725,10 +723,10 @@ pub const Value = union(enum) {
                 .i64 => |b| a == b,
                 else => false,
             },
-            .i128 => |a| switch (other) {
-                .i128 => |b| a == b,
-                else => false,
-            },
+            // .i128 => |a| switch (other) {
+            //     .i128 => |b| a == b,
+            //     else => false,
+            // },
             .u8 => |a| switch (other) {
                 .u8 => |b| a == b,
                 else => false,
@@ -745,10 +743,10 @@ pub const Value = union(enum) {
                 .u64 => |b| a == b,
                 else => false,
             },
-            .u128 => |a| switch (other) {
-                .u128 => |b| a == b,
-                else => false,
-            },
+            // .u128 => |a| switch (other) {
+            //     .u128 => |b| a == b,
+            //     else => false,
+            // },
             .float => |a| switch (other) {
                 .float => |b| a == b,
                 else => false,
@@ -801,13 +799,13 @@ pub const Value = union(enum) {
                     @panic("Type mismatch");
                 },
             },
-            .i128 => |a| switch (other) {
-                .i128 => |b| a < b,
-                else => {
-                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    @panic("Type mismatch");
-                },
-            },
+            // .i128 => |a| switch (other) {
+            //     .i128 => |b| a < b,
+            //     else => {
+            //         std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+            //         @panic("Type mismatch");
+            //     },
+            // },
             .u8 => |a| switch (other) {
                 .u8 => |b| a < b,
                 else => {
@@ -836,13 +834,13 @@ pub const Value = union(enum) {
                     @panic("Type mismatch");
                 },
             },
-            .u128 => |a| switch (other) {
-                .u128 => |b| a < b,
-                else => {
-                    std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    @panic("Type mismatch");
-                },
-            },
+            // .u128 => |a| switch (other) {
+            //     .u128 => |b| a < b,
+            //     else => {
+            //         std.debug.print("Type mismatch in lessThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+            //         @panic("Type mismatch");
+            //     },
+            // },
             .float => |a| switch (other) {
                 .float => |b| a < b,
                 else => {
@@ -888,13 +886,13 @@ pub const Value = union(enum) {
                     @panic("Type mismatch");
                 },
             },
-            .i128 => |a| switch (other) {
-                .i128 => |b| a > b,
-                else => {
-                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    @panic("Type mismatch");
-                },
-            },
+            // .i128 => |a| switch (other) {
+            //     .i128 => |b| a > b,
+            //     else => {
+            //         std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+            //         @panic("Type mismatch");
+            //     },
+            // },
             .u8 => |a| switch (other) {
                 .u8 => |b| a > b,
                 else => {
@@ -923,13 +921,13 @@ pub const Value = union(enum) {
                     @panic("Type mismatch");
                 },
             },
-            .u128 => |a| switch (other) {
-                .u128 => |b| a > b,
-                else => {
-                    std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
-                    @panic("Type mismatch");
-                },
-            },
+            // .u128 => |a| switch (other) {
+            //     .u128 => |b| a > b,
+            //     else => {
+            //         std.debug.print("Type mismatch in greaterThan: {s} vs {s}\n", .{ self.ty(), other.ty() });
+            //         @panic("Type mismatch");
+            //     },
+            // },
             .float => |a| switch (other) {
                 .float => |b| a > b,
                 else => {
@@ -983,7 +981,7 @@ pub const Value = union(enum) {
             .i16 => |a| Value{ .i16 = -%a },
             .i32 => |a| Value{ .i32 = -%a },
             .i64 => |a| Value{ .i64 = -%a },
-            .i128 => |a| Value{ .i128 = -%a },
+            // .i128 => |a| Value{ .i128 = -%a },
             .float => |a| Value{ .float = -a },
             else => {
                 std.debug.print("Type mismatch in negate: {s}\n", .{self.ty()});
@@ -1027,12 +1025,12 @@ pub const Ty = union(enum) {
     i16,
     i32,
     i64,
-    i128,
+    // i128,
     u8,
     u16,
     u32,
     u64,
-    u128,
+    // u128,
     float,
     bool,
     str,
@@ -1053,12 +1051,12 @@ pub const Ty = union(enum) {
             .i16 => |_| other.* == .i16,
             .i32 => |_| other.* == .i32,
             .i64 => |_| other.* == .i64,
-            .i128 => |_| other.* == .i128,
+            // .i128 => |_| other.* == .i128,
             .u8 => |_| other.* == .u8,
             .u16 => |_| other.* == .u16,
             .u32 => |_| other.* == .u32,
             .u64 => |_| other.* == .u64,
-            .u128 => |_| other.* == .u128,
+            // .u128 => |_| other.* == .u128,
             .float => |_| other.* == .float,
             .bool => |_| other.* == .bool,
             .str => |_| other.* == .str,
@@ -1107,12 +1105,12 @@ pub const Ty = union(enum) {
             .i16 => try writer.print("i16", .{}),
             .i32 => try writer.print("i32", .{}),
             .i64 => try writer.print("i64", .{}),
-            .i128 => try writer.print("i128", .{}),
+            // .i128 => try writer.print("i128", .{}),
             .u8 => try writer.print("u8", .{}),
             .u16 => try writer.print("u16", .{}),
             .u32 => try writer.print("u32", .{}),
             .u64 => try writer.print("u64", .{}),
-            .u128 => try writer.print("u128", .{}),
+            // .u128 => try writer.print("u128", .{}),
             .float => try writer.print("float", .{}),
             .bool => try writer.print("bool", .{}),
             .str => try writer.print("str", .{}),
@@ -1381,12 +1379,12 @@ const ModificationIterator = struct {
             .i16 => Value{ .i16 = 0 },
             .i32 => Value{ .i32 = 0 },
             .i64 => Value{ .i64 = 0 },
-            .i128 => Value{ .i128 = 0 },
+            // .i128 => Value{ .i128 = 0 },
             .u8 => Value{ .u8 = 0 },
             .u16 => Value{ .u16 = 0 },
             .u32 => Value{ .u32 = 0 },
             .u64 => Value{ .u64 = 0 },
-            .u128 => Value{ .u128 = 0 },
+            // .u128 => Value{ .u128 = 0 },
             .float => Value{ .float = 0.0 },
             .bool => Value{ .bool = false },
             .str => Value{ .str = "" },
@@ -1709,12 +1707,12 @@ const ModificationIterator = struct {
                 .i16 => |i| i == 0,
                 .i32 => |i| i == 0,
                 .i64 => |i| i == 0,
-                .i128 => |i| i == 0,
+                // .i128 => |i| i == 0,
                 .u8 => |i| i == 0,
                 .u16 => |i| i == 0,
                 .u32 => |i| i == 0,
                 .u64 => |i| i == 0,
-                .u128 => |i| i == 0,
+                // .u128 => |i| i == 0,
                 .float => |f| f == 0.0,
                 .bool => |b| b == false,
                 .str => |s| s.len == 0,
@@ -2587,12 +2585,12 @@ pub const Interp = struct {
             .i16 => return self.makeLiteral(Value{ .i16 = self.random.int(i16) }),
             .i32 => return self.makeLiteral(Value{ .i32 = self.random.int(i32) }),
             .i64 => return self.makeLiteral(Value{ .i64 = self.random.int(i64) }),
-            .i128 => return self.makeLiteral(Value{ .i128 = self.random.int(i128) }),
+            // .i128 => return self.makeLiteral(Value{ .i128 = self.random.int(i128) }),
             .u8 => return self.makeLiteral(Value{ .u8 = self.random.int(u8) }),
             .u16 => return self.makeLiteral(Value{ .u16 = self.random.int(u16) }),
             .u32 => return self.makeLiteral(Value{ .u32 = self.random.int(u32) }),
             .u64 => return self.makeLiteral(Value{ .u64 = self.random.int(u64) }),
-            .u128 => return self.makeLiteral(Value{ .u128 = self.random.int(u128) }),
+            // .u128 => return self.makeLiteral(Value{ .u128 = self.random.int(u128) }),
             .float => return self.makeLiteral(Value{ .float = self.random.float(f64) }),
             .bool => return self.makeLiteral(Value{ .bool = self.random.boolean() }),
             .str => {
@@ -2627,19 +2625,17 @@ pub const Interp = struct {
     fn makeNumTy(self: *Interp) !*const Ty {
         const ty_ptr = try self.allocator.create(Ty);
         // Make a random type!
-        const type_choice = self.random.intRangeAtMost(u8, 0, 10);
+        const type_choice = self.random.intRangeAtMost(u8, 0, 8);
         ty_ptr.* = switch (type_choice) {
             0 => Ty{ .i8 = {} },
             1 => Ty{ .i16 = {} },
             2 => Ty{ .i32 = {} },
             3 => Ty{ .i64 = {} },
-            4 => Ty{ .i128 = {} },
-            5 => Ty{ .u8 = {} },
-            6 => Ty{ .u16 = {} },
-            7 => Ty{ .u32 = {} },
-            8 => Ty{ .u64 = {} },
-            9 => Ty{ .u128 = {} },
-            10 => Ty{ .float = {} },
+            4 => Ty{ .u8 = {} },
+            5 => Ty{ .u16 = {} },
+            6 => Ty{ .u32 = {} },
+            7 => Ty{ .u64 = {} },
+            8 => Ty{ .float = {} },
             else => unreachable,
         };
         return ty_ptr;
@@ -2663,22 +2659,20 @@ pub const Interp = struct {
     fn makeAnyTy(self: *Interp) !*const Ty {
         const ty_ptr = try self.allocator.create(Ty);
         // Make a random type!
-        const type_choice = self.random.intRangeAtMost(u8, 0, 16);
+        const type_choice = self.random.intRangeAtMost(u8, 0, 14);
         ty_ptr.* = blk: switch (type_choice) {
             0 => Ty{ .i8 = {} },
             1 => Ty{ .i16 = {} },
             2 => Ty{ .i32 = {} },
             3 => Ty{ .i64 = {} },
-            4 => Ty{ .i128 = {} },
-            5 => Ty{ .u8 = {} },
-            6 => Ty{ .u16 = {} },
-            7 => Ty{ .u32 = {} },
-            8 => Ty{ .u64 = {} },
-            9 => Ty{ .u128 = {} },
-            10 => Ty{ .float = {} },
-            11 => Ty{ .bool = {} },
-            12 => Ty{ .str = {} },
-            13 => {
+            4 => Ty{ .u8 = {} },
+            5 => Ty{ .u16 = {} },
+            6 => Ty{ .u32 = {} },
+            7 => Ty{ .u64 = {} },
+            8 => Ty{ .float = {} },
+            9 => Ty{ .bool = {} },
+            10 => Ty{ .str = {} },
+            11 => {
                 // Generate a function type with random parameters
                 const num_params = self.random.int(u32) % 3;
                 var param_types = try self.allocator.alloc(*const Ty, num_params);
@@ -2690,12 +2684,12 @@ pub const Interp = struct {
                     .return_type = try self.makeAnyTy(),
                 } };
             },
-            14 => {
+            12 => {
                 // Generate a list type with a random element type
                 const element_type = try self.makeAnyTy();
                 break :blk Ty{ .list = element_type };
             },
-            15 => {
+            13 => {
                 // Generate a record type with random fields
                 const num_fields = self.random.int(u32) % 3 + 1; // At least one field
                 var fields = try self.allocator.alloc(FieldTy, num_fields);
@@ -2705,7 +2699,7 @@ pub const Interp = struct {
                 }
                 break :blk Ty{ .record = .{ .fields = fields } };
             },
-            16 => {
+            14 => {
                 // Generate a tag type with a random name and arguments
                 const tag_name = try std.fmt.allocPrint(self.allocator, "Tag{}", .{self.random.int(u32)});
                 const num_args = self.random.int(u32) % 3; // 0-2 arguments
@@ -2770,7 +2764,7 @@ pub const Interp = struct {
                                 // Generate a binop
                                 switch (t.*) {
                                     .function, .list, .record, .tag, .str => continue,
-                                    .i8, .i16, .i32, .i64, .i128, .u8, .u16, .u32, .u64, .u128, .float => {
+                                    .i8, .i16, .i32, .i64, .u8, .u16, .u32, .u64, .float => {
                                         const op = switch (self.random.int(u32) % 4) {
                                             0 => BinaryOp.add,
                                             1 => BinaryOp.subtract,
@@ -2818,7 +2812,7 @@ pub const Interp = struct {
                             4 => {
                                 // Generate a unary expression
                                 switch (t.*) {
-                                    .i8, .i16, .i32, .i64, .i128, .float => {
+                                    .i8, .i16, .i32, .i64, .float => {
                                         const op = UnaryOp.negate;
                                         expr.* = Expr{
                                             .unary = .{
