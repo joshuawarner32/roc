@@ -455,6 +455,58 @@ pub const Value = union(enum) {
         }
     }
 
+    pub fn structuralEquals(a: Value, b: Value) bool {
+        if (@intFromEnum(a) != @intFromEnum(b)) return false;
+        return switch (a) {
+            .i8 => |ai| b.i8 == ai,
+            .i16 => |ai| b.i16 == ai,
+            .i32 => |ai| b.i32 == ai,
+            .i64 => |ai| b.i64 == ai,
+            .i128 => |ai| b.i128 == ai,
+            .u8 => |ai| b.u8 == ai,
+            .u16 => |ai| b.u16 == ai,
+            .u32 => |ai| b.u32 == ai,
+            .u64 => |ai| b.u64 == ai,
+            .u128 => |ai| b.u128 == ai,
+            .float => |af| b.float == af,
+            .bool => |ab| b.bool == ab,
+            .str => |as| std.mem.eql(u8, b.str, as),
+            .list => |al| blk: {
+                const bl = b.list;
+                if (al.elements.len != bl.elements.len) break :blk false;
+                for (al.elements, bl.elements) |ae, be| {
+                    if (!ae.structuralEquals(be)) break :blk false;
+                }
+                break :blk true;
+            },
+            .record => |ar| blk: {
+                const br = b.record;
+                if (ar.fields.len != br.fields.len) break :blk false;
+                for (ar.fields, br.fields) |af, bf| {
+                    if (!std.mem.eql(u8, af.name, bf.name)) break :blk false;
+                    if (!af.value.structuralEquals(bf.value)) break :blk false;
+                }
+                break :blk true;
+            },
+            .tag => |at| blk: {
+                const bt = b.tag;
+                if (!std.mem.eql(u8, at.name, bt.name)) break :blk false;
+                if (at.arguments.len != bt.arguments.len) break :blk false;
+                for (at.arguments, bt.arguments) |ae, be| {
+                    if (!ae.structuralEquals(be)) break :blk false;
+                }
+                break :blk true;
+            },
+            .closure => |ac| blk: {
+                const bc = b.closure;
+                // Compare function pointer and captured variables pointer
+                if (ac.function != bc.function) break :blk false;
+                if (ac.captured_variables != bc.captured_variables) break :blk false;
+                break :blk true;
+            },
+        };
+    }
+
     pub fn add(self: Value, other: Value) !Value {
         return switch (self) {
             .i8 => |a| switch (other) {
@@ -958,7 +1010,7 @@ const Field = struct {
 
 const FieldExpr = struct {
     name: []const u8,
-    value: Expr,
+    value: *Expr,
 };
 
 const TyIdx = struct { index: usize };
@@ -1229,8 +1281,6 @@ const UnaryOp = enum {
     }
 };
 
-const GenError = error{OutOfMemory};
-
 const TbdReplaceError = error{OutOfMemory};
 
 const ModificationIterator = struct {
@@ -1241,13 +1291,14 @@ const ModificationIterator = struct {
     child_iterators: std.ArrayList(*ModificationIterator),
     current_child_index: usize,
     self_simplified: bool,
+    self_child_index: u32, // Index of this iterator in its parent's child list
 
     const ModificationAttempt = struct {
         path: []usize, // Path to the expression to modify
         replacement: Expr, // What to replace it with
     };
 
-    pub fn init(allocator: std.mem.Allocator, interp: *Interp, expr: *Expr) !*ModificationIterator {
+    pub fn init(allocator: std.mem.Allocator, interp: *Interp, expr: *Expr, self_child_index: u32) !*ModificationIterator {
         const iterator = try allocator.create(ModificationIterator);
         iterator.* = ModificationIterator{
             .allocator = allocator,
@@ -1257,6 +1308,7 @@ const ModificationIterator = struct {
             .child_iterators = std.ArrayList(*ModificationIterator).init(allocator),
             .current_child_index = 0,
             .self_simplified = false,
+            .self_child_index = self_child_index,
         };
         return iterator;
     }
@@ -1288,9 +1340,14 @@ const ModificationIterator = struct {
         while (self.current_child_index < self.child_iterators.items.len) {
             const child_iterator = self.child_iterators.items[self.current_child_index];
             if (try child_iterator.next()) |child_modification| {
+                std.debug.print("Applying child modification: {}\nModified: {}\n", .{ child_iterator.original_expr, child_modification });
+                if (child_iterator.original_expr.structuralEquals(&child_modification)) {
+                    std.debug.print("Child modification is structurally equal to original expression, this should not happen: {s}\n", .{child_iterator.original_expr});
+                    @panic("Child modification is structurally equal to original expression, this should not happen");
+                }
                 // Apply this child modification to a copy of our expression
                 var modified_expr = try self.copyExpr(self.original_expr.*);
-                try self.applyChildModification(&modified_expr, self.current_child_index, child_modification);
+                try self.applyChildModification(&modified_expr, child_iterator.self_child_index, child_modification);
                 return modified_expr;
             } else {
                 // This child is exhausted, move to next
@@ -1304,13 +1361,16 @@ const ModificationIterator = struct {
 
     fn getSimplestReplacement(self: *ModificationIterator) !?Expr {
         // Check if the expression is already the simplest possible
-        if (self.isAlreadySimplest(self.original_expr.*)) {
+        if (self.isAlreadySimplest(self.original_expr)) {
             return null; // No simpler replacement available
         }
 
         // Try to replace the entire expression with the simplest possible expression of the same type
-        const expr_type = try self.inferType(self.original_expr.*);
+        const expr_type = try self.inferType(self.original_expr);
         const simple_expr = try self.makeSimplestExpr(expr_type);
+        if (simple_expr.structuralEquals(self.original_expr)) {
+            return null; // No change, already simplest
+        }
         return simple_expr;
     }
 
@@ -1333,7 +1393,7 @@ const ModificationIterator = struct {
             .list => |element_ty| {
                 return Expr{
                     .list_literal = .{
-                        .elements = &[_]Expr{},
+                        .elements = &[_]*Expr{},
                         .element_ty = element_ty,
                     },
                 };
@@ -1342,32 +1402,28 @@ const ModificationIterator = struct {
                 // Create a record with all fields initialized to simplest values
                 const fields = try self.allocator.alloc(FieldExpr, record_ty.fields.len);
                 for (record_ty.fields, 0..) |field, i| {
-                    const field_value = try self.makeSimplestExpr(field.ty);
+                    const field_value = try self.interp.makeExpr(try self.makeSimplestExpr(field.ty));
                     fields[i] = FieldExpr{ .name = field.name, .value = field_value };
                 }
                 return Expr{ .record_literal = .{ .fields = fields } };
             },
             .tag => |tag_ty| {
                 // Create a tag with all arguments initialized to simplest values
-                const args = try self.allocator.alloc(Expr, tag_ty.arguments.len);
+                const args = try self.allocator.alloc(*Expr, tag_ty.arguments.len);
                 for (tag_ty.arguments, 0..) |arg_ty, i| {
-                    args[i] = try self.makeSimplestExpr(arg_ty);
+                    const arg_expr = try self.allocator.create(Expr);
+                    arg_expr.* = try self.makeSimplestExpr(arg_ty);
+                    args[i] = arg_expr;
                 }
                 return Expr{ .tag_literal = .{ .name = tag_ty.name, .arguments = args } };
             },
             .function => |func_ty| {
                 // Create a function with the same parameters but with a body that returns a simplest value
                 const return_expr = try self.makeSimplestExpr(func_ty.return_type);
-                const return_block = Block{
-                    .statements = &[0]Stmt{},
-                    .return_expr = return_expr,
-                };
-                const return_block_ptr = try self.allocator.create(Block);
-                return_block_ptr.* = return_block;
-                const func_ptr = try self.allocator.create(Func);
-                func_ptr.body = return_block_ptr;
-                func_ptr.parameter_types = func_ty.parameter_types;
-                return Expr{ .function = func_ptr };
+                return Expr{ .function = .{
+                    .body = try self.interp.makeExpr(return_expr),
+                    .parameter_types = func_ty.parameter_types,
+                } };
             },
         };
         return Expr{ .literal = value_ptr };
@@ -1376,156 +1432,265 @@ const ModificationIterator = struct {
     fn initializeChildIterators(self: *ModificationIterator) !void {
         switch (self.original_expr.*) {
             .binary => |bin| {
-                if (!self.isAlreadySimplest(bin.left.*)) {
-                    const left_iter = try ModificationIterator.init(self.allocator, self.interp, bin.left);
+                if (!self.isAlreadySimplest(bin.left)) {
+                    const left_iter = try ModificationIterator.init(self.allocator, self.interp, bin.left, 0);
                     try self.child_iterators.append(left_iter);
                 }
-                if (!self.isAlreadySimplest(bin.right.*)) {
-                    const right_iter = try ModificationIterator.init(self.allocator, self.interp, bin.right);
+                if (!self.isAlreadySimplest(bin.right)) {
+                    const right_iter = try ModificationIterator.init(self.allocator, self.interp, bin.right, 1);
                     try self.child_iterators.append(right_iter);
                 }
             },
             .unary => |un| {
-                if (!self.isAlreadySimplest(un.operand.*)) {
-                    const operand_iter = try ModificationIterator.init(self.allocator, self.interp, un.operand);
+                if (!self.isAlreadySimplest(un.operand)) {
+                    const operand_iter = try ModificationIterator.init(self.allocator, self.interp, un.operand, 0);
                     try self.child_iterators.append(operand_iter);
                 }
             },
             .application => |app| {
-                if (!self.isAlreadySimplest(app.function.*)) {
-                    const func_iter = try ModificationIterator.init(self.allocator, self.interp, app.function);
+                if (!self.isAlreadySimplest(app.function)) {
+                    const func_iter = try ModificationIterator.init(self.allocator, self.interp, app.function, 0);
                     try self.child_iterators.append(func_iter);
                 }
-                for (app.arguments) |arg| {
-                    if (!self.isAlreadySimplest(arg.*)) {
-                        const arg_iter = try ModificationIterator.init(self.allocator, self.interp, arg);
+                for (app.arguments, 1..) |arg, i| {
+                    if (!self.isAlreadySimplest(arg)) {
+                        const arg_iter = try ModificationIterator.init(self.allocator, self.interp, arg, @intCast(i));
                         try self.child_iterators.append(arg_iter);
                     }
                 }
             },
             .list_literal => |lst| {
-                for (lst.elements) |*element| {
-                    if (!self.isAlreadySimplest(element.*)) {
-                        const elem_iter = try ModificationIterator.init(self.allocator, self.interp, element);
+                for (lst.elements, 0..) |element, i| {
+                    if (!self.isAlreadySimplest(element)) {
+                        const elem_iter = try ModificationIterator.init(self.allocator, self.interp, element, @intCast(i));
                         try self.child_iterators.append(elem_iter);
                     }
                 }
             },
             .record_literal => |rec| {
-                for (rec.fields) |*field| {
+                for (rec.fields, 0..) |*field, i| {
                     if (!self.isAlreadySimplest(field.value)) {
-                        const field_iter = try ModificationIterator.init(self.allocator, self.interp, &field.value);
+                        const field_iter = try ModificationIterator.init(self.allocator, self.interp, field.value, @intCast(i));
                         try self.child_iterators.append(field_iter);
                     }
                 }
             },
             .tag_literal => |tag| {
-                for (tag.arguments) |*arg| {
-                    if (!self.isAlreadySimplest(arg.*)) {
-                        const arg_iter = try ModificationIterator.init(self.allocator, self.interp, arg);
+                for (tag.arguments, 0..) |arg, i| {
+                    if (!self.isAlreadySimplest(arg)) {
+                        const arg_iter = try ModificationIterator.init(self.allocator, self.interp, arg, @intCast(i));
                         try self.child_iterators.append(arg_iter);
                     }
                 }
             },
             .if_expression => |if_expr| {
-                if (!self.isAlreadySimplest(if_expr.condition.*)) {
-                    const cond_iter = try ModificationIterator.init(self.allocator, self.interp, if_expr.condition);
+                if (!self.isAlreadySimplest(if_expr.condition)) {
+                    const cond_iter = try ModificationIterator.init(self.allocator, self.interp, if_expr.condition, 0);
                     try self.child_iterators.append(cond_iter);
                 }
                 // Note: We'd need to add iterators for blocks too, but for simplicity we'll skip them for now
             },
             .field_access => |field| {
-                if (!self.isAlreadySimplest(field.record.*)) {
-                    const record_iter = try ModificationIterator.init(self.allocator, self.interp, field.record);
+                if (!self.isAlreadySimplest(field.record)) {
+                    const record_iter = try ModificationIterator.init(self.allocator, self.interp, field.record, 0);
                     try self.child_iterators.append(record_iter);
                 }
             },
             // Leaf nodes have no children
             .literal, .variable, .tbd => {},
-            .function => {}, // Skip function bodies for now
+            .function => |func| {
+                // Simplify the body of the function
+                if (!self.isAlreadySimplest(func.body)) {
+                    const body_iter = try ModificationIterator.init(self.allocator, self.interp, func.body, 0);
+                    try self.child_iterators.append(body_iter);
+                }
+            },
+            .block => |block| {
+                // For blocks, we can simplify each expression in the block
+                for (block.statements, 0..) |stmt, i| {
+                    switch (stmt) {
+                        .assignment => |assign| {
+                            if (!self.isAlreadySimplest(assign.value)) {
+                                const expr_iter = try ModificationIterator.init(self.allocator, self.interp, assign.value, @intCast(i));
+                                try self.child_iterators.append(expr_iter);
+                            }
+                        },
+                        .return_statement => |expr| {
+                            if (!self.isAlreadySimplest(expr)) {
+                                const expr_iter = try ModificationIterator.init(self.allocator, self.interp, expr, @intCast(i));
+                                try self.child_iterators.append(expr_iter);
+                            }
+                        },
+                    }
+                }
+                if (!self.isAlreadySimplest(block.return_expr)) {
+                    const expr_iter = try ModificationIterator.init(self.allocator, self.interp, block.return_expr, @intCast(block.statements.len));
+                    try self.child_iterators.append(expr_iter);
+                }
+            },
         }
     }
 
     fn applyChildModification(self: *ModificationIterator, target: *Expr, child_index: usize, modification: Expr) !void {
-        _ = self;
         var current_child: usize = 0;
+        const modification_ptr = try self.interp.allocator.create(Expr);
+        modification_ptr.* = modification;
         switch (target.*) {
             .binary => |*bin| {
                 if (current_child == child_index) {
-                    bin.left.* = modification;
+                    std.debug.assert(!bin.left.structuralEquals(modification_ptr));
+                    bin.left = modification_ptr;
                     return;
                 }
                 current_child += 1;
                 if (current_child == child_index) {
-                    bin.right.* = modification;
+                    std.debug.assert(!bin.right.structuralEquals(modification_ptr));
+                    bin.right = modification_ptr;
                     return;
                 }
                 current_child += 1;
             },
             .unary => |*un| {
                 if (current_child == child_index) {
-                    un.operand.* = modification;
+                    std.debug.assert(!un.operand.structuralEquals(modification_ptr));
+                    un.operand = modification_ptr;
                     return;
                 }
                 current_child += 1;
             },
             .application => |*app| {
                 if (current_child == child_index) {
-                    app.function.* = modification;
+                    std.debug.assert(!app.function.structuralEquals(modification_ptr));
+                    app.function = modification_ptr;
                     return;
                 }
                 current_child += 1;
-                for (app.arguments) |arg| {
+                const new_args = try self.allocator.alloc(*Expr, app.arguments.len);
+                for (app.arguments, 0..) |arg, i| {
                     if (current_child == child_index) {
-                        arg.* = modification;
-                        return;
+                        std.debug.assert(!arg.structuralEquals(modification_ptr));
+                        new_args[i] = modification_ptr;
+                    } else {
+                        new_args[i] = arg;
                     }
                     current_child += 1;
                 }
+                app.arguments = new_args;
+                return;
             },
             .list_literal => |*lst| {
-                for (lst.elements) |*element| {
+                // Clone the list to avoid modifying the original
+                const new_elements = try self.allocator.alloc(*Expr, lst.elements.len);
+                for (lst.elements, 0..) |element, i| {
                     if (current_child == child_index) {
-                        element.* = modification;
-                        return;
+                        std.debug.assert(!element.structuralEquals(modification_ptr));
+                        new_elements[i] = modification_ptr;
+                    } else {
+                        new_elements[i] = element;
                     }
                     current_child += 1;
                 }
+                lst.elements = new_elements;
+                return;
             },
             .record_literal => |*rec| {
-                for (rec.fields) |*field| {
+                const new_fields = try self.allocator.alloc(FieldExpr, rec.fields.len);
+                for (rec.fields, 0..) |field, i| {
                     if (current_child == child_index) {
-                        field.value = modification;
-                        return;
+                        std.debug.assert(!field.value.structuralEquals(modification_ptr));
+                        new_fields[i] = FieldExpr{ .name = field.name, .value = modification_ptr };
+                    } else {
+                        new_fields[i] = field;
                     }
                     current_child += 1;
                 }
+                rec.fields = new_fields;
+                return;
             },
             .tag_literal => |*tag| {
-                for (tag.arguments) |*arg| {
+                const new_args = try self.allocator.alloc(*Expr, tag.arguments.len);
+                for (tag.arguments, 0..) |arg, i| {
                     if (current_child == child_index) {
-                        arg.* = modification;
-                        return;
+                        std.debug.assert(!arg.structuralEquals(modification_ptr));
+                        new_args[i] = modification_ptr;
+                    } else {
+                        new_args[i] = arg;
                     }
                     current_child += 1;
                 }
+                tag.arguments = new_args;
+                return;
             },
             .if_expression => |*if_expr| {
                 if (current_child == child_index) {
-                    if_expr.condition.* = modification;
+                    std.debug.assert(!if_expr.condition.structuralEquals(modification_ptr));
+                    if_expr.condition = modification_ptr;
                     return;
                 }
                 current_child += 1;
             },
             .field_access => |*field| {
                 if (current_child == child_index) {
-                    field.record.* = modification;
+                    std.debug.assert(!field.record.structuralEquals(modification_ptr));
+                    field.record = modification_ptr;
                     return;
                 }
                 current_child += 1;
             },
-            else => {},
+            .function => |*func| {
+                if (current_child == child_index) {
+                    std.debug.assert(!func.body.structuralEquals(modification_ptr));
+                    func.body = modification_ptr;
+                    return;
+                }
+                current_child += 1;
+            },
+            .block => |*block| {
+                // For blocks, we need to check each statement
+                const new_statements = try self.allocator.alloc(Stmt, block.statements.len);
+                for (block.statements, 0..) |stmt, i| {
+                    switch (stmt) {
+                        .assignment => |assign| {
+                            if (current_child == child_index) {
+                                std.debug.assert(!assign.value.structuralEquals(modification_ptr));
+                                new_statements[i] = Stmt{
+                                    .assignment = .{
+                                        .variable_name = assign.variable_name,
+                                        .value = modification_ptr,
+                                    },
+                                };
+                            } else {
+                                new_statements[i] = Stmt{
+                                    .assignment = assign,
+                                };
+                            }
+                            current_child += 1;
+                        },
+                        .return_statement => |ret| {
+                            if (current_child == child_index) {
+                                std.debug.assert(!ret.structuralEquals(modification_ptr));
+                                new_statements[i] = Stmt{
+                                    .return_statement = modification_ptr,
+                                };
+                            } else {
+                                new_statements[i] = Stmt{
+                                    .return_statement = ret,
+                                };
+                            }
+                            current_child += 1;
+                        },
+                    }
+                }
+                block.statements = new_statements;
+                if (current_child == child_index) {
+                    std.debug.assert(!block.*.return_expr.structuralEquals(modification_ptr));
+                    block.return_expr = modification_ptr;
+                }
+                return;
+            },
+            else => std.debug.panic("unhandled {s} expression type in applyChildModification", .{@tagName(target.*)}),
         }
+        @panic("Child index out of bounds in applyChildModification");
     }
 
     fn copyExpr(self: *ModificationIterator, expr: Expr) !Expr {
@@ -1535,9 +1700,9 @@ const ModificationIterator = struct {
         return expr;
     }
 
-    fn isAlreadySimplest(self: *ModificationIterator, expr: Expr) bool {
+    fn isAlreadySimplest(self: *ModificationIterator, expr: *const Expr) bool {
         _ = self;
-        return switch (expr) {
+        return switch (expr.*) {
             // These are already the simplest possible for their types
             .literal => |val| switch (val.*) {
                 .i8 => |i| i == 0,
@@ -1562,32 +1727,32 @@ const ModificationIterator = struct {
             .record_literal => |rec| rec.fields.len == 0,
             .tag_literal => |tag| tag.arguments.len == 0,
             // These can potentially be simplified further
-            .binary, .unary, .application, .if_expression, .field_access => false,
+            .binary, .unary, .application, .if_expression, .field_access, .block => false,
             // Variables and functions are leaf nodes but might not be simplest
             .variable, .function, .tbd => false,
         };
     }
 
-    fn inferType(self: *ModificationIterator, expr: Expr) !*const Ty {
+    fn inferType(self: *ModificationIterator, expr: *Expr) !*const Ty {
         // Simple type inference - in a real implementation this would be more sophisticated
-        return switch (expr) {
+        return switch (expr.*) {
             .literal => |val| {
                 const value_ty_ptr = try self.allocator.create(Ty);
                 value_ty_ptr.* = val.ty();
                 return value_ty_ptr;
             },
             .binary => |bin| switch (bin.op) {
-                .add, .subtract, .multiply, .divide => try self.inferType(bin.left.*),
+                .add, .subtract, .multiply, .divide => try self.inferType(bin.left),
                 .equals, .not_equals, .less_than, .greater_than, .and_op, .or_op => self.interp.makeBoolTy(),
             },
             .unary => |un| switch (un.op) {
-                .negate => try self.inferType(un.operand.*),
+                .negate => try self.inferType(un.operand),
                 .not => self.interp.makeBoolTy(),
             },
             .tbd => |ty| ty,
             .variable => |v| v.ty,
             .function => |f| {
-                const return_type = try self.inferType(f.body.return_expr);
+                const return_type = try self.inferType(f.body);
                 const function_ty_ptr = try self.allocator.create(Ty);
                 function_ty_ptr.* = Ty{ .function = FunctionTy{
                     .parameter_types = f.parameter_types,
@@ -1596,7 +1761,7 @@ const ModificationIterator = struct {
                 return function_ty_ptr;
             },
             .application => |app| {
-                const func_ty = try self.inferType(app.function.*);
+                const func_ty = try self.inferType(app.function);
                 return switch (func_ty.*) {
                     .function => |f| f.return_type,
                     else => std.debug.panic("Cannot apply non-function type: {}", .{func_ty}),
@@ -1635,7 +1800,7 @@ const ModificationIterator = struct {
                 return tag_ty_ptr;
             },
             .field_access => |access| {
-                const record_ty = try self.inferType(access.record.*);
+                const record_ty = try self.inferType(access.record);
                 return switch (record_ty.*) {
                     .record => |record| {
                         for (record.fields) |field| {
@@ -1648,7 +1813,8 @@ const ModificationIterator = struct {
                     else => std.debug.panic("Cannot access field on non-record type: {}", .{record_ty}),
                 };
             },
-            .if_expression => |if_expr| try self.inferType(if_expr.then_branch.*.return_expr),
+            .if_expression => |if_expr| try self.inferType(if_expr.then_branch),
+            .block => |block| try self.inferType(block.return_expr),
         };
     }
 };
@@ -1663,6 +1829,7 @@ pub fn minimize(allocator: std.mem.Allocator, interp: *Interp, expr: *Expr, pred
     while (try iterator.next()) |candidate| {
         var candidate_copy = candidate;
         if (predicate(&candidate_copy)) {
+            std.debug.print("Found simpler expression: {s}\n", .{candidate_copy});
             // This simpler expression still satisfies the predicate
             current_best = candidate;
             // Restart iteration with the new smaller expression
@@ -1677,18 +1844,23 @@ pub fn minimize(allocator: std.mem.Allocator, interp: *Interp, expr: *Expr, pred
 /// Minimize an expression to the smallest form that still satisfies the given predicate with context
 pub fn minimizeWithContext(allocator: std.mem.Allocator, interp: *Interp, expr: *Expr, context: anytype, predicate: fn (*Expr, @TypeOf(context)) bool) !Expr {
     var current_best = expr.*;
-    var iterator = try ModificationIterator.init(allocator, interp, expr);
+    var iterator = try ModificationIterator.init(allocator, interp, expr, 0);
     defer iterator.deinit();
 
     // Try each modification from the iterator
     while (try iterator.next()) |candidate| {
+        if (current_best.structuralEquals(&candidate)) {
+            std.debug.print("Candidate is structurally equal to current best: {s}\n", .{candidate});
+            @panic("Candidate is structurally equal to current best, this should not happen");
+        }
         var candidate_copy = candidate;
         if (predicate(&candidate_copy, context)) {
+            std.debug.print("Found simpler expression: {s}\n", .{candidate_copy});
             // This simpler expression still satisfies the predicate
             current_best = candidate;
             // Restart iteration with the new smaller expression
             iterator.deinit();
-            iterator = try ModificationIterator.init(allocator, interp, &current_best);
+            iterator = try ModificationIterator.init(allocator, interp, &current_best, 0);
         }
     }
 
@@ -1702,21 +1874,21 @@ pub const Expr = union(enum) {
         variable: Var,
         ty: *const Ty,
     },
-    function: *Func,
+    function: Func,
     application: struct {
         function: *Expr,
         arguments: []*Expr,
     },
     list_literal: struct {
         element_ty: *const Ty,
-        elements: []Expr,
+        elements: []*Expr,
     },
     record_literal: struct {
         fields: []FieldExpr,
     },
     tag_literal: struct {
         name: []const u8,
-        arguments: []Expr,
+        arguments: []*Expr,
     },
     binary: struct {
         op: BinaryOp,
@@ -1733,9 +1905,10 @@ pub const Expr = union(enum) {
     },
     if_expression: struct {
         condition: *Expr,
-        then_branch: *Block,
-        else_branch: *Block,
+        then_branch: *Expr,
+        else_branch: *Expr,
     },
+    block: Block,
 
     pub fn format(self: Expr, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
@@ -1744,6 +1917,116 @@ pub const Expr = union(enum) {
         defer buffer.deinit();
         try self.formatWithIndent(&buffer, 0, 80);
         try writer.writeAll(buffer.items);
+    }
+
+    /// Returns true if two expressions are structurally equal (deep equality).
+    pub fn structuralEquals(a: *const Expr, b: *const Expr) bool {
+        if (a == b) return true; // Same pointer
+        if (@intFromEnum(a.*) != @intFromEnum(b.*)) return false;
+        return switch (a.*) {
+            .tbd => |aty| switch (b.*) {
+                .tbd => |bty| aty.equals(bty),
+                else => false,
+            },
+            .literal => |aval| switch (b.*) {
+                .literal => |bval| aval.structuralEquals(bval.*),
+                else => false,
+            },
+            .variable => |av| switch (b.*) {
+                .variable => |bv| std.mem.eql(u8, av.variable.name, bv.variable.name) and av.ty.equals(bv.ty),
+                else => false,
+            },
+            .function => |af| switch (b.*) {
+                .function => |bf| {
+                    // Compare parameter types
+                    if (af.parameter_types.len != bf.parameter_types.len) return false;
+                    for (af.parameter_types, bf.parameter_types) |ap, bp| {
+                        if (!ap.equals(bp)) return false;
+                    }
+                    // Compare bodies
+                    return af.body.structuralEquals(bf.body);
+                },
+                else => false,
+            },
+            .application => |aa| switch (b.*) {
+                .application => |ba| {
+                    if (!aa.function.structuralEquals(ba.function)) return false;
+                    if (aa.arguments.len != ba.arguments.len) return false;
+                    for (aa.arguments, ba.arguments) |arg1, arg2| {
+                        if (!arg1.structuralEquals(arg2)) return false;
+                    }
+                    return true;
+                },
+                else => false,
+            },
+            .list_literal => |al| switch (b.*) {
+                .list_literal => |bl| {
+                    if (!al.element_ty.equals(bl.element_ty)) return false;
+                    if (al.elements.len != bl.elements.len) return false;
+                    for (al.elements, bl.elements) |e1, e2| {
+                        if (!e1.structuralEquals(e2)) return false;
+                    }
+                    return true;
+                },
+                else => false,
+            },
+            .record_literal => |ar| switch (b.*) {
+                .record_literal => |br| {
+                    if (ar.fields.len != br.fields.len) return false;
+                    for (ar.fields, br.fields) |f1, f2| {
+                        if (!std.mem.eql(u8, f1.name, f2.name)) return false;
+                        if (!f1.value.structuralEquals(f2.value)) return false;
+                    }
+                    return true;
+                },
+                else => false,
+            },
+            .tag_literal => |at| switch (b.*) {
+                .tag_literal => |bt| {
+                    if (!std.mem.eql(u8, at.name, bt.name)) return false;
+                    if (at.arguments.len != bt.arguments.len) return false;
+                    for (at.arguments, bt.arguments) |a1, a2| {
+                        if (!a1.structuralEquals(a2)) return false;
+                    }
+                    return true;
+                },
+                else => false,
+            },
+            .binary => |ab| switch (b.*) {
+                .binary => |bb| {
+                    return ab.op == bb.op and ab.left.structuralEquals(bb.left) and ab.right.structuralEquals(bb.right);
+                },
+                else => false,
+            },
+            .unary => |au| switch (b.*) {
+                .unary => |bu| {
+                    return au.op == bu.op and au.operand.structuralEquals(bu.operand);
+                },
+                else => false,
+            },
+            .field_access => |af| switch (b.*) {
+                .field_access => |bf| {
+                    return std.mem.eql(u8, af.field_name, bf.field_name) and af.record.structuralEquals(bf.record);
+                },
+                else => false,
+            },
+            .if_expression => |ai| switch (b.*) {
+                .if_expression => |bi| {
+                    return ai.condition.structuralEquals(bi.condition) and ai.then_branch.structuralEquals(bi.then_branch) and ai.else_branch.structuralEquals(bi.else_branch);
+                },
+                else => false,
+            },
+            .block => |ab| switch (b.*) {
+                .block => |bb| {
+                    if (ab.statements.len != bb.statements.len) return false;
+                    for (ab.statements, bb.statements) |s1, s2| {
+                        if (!s1.structuralEquals(s2)) return false;
+                    }
+                    return ab.return_expr.structuralEquals(bb.return_expr);
+                },
+                else => false,
+            },
+        };
     }
 
     pub fn formatWithIndent(self: Expr, buffer: *std.ArrayList(u8), indent: ?u32, max_width: u32) std.fmt.AllocPrintError!void {
@@ -1987,6 +2270,9 @@ pub const Expr = union(enum) {
                 try buffer.writer().writeByteNTimes(' ', current_indent + 4);
                 try if_expr.else_branch.formatWithIndent(buffer, current_indent + 4, max_width);
             },
+            .block => |block| {
+                try block.formatWithIndent(buffer, indent, max_width);
+            },
         }
     }
 
@@ -2012,7 +2298,7 @@ pub const Expr = union(enum) {
             },
             .list_literal => |lst| {
                 for (lst.elements) |*element| {
-                    try element.replaceTbdExpressions(interp);
+                    try element.*.replaceTbdExpressions(interp);
                 }
             },
             .record_literal => |rec| {
@@ -2022,7 +2308,7 @@ pub const Expr = union(enum) {
             },
             .tag_literal => |tag| {
                 for (tag.arguments) |*arg| {
-                    try arg.replaceTbdExpressions(interp);
+                    try arg.*.replaceTbdExpressions(interp);
                 }
             },
             .binary => |bin| {
@@ -2040,18 +2326,30 @@ pub const Expr = union(enum) {
                 try if_expr.then_branch.replaceTbdExpressions(interp);
                 try if_expr.else_branch.replaceTbdExpressions(interp);
             },
+            .block => |*block| {
+                try block.replaceTbdExpressions(interp);
+            },
         }
     }
 };
 
 const Func = struct {
     parameter_types: []*const Ty,
-    body: *Block,
+    body: *Expr,
 };
 
 const Block = struct {
     statements: []Stmt,
-    return_expr: Expr,
+    return_expr: *Expr,
+
+    /// Returns true if two blocks are structurally equal.
+    pub fn structuralEquals(self: *const Block, other: *const Block) bool {
+        if (self.statements.len != other.statements.len) return false;
+        for (self.statements, other.statements) |s1, s2| {
+            if (!s1.structuralEquals(s2)) return false;
+        }
+        return self.return_expr.structuralEquals(other.return_expr);
+    }
 
     pub fn format(self: Block, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
@@ -2116,10 +2414,9 @@ const Block = struct {
 const Stmt = union(enum) {
     assignment: struct {
         variable_name: []const u8,
-        value: Expr,
+        value: *Expr,
     },
-    expression: Expr,
-    return_statement: Expr,
+    return_statement: *Expr,
 
     pub fn format(self: Stmt, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
@@ -2136,7 +2433,6 @@ const Stmt = union(enum) {
                 try buffer.writer().print("{s} = ", .{assign.variable_name});
                 try assign.value.formatWithIndent(buffer, indent, max_width);
             },
-            .expression => |expr| try expr.formatWithIndent(buffer, indent, max_width),
             .return_statement => |ret| {
                 try buffer.writer().print("return ", .{});
                 try ret.formatWithIndent(buffer, indent, max_width);
@@ -2150,13 +2446,25 @@ const Stmt = union(enum) {
             .assignment => |*assign| {
                 try assign.value.replaceTbdExpressions(interp);
             },
-            .expression => |*expr| {
-                try expr.replaceTbdExpressions(interp);
-            },
-            .return_statement => |*ret| {
+            .return_statement => |ret| {
                 try ret.replaceTbdExpressions(interp);
             },
         }
+    }
+
+    /// Returns true if two statements are structurally equal.
+    pub fn structuralEquals(self: Stmt, other: Stmt) bool {
+        if (@intFromEnum(self) != @intFromEnum(other)) return false;
+        return switch (self) {
+            .assignment => |a1| switch (other) {
+                .assignment => |a2| std.mem.eql(u8, a1.variable_name, a2.variable_name) and a1.value.structuralEquals(a2.value),
+                else => false,
+            },
+            .return_statement => |r1| switch (other) {
+                .return_statement => |r2| r1.structuralEquals(r2),
+                else => false,
+            },
+        };
     }
 };
 
@@ -2234,36 +2542,44 @@ pub const Interp = struct {
         };
     }
 
+    fn makeExpr(self: *Interp, expr: Expr) !*Expr {
+        const expr_ptr = try self.allocator.create(Expr);
+        expr_ptr.* = expr;
+        return expr_ptr;
+    }
+
     fn makeSimpleExpr(self: *Interp, ty: *const Ty) !Expr {
         switch (ty.*) {
             .function => |fty| {
-                var body = try self.allocator.create(Block);
-                body.statements = &[_]Stmt{};
-                body.return_expr = Expr{ .tbd = fty.return_type };
-                var func = try self.allocator.create(Func);
-                func.parameter_types = fty.parameter_types;
-                func.body = body;
-                return Expr{ .function = func };
+                const body = try self.makeExpr(Expr{ .tbd = fty.return_type });
+                return Expr{ .function = .{
+                    .parameter_types = fty.parameter_types,
+                    .body = body,
+                } };
             },
             .list => |el_ty| {
                 const len = self.random.int(u32) % 6;
-                const elements = try self.allocator.alloc(Expr, len);
+                const elements = try self.allocator.alloc(*Expr, len);
                 for (0..len) |i| {
-                    elements[i] = .{ .tbd = el_ty };
+                    const element = try self.allocator.create(Expr);
+                    element.* = .{ .tbd = el_ty };
+                    elements[i] = element;
                 }
                 return Expr{ .list_literal = .{ .elements = elements, .element_ty = el_ty } };
             },
             .record => |fields| {
                 const field_exprs = try self.allocator.alloc(FieldExpr, fields.fields.len);
                 for (fields.fields, 0..) |*field, i| {
-                    field_exprs[i] = FieldExpr{ .name = field.name, .value = .{ .tbd = field.ty } };
+                    field_exprs[i] = FieldExpr{ .name = field.name, .value = try self.makeExpr(.{ .tbd = field.ty }) };
                 }
                 return Expr{ .record_literal = .{ .fields = field_exprs } };
             },
             .tag => |tag| {
-                const arg_exprs = try self.allocator.alloc(Expr, tag.arguments.len);
+                const arg_exprs = try self.allocator.alloc(*Expr, tag.arguments.len);
                 for (tag.arguments, 0..) |arg_ty, i| {
-                    arg_exprs[i] = .{ .tbd = arg_ty };
+                    const arg_expr = try self.allocator.create(Expr);
+                    arg_expr.* = .{ .tbd = arg_ty };
+                    arg_exprs[i] = arg_expr;
                 }
                 return Expr{ .tag_literal = .{ .name = tag.name, .arguments = arg_exprs } };
             },
@@ -2300,15 +2616,6 @@ pub const Interp = struct {
         const expr_ptr = try self.allocator.create(Expr);
         expr_ptr.* = Expr{ .tbd = ty };
         return expr_ptr;
-    }
-
-    fn makeTrivialBlock(self: *Interp, ty: *const Ty) !*Block {
-        const block_ptr = try self.allocator.create(Block);
-        block_ptr.* = Block{
-            .statements = &[_]Stmt{},
-            .return_expr = Expr{ .tbd = ty }, // Default to i32 for simplicity
-        };
-        return block_ptr;
     }
 
     fn makeBoolTy(self: *Interp) !*const Ty {
@@ -2453,8 +2760,8 @@ pub const Interp = struct {
                                 expr.* = Expr{
                                     .if_expression = .{
                                         .condition = condition,
-                                        .then_branch = try self.makeTrivialBlock(t),
-                                        .else_branch = try self.makeTrivialBlock(t),
+                                        .then_branch = try self.makeTrivialExpr(t),
+                                        .else_branch = try self.makeTrivialExpr(t),
                                     },
                                 };
                                 break;
@@ -2570,7 +2877,7 @@ pub const Interp = struct {
                 .variable => |v| {
                     return scope.get(v.variable);
                 },
-                .function => |func| {
+                .function => |*func| {
                     return Value{ .closure = .{
                         .function = func,
                         .captured_variables = scope,
@@ -2582,7 +2889,7 @@ pub const Interp = struct {
 
                     for (list_lit.elements) |*element_expr| {
                         // For simplicity, use a generic type for list elements
-                        const element_value = try self.eval(scope, element_expr, stack_depth + 1);
+                        const element_value = try self.eval(scope, element_expr.*, stack_depth + 1);
                         try elements.append(element_value);
                     }
 
@@ -2616,7 +2923,7 @@ pub const Interp = struct {
                     defer fields.deinit();
 
                     for (rec.fields) |*field| {
-                        const field_value = try self.eval(scope, &field.value, stack_depth + 1);
+                        const field_value = try self.eval(scope, field.value, stack_depth + 1);
                         try fields.append(Field{ .name = field.name, .value = field_value });
                     }
 
@@ -2625,7 +2932,7 @@ pub const Interp = struct {
                 .tag_literal => |tag| {
                     var arguments = std.ArrayList(Value).init(self.allocator);
                     defer arguments.deinit();
-                    for (tag.arguments) |*arg_expr| {
+                    for (tag.arguments) |arg_expr| {
                         const arg_value = try self.eval(scope, arg_expr, stack_depth + 1);
                         try arguments.append(arg_value);
                     }
@@ -2702,7 +3009,7 @@ pub const Interp = struct {
                     }
 
                     // Execute function body
-                    return self.evalBlock(func_scope_ptr, closure.function.body, stack_depth + 1);
+                    return self.eval(func_scope_ptr, closure.function.body, @intCast(stack_depth + 1));
                 },
                 .if_expression => |if_expr| {
                     // Evaluate condition
@@ -2718,10 +3025,14 @@ pub const Interp = struct {
                     };
 
                     if (should_take_then_branch) {
-                        return self.evalBlock(scope, if_expr.then_branch, stack_depth + 1);
+                        return self.eval(scope, if_expr.then_branch, stack_depth + 1);
                     } else {
-                        return self.evalBlock(scope, if_expr.else_branch, stack_depth + 1);
+                        return self.eval(scope, if_expr.else_branch, stack_depth + 1);
                     }
+                },
+                .block => |*block| {
+                    // Evaluate the block
+                    return self.evalBlock(scope, block, stack_depth + 1);
                 },
             }
 
@@ -2732,6 +3043,6 @@ pub const Interp = struct {
     fn evalBlock(self: *Interp, scope: *Scope, block: *Block, stack_depth: u32) InterpError!Value {
         // For simplicity, just evaluate the return expression
         // In a full implementation, you'd need to handle statements
-        return self.eval(scope, &block.return_expr, stack_depth + 1);
+        return self.eval(scope, block.return_expr, stack_depth + 1);
     }
 };
