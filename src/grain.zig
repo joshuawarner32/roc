@@ -88,7 +88,7 @@ fn evalExprInGrain(allocator: std.mem.Allocator, expr: *Expr) ![]const u8 {
 
     var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
-    try value.formatWithIndent(&buf, 0, 80);
+    try value.formatRocOutputStyle(&buf);
     const result_str = buf.items;
     return try allocator.dupe(u8, result_str);
 }
@@ -113,7 +113,7 @@ fn doCheck(allocator: std.mem.Allocator, expr: *Expr) !CheckResult {
 
 fn generateAndTestExpression(allocator: std.mem.Allocator, random: std.Random, repl_instance: *repl.Repl) !bool {
     // Generate a random type (start with simple types)
-    const type_choice = random.intRangeAtMost(i32, 0, 11);
+    const type_choice = random.intRangeAtMost(i32, 0, 10);
     const target_type = switch (type_choice) {
         0 => Ty{ .i8 = {} },
         1 => Ty{ .i16 = {} },
@@ -292,20 +292,77 @@ pub const Value = union(enum) {
         try writer.writeAll(buffer.items);
     }
 
-    pub fn formatWithIndent(self: Value, buffer: *std.ArrayList(u8), indent: ?u32, max_width: u32) std.fmt.AllocPrintError!void {
+    pub fn formatRocOutputStyle(self: Value, buffer: *std.ArrayList(u8)) std.fmt.AllocPrintError!void {
         switch (self) {
             .i8 => |i| try buffer.writer().print("{}", .{i}),
             .i16 => |i| try buffer.writer().print("{}", .{i}),
             .i32 => |i| try buffer.writer().print("{}", .{i}),
             .i64 => |i| try buffer.writer().print("{}", .{i}),
-            // .i128 => |i| try buffer.writer().print("{}", .{i}),
             .u8 => |i| try buffer.writer().print("{}", .{i}),
             .u16 => |i| try buffer.writer().print("{}", .{i}),
             .u32 => |i| try buffer.writer().print("{}", .{i}),
             .u64 => |i| try buffer.writer().print("{}", .{i}),
-            // .u128 => |i| try buffer.writer().print("{}", .{i}),
             .float => |f| try buffer.writer().print("{d}", .{f}),
-            .bool => |b| try buffer.writer().print("{}", .{b}),
+            .bool => |b| {
+                if (b) {
+                    try buffer.writer().print("True", .{});
+                } else {
+                    try buffer.writer().print("False", .{});
+                }
+            },
+            .str => |s| try buffer.writer().print("\"{s}\"", .{s}),
+            .list => |lst| {
+                try buffer.writer().print("[", .{});
+                for (lst.elements, 0..) |element, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try element.formatRocOutputStyle(buffer);
+                }
+                try buffer.writer().print("]", .{});
+            },
+            .record => |rec| {
+                try buffer.writer().print("{{", .{});
+                for (rec.fields, 0..) |field, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try buffer.writer().print("{s}: ", .{field.name});
+                    try field.value.formatRocOutputStyle(buffer);
+                }
+                try buffer.writer().print("}}", .{});
+            },
+            .tag => |tag| {
+                try buffer.writer().print("{s}(", .{tag.name});
+                for (tag.arguments, 0..) |arg, i| {
+                    if (i > 0) try buffer.writer().print(", ", .{});
+                    try arg.formatRocOutputStyle(buffer);
+                }
+                try buffer.writer().print(")", .{});
+            },
+            .closure => {
+                try buffer.writer().print("<function>", .{});
+            },
+        }
+    }
+
+    pub fn formatWithIndent(self: Value, buffer: *std.ArrayList(u8), indent: ?u32, max_width: u32) std.fmt.AllocPrintError!void {
+        switch (self) {
+            .i8 => |i| try buffer.writer().print("{}i8", .{i}),
+            .i16 => |i| try buffer.writer().print("{}i16", .{i}),
+            .i32 => |i| try buffer.writer().print("{}i32", .{i}),
+            .i64 => |i| try buffer.writer().print("{}i64", .{i}),
+            // .i128 => |i| try buffer.writer().print("{}", .{i}),
+            .u8 => |i| try buffer.writer().print("{}u8", .{i}),
+            .u16 => |i| try buffer.writer().print("{}u16", .{i}),
+            .u32 => |i| try buffer.writer().print("{}u32", .{i}),
+            .u64 => |i| try buffer.writer().print("{}u64", .{i}),
+            // .u128 => |i| try buffer.writer().print("{}", .{i}),
+            .float => |f| try buffer.writer().print("{d}f64", .{f}),
+            .bool => {
+                if (self.bool) {
+                    try buffer.writer().print("True", .{});
+                } else {
+                    try buffer.writer().print("False", .{});
+                }
+                return;
+            },
             .str => |s| try buffer.writer().print("\"{s}\"", .{s}),
             .list => |lst| {
                 if (indent == null) {
@@ -504,47 +561,86 @@ pub const Value = union(enum) {
             },
         };
     }
-
     pub fn add(self: Value, other: Value) !Value {
         return switch (self) {
             .i8 => |a| switch (other) {
-                .i8 => |b| Value{ .i8 = a +% b },
+                .i8 => |b| blk: {
+                    const res = @addWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i8 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .i16 => |a| switch (other) {
-                .i16 => |b| Value{ .i16 = a +% b },
+                .i16 => |b| blk: {
+                    const res = @addWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i16 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .i32 => |a| switch (other) {
-                .i32 => |b| Value{ .i32 = a +% b },
+                .i32 => |b| blk: {
+                    const res = @addWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i32 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .i64 => |a| switch (other) {
-                .i64 => |b| Value{ .i64 = a +% b },
+                .i64 => |b| blk: {
+                    const res = @addWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i64 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             // .i128 => |a| switch (other) {
-            //     .i128 => |b| Value{ .i128 = a +% b },
+            //     .i128 => |b| blk: {
+            //         const res = @addWithOverflow(a, b);
+            //         if (res[1] != 0) return error.Overflow;
+            //         break :blk Value{ .i128 = res[0] };
+            //     },
             //     else => error.TypeMismatch,
             // },
             .u8 => |a| switch (other) {
-                .u8 => |b| Value{ .u8 = a +% b },
+                .u8 => |b| blk: {
+                    const res = @addWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u8 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .u16 => |a| switch (other) {
-                .u16 => |b| Value{ .u16 = a +% b },
+                .u16 => |b| blk: {
+                    const res = @addWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u16 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .u32 => |a| switch (other) {
-                .u32 => |b| Value{ .u32 = a +% b },
+                .u32 => |b| blk: {
+                    const res = @addWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u32 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .u64 => |a| switch (other) {
-                .u64 => |b| Value{ .u64 = a +% b },
+                .u64 => |b| blk: {
+                    const res = @addWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u64 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             // .u128 => |a| switch (other) {
-            //     .u128 => |b| Value{ .u128 = a +% b },
+            //     .u128 => |b| blk: {
+            //         const res = @addWithOverflow(a, b);
+            //         if (res[1] != 0) return error.Overflow;
+            //         break :blk Value{ .u128 = res[0] };
+            //     },
             //     else => error.TypeMismatch,
             // },
             .float => |a| switch (other) {
@@ -556,45 +652,86 @@ pub const Value = union(enum) {
     }
 
     pub fn subtract(self: Value, other: Value) !Value {
+        std.debug.print("Subtracting {} - {}: {s} {s}\n", .{ self, other, @tagName(self), @tagName(other) });
         return switch (self) {
             .i8 => |a| switch (other) {
-                .i8 => |b| Value{ .i8 = a -% b },
+                .i8 => |b| blk: {
+                    const res = @subWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i8 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .i16 => |a| switch (other) {
-                .i16 => |b| Value{ .i16 = a -% b },
+                .i16 => |b| blk: {
+                    const res = @subWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i16 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .i32 => |a| switch (other) {
-                .i32 => |b| Value{ .i32 = a -% b },
+                .i32 => |b| blk: {
+                    const res = @subWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i32 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .i64 => |a| switch (other) {
-                .i64 => |b| Value{ .i64 = a -% b },
+                .i64 => |b| blk: {
+                    const res = @subWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i64 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             // .i128 => |a| switch (other) {
-            //     .i128 => |b| Value{ .i128 = a -% b },
+            //     .i128 => |b| blk: {
+            //         const res = @subWithOverflow(a, b);
+            //         if (res[1] != 0) return error.Overflow;
+            //         break :blk Value{ .i128 = res[0] };
+            //     },
             //     else => error.TypeMismatch,
             // },
             .u8 => |a| switch (other) {
-                .u8 => |b| Value{ .u8 = a -% b },
+                .u8 => |b| blk: {
+                    const res = @subWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u8 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .u16 => |a| switch (other) {
-                .u16 => |b| Value{ .u16 = a -% b },
+                .u16 => |b| blk: {
+                    const res = @subWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u16 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .u32 => |a| switch (other) {
-                .u32 => |b| Value{ .u32 = a -% b },
+                .u32 => |b| blk: {
+                    const res = @subWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u32 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .u64 => |a| switch (other) {
-                .u64 => |b| Value{ .u64 = a -% b },
+                .u64 => |b| blk: {
+                    const res = @subWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u64 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             // .u128 => |a| switch (other) {
-            //     .u128 => |b| Value{ .u128 = a -% b },
+            //     .u128 => |b| blk: {
+            //         const res = @subWithOverflow(a, b);
+            //         if (res[1] != 0) return error.Overflow;
+            //         break :blk Value{ .u128 = res[0] };
+            //     },
             //     else => error.TypeMismatch,
             // },
             .float => |a| switch (other) {
@@ -608,43 +745,83 @@ pub const Value = union(enum) {
     pub fn multiply(self: Value, other: Value) !Value {
         return switch (self) {
             .i8 => |a| switch (other) {
-                .i8 => |b| Value{ .i8 = a *% b },
+                .i8 => |b| blk: {
+                    const res = @mulWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i8 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .i16 => |a| switch (other) {
-                .i16 => |b| Value{ .i16 = a *% b },
+                .i16 => |b| blk: {
+                    const res = @mulWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i16 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .i32 => |a| switch (other) {
-                .i32 => |b| Value{ .i32 = a *% b },
+                .i32 => |b| blk: {
+                    const res = @mulWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i32 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .i64 => |a| switch (other) {
-                .i64 => |b| Value{ .i64 = a *% b },
+                .i64 => |b| blk: {
+                    const res = @mulWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .i64 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             // .i128 => |a| switch (other) {
-            //     .i128 => |b| Value{ .i128 = a *% b },
+            //     .i128 => |b| blk: {
+            //         const res = @mulWithOverflow(a, b);
+            //         if (res[1] != 0) return error.Overflow;
+            //         break :blk Value{ .i128 = res[0] };
+            //     },
             //     else => error.TypeMismatch,
             // },
             .u8 => |a| switch (other) {
-                .u8 => |b| Value{ .u8 = a *% b },
+                .u8 => |b| blk: {
+                    const res = @mulWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u8 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .u16 => |a| switch (other) {
-                .u16 => |b| Value{ .u16 = a *% b },
+                .u16 => |b| blk: {
+                    const res = @mulWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u16 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .u32 => |a| switch (other) {
-                .u32 => |b| Value{ .u32 = a *% b },
+                .u32 => |b| blk: {
+                    const res = @mulWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u32 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             .u64 => |a| switch (other) {
-                .u64 => |b| Value{ .u64 = a *% b },
+                .u64 => |b| blk: {
+                    const res = @mulWithOverflow(a, b);
+                    if (res[1] != 0) return error.Overflow;
+                    break :blk Value{ .u64 = res[0] };
+                },
                 else => error.TypeMismatch,
             },
             // .u128 => |a| switch (other) {
-            //     .u128 => |b| Value{ .u128 = a *% b },
+            //     .u128 => |b| blk: {
+            //         const res = @mulWithOverflow(a, b);
+            //         if (res[1] != 0) return error.Overflow;
+            //         break :blk Value{ .u128 = res[0] };
+            //     },
             //     else => error.TypeMismatch,
             // },
             .float => |a| switch (other) {
@@ -974,14 +1151,33 @@ pub const Value = union(enum) {
             },
         };
     }
-
     pub fn negate(self: Value) !Value {
         return switch (self) {
-            .i8 => |a| Value{ .i8 = -%a },
-            .i16 => |a| Value{ .i16 = -%a },
-            .i32 => |a| Value{ .i32 = -%a },
-            .i64 => |a| Value{ .i64 = -%a },
-            // .i128 => |a| Value{ .i128 = -%a },
+            .i8 => |a| blk: {
+                const res = @subWithOverflow(0, a);
+                if (res[1] != 0) return error.Overflow;
+                break :blk Value{ .i8 = res[0] };
+            },
+            .i16 => |a| blk: {
+                const res = @subWithOverflow(0, a);
+                if (res[1] != 0) return error.Overflow;
+                break :blk Value{ .i16 = res[0] };
+            },
+            .i32 => |a| blk: {
+                const res = @subWithOverflow(0, a);
+                if (res[1] != 0) return error.Overflow;
+                break :blk Value{ .i32 = res[0] };
+            },
+            .i64 => |a| blk: {
+                const res = @subWithOverflow(0, a);
+                if (res[1] != 0) return error.Overflow;
+                break :blk Value{ .i64 = res[0] };
+            },
+            // .i128 => |a| blk: {
+            //     const res = @subWithOverflow(0, a);
+            //     if (res[1] != 0) return error.Overflow;
+            //     break :blk Value{ .i128 = res[0] };
+            // },
             .float => |a| Value{ .float = -a },
             else => {
                 std.debug.print("Type mismatch in negate: {s}\n", .{self.ty()});
@@ -2525,6 +2721,7 @@ const InterpError = error{
     VariableNotFound,
     OutOfMemory,
     DivideByZero,
+    Overflow,
 };
 
 pub const Interp = struct {
@@ -2719,9 +2916,9 @@ pub const Interp = struct {
         if (self.gas == 0) {
             return error.OutOfGas;
         }
-        if (stack_depth > 1000) {
-            return error.StackOverflow; // Prevent stack overflow
-        }
+        // if (stack_depth > 1000) {
+        //     return error.StackOverflow; // Prevent stack overflow
+        // }
 
         var retry_count: u32 = 0;
         while (true) {
@@ -2729,22 +2926,22 @@ pub const Interp = struct {
                 .tbd => |t| {
                     // We need to generate a random expression!
                     while (true) {
-                        if (stack_depth > 20) {
-                            // If we're too deep, just return a trivial expression
-                            expr.* = try self.makeSimpleExpr(t);
-                            break;
+                        var rand_num = self.random.intRangeAtMost(i32, 0, 5);
+                        // Exponentially bias towards 0 for larger values of stack_depth, using self.random.floatExp
+                        const simple_factor = self.random.floatExp(f32) * 15 / @as(f32, @floatFromInt(stack_depth));
+                        if (simple_factor < 1.0) {
+                            rand_num = 0; // Bias towards simple expressions
                         }
-                        const rand_num = self.random.intRangeAtMost(i32, 0, 5);
                         switch (rand_num) {
                             0 => {
                                 expr.* = try self.makeSimpleExpr(t);
-                                break;
                             },
                             1 => {
                                 // Check if there's anything in scope that matches the type
                                 if (scope.findRandomItemWithType(self.random, t)) |var_info| {
                                     expr.* = Expr{ .variable = .{ .variable = Var{ .name = var_info.name }, .ty = var_info.ty } };
-                                    break;
+                                } else {
+                                    continue;
                                 }
                             },
                             2 => {
@@ -2758,7 +2955,6 @@ pub const Interp = struct {
                                         .else_branch = try self.makeTrivialExpr(t),
                                     },
                                 };
-                                break;
                             },
                             3 => {
                                 // Generate a binop
@@ -2779,7 +2975,6 @@ pub const Interp = struct {
                                                 .right = try self.makeTrivialExpr(t),
                                             },
                                         };
-                                        break;
                                     },
                                     .bool => {
                                         const op = switch (self.random.int(u32) % 6) {
@@ -2804,10 +2999,8 @@ pub const Interp = struct {
                                                 .right = try self.makeTrivialExpr(ty),
                                             },
                                         };
-                                        break;
                                     },
                                 }
-                                break;
                             },
                             4 => {
                                 // Generate a unary expression
@@ -2820,7 +3013,6 @@ pub const Interp = struct {
                                                 .operand = try self.makeTrivialExpr(t),
                                             },
                                         };
-                                        break;
                                     },
                                     .bool => {
                                         const op = UnaryOp.not;
@@ -2830,7 +3022,6 @@ pub const Interp = struct {
                                                 .operand = try self.makeTrivialExpr(t),
                                             },
                                         };
-                                        break;
                                     },
                                     else => continue, // Unsupported unary type
                                 }
@@ -2849,21 +3040,21 @@ pub const Interp = struct {
                                         .arguments = args,
                                     },
                                 };
-                                break;
                             },
                             else => @panic("boo"),
                         }
+                        const prev_gas = self.gas;
+                        const result = self.eval(scope, expr, stack_depth + 1) catch |err| {
+                            if (retry_count < 100 and (err == error.StackOverflow or err == error.DivideByZero or err == error.Overflow)) {
+                                std.debug.print("Retrying generation due to error: {}, expr: {}\n", .{ err, expr });
+                                self.gas = prev_gas; // Reset gas
+                                retry_count += 1;
+                                continue; // Retry generation
+                            }
+                            return err;
+                        };
+                        return result;
                     }
-                    const prev_gas = self.gas;
-                    const result = self.eval(scope, expr, stack_depth + 1) catch |err| {
-                        if (retry_count < 100 and (err == error.StackOverflow or err == error.DivideByZero)) {
-                            self.gas = prev_gas; // Reset gas
-                            retry_count += 1;
-                            continue; // Retry evaluation
-                        }
-                        return err;
-                    };
-                    return result;
                 },
                 .literal => |lit| {
                     return lit.*;
