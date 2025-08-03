@@ -1486,6 +1486,9 @@ const ModificationIterator = struct {
     current_child_index: usize,
     self_simplified: bool,
     self_child_index: u32, // Index of this iterator in its parent's child list
+    replace_with_child_candidates: std.ArrayList(*Expr),
+    replace_with_child_index: usize,
+    replace_with_child_initialized: bool,
 
     const ModificationAttempt = struct {
         path: []usize, // Path to the expression to modify
@@ -1503,6 +1506,9 @@ const ModificationIterator = struct {
             .current_child_index = 0,
             .self_simplified = false,
             .self_child_index = self_child_index,
+            .replace_with_child_candidates = std.ArrayList(*Expr).init(allocator),
+            .replace_with_child_index = 0,
+            .replace_with_child_initialized = false,
         };
         return iterator;
     }
@@ -1513,6 +1519,7 @@ const ModificationIterator = struct {
         }
         self.child_iterators.deinit();
         self.current_modifications.deinit();
+        self.replace_with_child_candidates.deinit();
         self.allocator.destroy(self);
     }
 
@@ -1525,7 +1532,19 @@ const ModificationIterator = struct {
             }
         }
 
-        // Then, try modifications from child expressions
+        // Then, try replacing with each direct child expression
+        if (!self.replace_with_child_initialized) {
+            self.replace_with_child_initialized = true;
+            try self.initializeReplaceWithChildCandidates();
+        }
+
+        if (self.replace_with_child_index < self.replace_with_child_candidates.items.len) {
+            const child_expr = self.replace_with_child_candidates.items[self.replace_with_child_index];
+            self.replace_with_child_index += 1;
+            return child_expr.*;
+        }
+
+        // After replacing with direct children, try modifications from child expressions
         if (self.child_iterators.items.len == 0) {
             try self.initializeChildIterators();
         }
@@ -1621,6 +1640,60 @@ const ModificationIterator = struct {
             },
         };
         return Expr{ .literal = value_ptr };
+    }
+
+    fn initializeReplaceWithChildCandidates(self: *ModificationIterator) !void {
+        switch (self.original_expr.*) {
+            .binary => |bin| {
+                try self.replace_with_child_candidates.append(bin.left);
+                try self.replace_with_child_candidates.append(bin.right);
+            },
+            .unary => |un| {
+                try self.replace_with_child_candidates.append(un.operand);
+            },
+            .application => |app| {
+                try self.replace_with_child_candidates.append(app.function);
+                for (app.arguments) |arg| {
+                    try self.replace_with_child_candidates.append(arg);
+                }
+            },
+            .list_literal => |lst| {
+                for (lst.elements) |element| {
+                    try self.replace_with_child_candidates.append(element);
+                }
+            },
+            .record_literal => |rec| {
+                for (rec.fields) |*field| {
+                    try self.replace_with_child_candidates.append(field.value);
+                }
+            },
+            .tag_literal => |tag| {
+                for (tag.arguments) |arg| {
+                    try self.replace_with_child_candidates.append(arg);
+                }
+            },
+            .if_expression => |if_expr| {
+                try self.replace_with_child_candidates.append(if_expr.condition);
+                try self.replace_with_child_candidates.append(if_expr.then_branch);
+                try self.replace_with_child_candidates.append(if_expr.else_branch);
+            },
+            .field_access => |field| {
+                try self.replace_with_child_candidates.append(field.record);
+            },
+            .function => |func| {
+                try self.replace_with_child_candidates.append(func.body);
+            },
+            .block => |block| {
+                for (block.statements) |stmt| {
+                    switch (stmt) {
+                        .assignment => |assign| try self.replace_with_child_candidates.append(assign.value),
+                        .return_statement => |expr| try self.replace_with_child_candidates.append(expr),
+                    }
+                }
+                try self.replace_with_child_candidates.append(block.return_expr);
+            },
+            .literal, .variable, .tbd => {},
+        }
     }
 
     fn initializeChildIterators(self: *ModificationIterator) !void {
